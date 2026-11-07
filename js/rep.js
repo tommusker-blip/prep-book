@@ -219,7 +219,7 @@ function flagMisplays(color = S.color) {
     done.add(g.id);
   }
   R.flagged = [...done];
-  if (done.size !== before) Store.save(color);
+  if (done.size !== before) Store.save(repDoc(color));
   return n;
 }
 function dueCards(color = S.color) {
@@ -263,6 +263,6 @@ function importRepertoire(text, color) {
     });
   }
   walk(color);
-  Store.save(color);
+  Store.save(repDoc(color));
   return { added, options, bad };
 }

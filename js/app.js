@@ -403,7 +403,7 @@ function commitBuildMove(san, replaces = null) {
   const r = addMove(path, san, S.color, replaces);
   path.push(san);
   walk();
-  if (r !== "same") Store.save(S.color);
+  if (r !== "same") Store.save(repDoc(S.color));
   renderBuild();
 }
 // On my turn, a new move where I already have one: add it as another option, or replace one
@@ -463,7 +463,7 @@ function startTraining() {
 function endSession() {
   stopTraining();
   T.state = T.done ? "summary" : "idle";
-  Store.save(S.color);
+  Store.save(repDoc(S.color));
   renderTrainHome();
 }
 function nextCard() {
@@ -533,14 +533,14 @@ function onTrainMove(mv) {
   // Any of my prepared moves here is correct (a position can hold several, e.g. 1.e4 and 1.d4)
   const labels = n.m.map(m => `<b>${esc(moveLabel(T.path, m))}</b>`);
   if (n.m.includes(mv.san)) {
-    if (first) { T.right++; grade(card, true); Store.save(S.color); }
+    if (first) { T.right++; grade(card, true); Store.save(repDoc(S.color)); }
     const c = new Chess(fenBefore); c.move(mv.san);
     TB.set(c.fen(), { last: [mv.from, mv.to] });
     const others = n.m.filter(m => m !== mv.san);
     $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, mv.san))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}${others.length ? ` Also in your repertoire: ${others.map(esc).join(", ")}.` : ""}</p>`;
     later(() => { T.i++; nextCard(); }, others.length ? 1300 : 900);
   } else {
-    if (first) { grade(card, false); Store.save(S.color); }
+    if (first) { grade(card, false); Store.save(repDoc(S.color)); }
     const c = new Chess(fenBefore); const good = c.move(n.m[0]);
     TB.set(fenBefore, { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null });
     $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")} (the first is highlighted).` : `Your move is ${labels[0]}.`} This position comes back in a few cards.</p>`;
@@ -632,6 +632,7 @@ function renderLook() {
   $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
 }
 function renderSettings() {
+  renderBooks();
   renderLook();
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
@@ -650,21 +651,115 @@ function renderSettings() {
   $("#repCounts").textContent = `White: ${w} of your moves · Black: ${b} of your moves`;
 }
 
+/* ---------- prep books ---------- */
+const prepBookName = (id = S.book) => (bookList().find(b => b.id === id) || { name: "My prep" }).name;
+const bookCount = (id, color) => Object.keys((S.books[id] && S.books[id][color].cards) || {}).length;
+function resetWorkspace() {
+  stopTraining(); T.state = "idle";
+  S.build = { white: [], black: [] };
+  walk("white"); walk("black");
+}
+function switchBook(id) {
+  S.settings.book = id; openBook(id); resetWorkspace();
+  Store.save("settings");
+  renderHeader(); render();
+  toast(`Opened "${prepBookName()}".`);
+}
+function createBook(copy) {
+  const id = Date.now().toString(36);
+  const list = bookList(); // before the new book exists, so it isn't listed twice
+  const name = copy ? `${prepBookName()} (copy)` : `Book ${list.length + 1}`;
+  S.books[id] = copy ? JSON.parse(JSON.stringify(S.rep)) : { white: emptyRep(), black: emptyRep() };
+  S.settings.books = [...list, { id, name }];
+  Store.save(repDoc("white", id)); Store.save(repDoc("black", id));
+  switchBook(id);
+}
+function deleteBook() {
+  const id = S.book;
+  if (id === "main") return;
+  delete S.books[id];
+  S.settings.books = bookList().filter(b => b.id !== id);
+  Store.save(repDoc("white", id)); Store.save(repDoc("black", id)); // saved as deleted, so other devices drop it too
+  switchBook("main");
+}
+function clearRep(color) {
+  S.rep[color] = emptyRep(); S.build[color] = []; stopTraining(); T.state = "idle";
+  Store.save(repDoc(color));
+  render();
+}
+function renderBooks() {
+  const list = bookList();
+  $("#bookList").innerHTML = list.map(b => `<li class="bookrow"><div><b>${esc(b.name)}</b>${b.id === S.book ? ' <span class="pill ok">Open</span>' : ""}
+    <div class="help">White: ${bookCount(b.id, "white")} of your moves · Black: ${bookCount(b.id, "black")}</div></div>
+    ${b.id === S.book ? "" : `<button type="button" class="btn ghost" data-openbook="${esc(b.id)}">Open</button>`}</li>`).join("");
+  $("#bookRename").value = prepBookName();
+  $("#bookDelete").hidden = S.book === "main";
+  $("#bookConfirm").hidden = true;
+}
+// Inline "are you sure?" for destructive book actions
+function confirmBook(text, label, fn) {
+  const box = $("#bookConfirm");
+  box.innerHTML = `<p>${text}</p><div class="row"><button type="button" class="btn" id="bcYes">${esc(label)}</button><button type="button" class="btn ghost" id="bcNo">Cancel</button></div>`;
+  box.hidden = false;
+  $("#bcYes").onclick = () => { box.hidden = true; fn(); };
+  $("#bcNo").onclick = () => { box.hidden = true; };
+}
+function onBookAction(act) {
+  const nm = esc(prepBookName());
+  if (act === "new") createBook(false);
+  else if (act === "copy") createBook(true);
+  else if (act === "delete") confirmBook(`Delete the book <b>${nm}</b> with both its repertoires and its training history? This can't be undone. Export it first if you might want it back.`, "Delete book", deleteBook);
+  else if (act.startsWith("clear-")) {
+    const c = act.slice(6), C = c === "white" ? "White" : "Black";
+    confirmBook(`Remove every move from the ${C} repertoire in <b>${nm}</b>, with its training history? Other books aren't affected. Export it first if you might want it back.`, `Clear ${C}`, () => { clearRep(c); renderBooks(); toast(`${C} repertoire cleared.`); });
+  }
+}
+
+/* ---------- header: open book and save status ---------- */
+function renderHeader() { $("#bookName").textContent = prepBookName(); }
+const SAVE_TEXT = {
+  idle: "", pending: "Unsaved changes…", saving: "Saving…",
+  saved: () => `Saved ${new Date(Store.savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
+  error: "Not saved yet · tap to retry", device: "Saved on this device",
+};
+function renderSaveState(state) {
+  const el = $("#saveState"), t = SAVE_TEXT[state];
+  el.dataset.state = state;
+  el.querySelector("span").textContent = typeof t === "function" ? t() : t;
+  el.hidden = state === "idle";
+}
+function onSaveStateTap() {
+  const st = Store.status();
+  if (st === "error") { toast("Trying to save again…"); Store.flushAll(); return; }
+  toast(S.storeMode === "supabase" ? "Changes are saved to your account about a second after you make them, and sent straight away when you leave the app."
+    : S.storeMode === "db" ? "Changes are saved to your Claude account about a second after you make them."
+    : "You're using the app without an account, so changes are saved in this browser only. Sign in from Settings to sync.");
+}
+
+/* ---------- Lichess token: saved in settings so every device has it ---------- */
+// Older builds kept it in this browser only (pb_token); that copy is moved into settings once.
+function syncToken() {
+  const t = S.settings.lichessToken;
+  if (t) { S.token = t; lsSet("pb_token", t); }
+  else if (S.token) { S.settings.lichessToken = S.token; Store.save("settings"); }
+}
+
 /* ---------- wiring ---------- */
 async function boot() {
   BB = Board($("#board"));
   TB = Board($("#tBoard"));
   BB.onMove = mv => onBuildMove(mv);
   TB.onMove = mv => onTrainMove(mv);
+  Store.onStatus = renderSaveState;
   const state = await Store.init();
-  applyLook();
   if (state === "auth") await new Promise(res => showAuth(res));
+  applyLook(); syncToken(); renderHeader();
   walk("white"); walk("black");
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") { Store.flushAll(); return; }
-    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); if (!(S.view === "train" && T.state === "run")) render(); }
+    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); if (!(S.view === "train" && T.state === "run")) render(); }
   });
   document.addEventListener("click", e => {
     const t = e.target.closest("button");
@@ -674,10 +769,12 @@ async function boot() {
     else if (d.color) { stopTraining(); S.color = d.color; T.state = "idle"; render(); }
     else if (d.jump) { S.build[S.color] = curPath().slice(0, +d.jump); renderBuild(); }
     else if (d.go) goMove(d.go);
-    else if (d.remove) { removeMove(curPath(), d.remove); Store.save(S.color); renderBuild(); toast("Removed " + d.remove + " and the line after it."); }
+    else if (d.remove) { removeMove(curPath(), d.remove); Store.save(repDoc(S.color)); renderBuild(); toast("Removed " + d.remove + " and the line after it."); }
     else if (d.addopt) commitBuildMove(d.addopt);
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
+    else if (d.openbook) switchBook(d.openbook);
+    else if (d.bookact) onBookAction(d.bookact);
     else if (d.pieces) { S.settings.pieces = d.pieces; pieceFallback = false; Store.save("settings"); redrawBoards(); renderLook(); }
     else if (d.boardtheme) { S.settings.board = d.boardtheme; Store.save("settings"); redrawBoards(); renderLook(); }
     else if ("scan" in d) scanTree(S.color, onScanTick);
@@ -720,7 +817,11 @@ async function boot() {
     e.target.removeAttribute("aria-invalid");
     S.settings.user = v; Store.save("settings");
   };
-  $("#setToken").onchange = e => { S.token = e.target.value.trim(); lsSet("pb_token", S.token); explorerBlocked = false; };
+  $("#setToken").onchange = e => { S.token = e.target.value.trim(); S.settings.lichessToken = S.token; lsSet("pb_token", S.token); Store.save("settings"); explorerBlocked = false; };
+  $("#bookRename").onchange = e => { const v = e.target.value.trim(); if (!v) { renderBooks(); return; } S.settings.books = bookList().map(b => (b.id === S.book ? { ...b, name: v } : b)); Store.save("settings"); renderHeader(); renderBooks(); };
+  $("#bookName").onclick = () => setView("settings");
+  $("#saveState").onclick = onSaveStateTap;
+  setInterval(() => { if (Store.status() === "saved") renderSaveState("saved"); }, 30000);
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };
   for (const [id, field, lo, hi] of [["gemMin", "min", 50, 100000], ["gemFreq", "freq", 1, 50], ["gemEdge", "edge", 1, 30]]) {
     $("#" + id).onchange = e => {
@@ -741,7 +842,7 @@ async function boot() {
   $("#signIn").onclick = () => { try { localStorage.removeItem("pb_local_only"); } catch (e) {} location.reload(); };
   $("#clearGames").onclick = () => { $("#confirmClear").hidden = false; };
   $("#confirmNo").onclick = () => { $("#confirmClear").hidden = true; };
-  $("#confirmYes").onclick = () => { S.games = []; S.acc = {}; rep("white").flagged = []; rep("black").flagged = []; Store.save("games"); Store.save("acc"); Store.save("white"); Store.save("black"); $("#confirmClear").hidden = true; toast("Imported games cleared. Your repertoire is untouched."); };
+  $("#confirmYes").onclick = () => { S.games = []; S.acc = {}; for (const id of Object.keys(S.books)) for (const c of ["white", "black"]) { S.books[id][c].flagged = []; Store.save(repDoc(c, id)); } Store.save("games"); Store.save("acc"); $("#confirmClear").hidden = true; toast("Imported games cleared. Your repertoire is untouched."); };
   setView("build");
 }
 boot();

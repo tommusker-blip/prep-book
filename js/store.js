@@ -2,7 +2,33 @@
 /* ---------- storage: Claude db inside Claude, Supabase when hosted, else this browser ---------- */
 const SB_URL = "https://serjfzitcbixkhnuxhol.supabase.co";
 const SB_KEY = "sb_publishable_sCOcKwpCMuAIbLvPtfmcUw_i6n7FZVF";
-const DOCS = ["white", "black", "settings", "games", "acc"];
+const DOCS = ["white", "black", "settings", "games", "acc"]; // always present; extra books add more
+
+/* ----- prep books -----
+   Each book has its own White and Black repertoire (positions, training cards, misplay flags).
+   The first book, "main", keeps the original doc names "white" and "black"; other books are
+   saved as "white@<id>" and "black@<id>". The list of books ({id, name}) and the open book
+   live in settings, so they sync too. */
+const emptyRep = () => ({ pos: {}, cards: {}, flagged: [] });
+const repDoc = (color, id = S.book) => (id === "main" ? color : `${color}@${id}`);
+const parseRepDoc = name => { const m = /^(white|black)(?:@(.+))?$/.exec(name); return m ? { color: m[1], id: m[2] || "main" } : null; };
+function ensureBook(id) { return S.books[id] || (S.books[id] = { white: emptyRep(), black: emptyRep() }); }
+function bookList() {
+  const list = (S.settings.books || []).filter((b, i, all) => (S.books[b.id] || b.id === "main") && all.findIndex(x => x.id === b.id) === i);
+  if (!list.some(b => b.id === "main")) list.unshift({ id: "main", name: "My prep" });
+  for (const id of Object.keys(S.books)) if (!list.some(b => b.id === id)) list.push({ id, name: "Untitled book" });
+  return list;
+}
+function openBook(id) {
+  S.book = S.books[id] ? id : "main";
+  S.rep = ensureBook(S.book);
+}
+// Every doc this app saves, including one pair per book
+function allDocNames() {
+  const names = ["settings", "games", "acc"];
+  for (const id of Object.keys(S.books)) names.push(repDoc("white", id), repDoc("black", id));
+  return names;
+}
 
 // Re-key a stored repertoire with the current K() (older builds kept every en-passant
 // square). Positions that now share a key are merged; walk() tidies up afterwards.
@@ -20,15 +46,26 @@ function normRep(r) {
   return out;
 }
 function applyData(d) {
-  if (d.white) S.rep.white = normRep(d.white);
-  if (d.black) S.rep.black = normRep(d.black);
+  for (const [name, v] of Object.entries(d)) {
+    const r = v && parseRepDoc(name);
+    if (r && !v.deleted) ensureBook(r.id)[r.color] = normRep(v);
+    if (r && v.deleted && r.id !== "main") delete S.books[r.id];
+  }
   if (d.settings) Object.assign(S.settings, d.settings);
   if (d.games && d.games.list) S.games = d.games.list;
   if (d.acc && d.acc.map) S.acc = d.acc.map;
+  openBook(S.settings.book || S.book || "main");
+}
+// Everything, for the browser copy (pb_data)
+function localSnapshot() {
+  const d = { settings: S.settings, games: { list: S.games }, acc: { map: S.acc } };
+  for (const id of Object.keys(S.books)) { d[repDoc("white", id)] = S.books[id].white; d[repDoc("black", id)] = S.books[id].black; }
+  return d;
 }
 function hasLocalData() {
   const d = lsGet("pb_data", null);
-  return !!(d && ((d.white && Object.keys(d.white.pos || {}).length) || (d.black && Object.keys(d.black.pos || {}).length) || (d.games && d.games.list && d.games.list.length)));
+  if (!d) return false;
+  return Object.entries(d).some(([k, v]) => (parseRepDoc(k) && v && Object.keys(v.pos || {}).length) || (k === "games" && v && v.list && v.list.length));
 }
 // Docs changed on this device whose save to the database isn't confirmed yet: {doc: localMs}
 const Dirty = {
@@ -38,6 +75,17 @@ const Dirty = {
 };
 const Store = {
   db: null, uid: null, sb: null, user: null, timers: {}, inflight: {}, pending: {}, seen: {},
+  failed: false, savedAt: 0, onStatus: null,
+  // Save state for the header indicator:
+  //   "pending" (change waiting to be sent), "saving", "saved", "error" (will retry), "device" (local only)
+  status() {
+    if (Object.values(this.inflight).some(Boolean)) return "saving";
+    if (Object.values(this.timers).some(Boolean)) return "pending";
+    if (S.storeMode === "local") return this.savedAt ? "device" : "idle";
+    if (this.failed || (S.storeMode === "supabase" && Object.keys(Dirty.get()).length)) return "error";
+    return this.savedAt ? "saved" : "idle";
+  },
+  emit() { if (this.onStatus) this.onStatus(this.status()); },
   // Returns "ready" or "auth" (hosted copy, not signed in yet)
   async init() {
     if (window.claude && window.claude.use) {
@@ -50,12 +98,12 @@ const Store = {
         const uid = await user.id();
         if (!uid) throw 0;
         this.db = db; this.uid = uid;
-        const snaps = await Promise.race([
-          Promise.all(DOCS.map(n => db.doc(`data/users/${uid}/${n}`).get())),
-          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000)),
-        ]);
-        const d = {};
-        snaps.forEach((s, i) => { if (s.exists) d[DOCS[i]] = s.data(); });
+        const timeout = p => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000))]);
+        const read = async names => { const snaps = await timeout(Promise.all(names.map(n => db.doc(`data/users/${uid}/${n}`).get()))); const d = {}; snaps.forEach((s, i) => { if (s.exists) d[names[i]] = s.data(); }); return d; };
+        const d = await read(DOCS);
+        // Extra books are listed in settings
+        const extra = ((d.settings && d.settings.books) || []).filter(b => b.id !== "main").flatMap(b => [repDoc("white", b.id), repDoc("black", b.id)]);
+        if (extra.length) Object.assign(d, await read(extra));
         if (!Object.keys(d).length) applyData(lsGet("pb_data", {}));
         else applyData(JSON.parse(JSON.stringify(d)));
         S.storeMode = "db";
@@ -82,13 +130,14 @@ const Store = {
     if (!data.length) {
       // First sign-in: move anything saved in this browser up to the database
       applyData(local);
-      if (hasLocalData()) for (const n of DOCS) this.save(n);
+      if (hasLocalData()) for (const n of allDocNames()) this.save(n);
       return true;
     }
     // The database copy wins, except for docs this device changed later and never got saved
     const dirty = Dirty.get(), remote = {}, d = {}, push = [];
     for (const r of data) { remote[r.doc] = r; this.seen[r.doc] = r.updated_at; }
-    for (const n of DOCS) {
+    const names = new Set([...DOCS, ...Object.keys(remote), ...Object.keys(dirty)]);
+    for (const n of names) {
       const r = remote[n];
       if (dirty[n] && local[n] && (!r || dirty[n] > Date.parse(r.updated_at))) { d[n] = local[n]; push.push(n); }
       else if (r) d[n] = r.data;
@@ -116,32 +165,37 @@ const Store = {
   async signOut() {
     await this.flushAll();
     if (this.sb) await this.sb.auth.signOut();
-    try { localStorage.removeItem("pb_data"); localStorage.removeItem("pb_dirty"); } catch (e) {}
+    try { for (const k of ["pb_data", "pb_dirty", "pb_token"]) localStorage.removeItem(k); } catch (e) {}
     location.reload();
   },
   docFor(name) {
     if (name === "games") return { list: S.games };
     if (name === "acc") return { map: S.acc };
     if (name === "settings") return { ...S.settings };
-    return S.rep[name];
+    const r = parseRepDoc(name);
+    if (r && S.books[r.id]) return S.books[r.id][r.color];
+    return r ? { deleted: true } : null; // a deleted book: leave a tombstone so other devices drop it
   },
   save(name) {
     if (S.storeMode === "supabase") Dirty.mark(name);
     clearTimeout(this.timers[name]);
     this.timers[name] = setTimeout(() => { this.timers[name] = null; this.flush(name); }, 700);
+    this.emit();
   },
   // Save everything still waiting, and retry earlier failed saves. Called when the app is hidden.
   flushAll() {
     const names = Object.keys(this.timers).filter(n => this.timers[n]);
     for (const n of names) { clearTimeout(this.timers[n]); this.timers[n] = null; }
     if (S.storeMode === "supabase") for (const n of Object.keys(Dirty.get())) if (!names.includes(n)) names.push(n);
+    if (!names.length && S.storeMode === "local") lsSet("pb_data", localSnapshot());
     return Promise.all(names.map(n => this.flush(n)));
   },
   async flush(name) {
-    lsSet("pb_data", { white: S.rep.white, black: S.rep.black, settings: S.settings, games: { list: S.games }, acc: { map: S.acc } });
-    if (!this.db && S.storeMode !== "supabase") return;
+    lsSet("pb_data", localSnapshot());
+    if (!this.db && S.storeMode !== "supabase") { this.savedAt = Date.now(); this.emit(); return; }
     if (this.inflight[name]) { this.pending[name] = true; return; }
     this.inflight[name] = true;
+    this.emit();
     const started = Date.now();
     try {
       let body = this.docFor(name);
@@ -161,12 +215,15 @@ const Store = {
         this.seen[name] = data.updated_at;
         Dirty.clear(name, started);
       }
+      this.failed = false;
+      this.savedAt = Date.now();
     } catch (e) {
+      this.failed = true;
       if (e && e.code === "quota_exceeded") toast("Cloud storage is full; saved on this device only.");
-      else if (S.storeMode === "supabase") toast("Couldn't save to the database. Your changes are kept on this device and will be saved next time.");
     }
     this.inflight[name] = false;
     if (this.pending[name]) { this.pending[name] = false; this.flush(name); }
+    this.emit();
   },
 };
 

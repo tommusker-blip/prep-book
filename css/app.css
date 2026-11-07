@@ -187,3 +187,16 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 [data-swatch="grey"] i:first-child{background:#E4E4E4} [data-swatch="grey"] i:last-child{background:#A5A8AA}
 [data-swatch="wood"] i:first-child{background:#E3C397} [data-swatch="wood"] i:last-child{background:#A6754A}
 [data-swatch="marble"] i:first-child{background:#EEECE6} [data-swatch="marble"] i:last-child{background:#8E9A94}
+
+/* header: open book and save status */
+.brand{flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.brand .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.bookbtn{border:0;background:none;padding:2px 0;font-family:var(--f-mono);font-size:.74rem;color:var(--muted);cursor:pointer;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:underline dotted;text-underline-offset:3px}
+.savestate{border:0;background:none;padding:2px 0;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);cursor:pointer}
+.savestate i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.savestate[data-state="saved"] i,.savestate[data-state="device"] i{background:var(--good)}
+.savestate[data-state="pending"] i,.savestate[data-state="saving"] i{background:var(--warn);animation:pulse 1s ease-in-out infinite}
+.savestate[data-state="error"]{color:var(--bad)} .savestate[data-state="error"] i{background:var(--bad)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.savestate i{animation:none!important}}
+.bookrow{display:flex;justify-content:space-between;align-items:center;gap:10px}

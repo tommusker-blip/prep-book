@@ -32,7 +32,10 @@ function fenAfter(fen, sans) { const c = new Chess(fen); for (const s of sans) {
 /* ---------- state ---------- */
 const S = {
   color: "white",
-  rep: { white: { pos: {}, cards: {}, flagged: [] }, black: { pos: {}, cards: {}, flagged: [] } },
+  // Prep books: id -> {white, black}. S.rep points at the open book (S.book); see store.js
+  books: { main: { white: { pos: {}, cards: {}, flagged: [] }, black: { pos: {}, cards: {}, flagged: [] } } },
+  book: "main",
+  rep: null,
   settings: { user: "", band: [1600, 1800], months: 3 },
   token: lsGet("pb_token", ""),
   games: [],
@@ -41,5 +44,6 @@ const S = {
   build: { white: [], black: [] }, // current path per colour
   storeMode: "local",
 };
+S.rep = S.books.main;
 let EXPL = lsGet("pb_expl", {}); // key|band -> explorer data
 let EVALC = lsGet("pb_eval", {}); // key -> {cp, best}

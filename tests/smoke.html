@@ -34,8 +34,41 @@ f.onload = () => {
     if (mode === "train") runTrain();
     if (mode === "multi") runMulti();
     if (mode === "explore") runExplore();
+    if (mode === "books") runBooks();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Prep books, clearing, and the save indicator (local mode)
+  async function runBooks() {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const firsts = () => (G("rep")("white").pos[G("K")(G("START"))] || { m: [] }).m.join(",") || "none";
+    const save = () => d.querySelector("#saveState").textContent.trim() || "(hidden)";
+    const act = a => d.querySelector(`[data-bookact="${a}"]`).click();
+    L("save state at start: " + save());
+    play("#board", "e2", "e4");
+    L("right after a move: " + save());
+    await sleep(1200);
+    L("a second later: " + save());
+    d.querySelector('[data-nav="settings"]').click();
+    act("new");
+    L(`new book: header=${d.querySelector("#bookName").textContent} white first moves=${firsts()}`);
+    d.querySelector('[data-nav="build"]').click(); play("#board", "d2", "d4");
+    d.querySelector('[data-nav="settings"]').click();
+    const rn = d.querySelector("#bookRename"); rn.value = "Queen's pawn"; rn.dispatchEvent(new Event("change"));
+    L("books: " + [...d.querySelectorAll("#bookList b")].map(b => b.textContent).join(" | ") + " | header=" + d.querySelector("#bookName").textContent);
+    d.querySelector('[data-openbook="main"]').click();
+    L(`back in main: white first moves=${firsts()}`);
+    act("clear-white"); L("confirm shown: " + !d.querySelector("#bookConfirm").hidden); d.querySelector("#bcYes").click();
+    L(`after clear White: main first moves=${firsts()}`);
+    d.querySelector("[data-openbook]").click();
+    L(`other book still has: ${firsts()}`);
+    act("delete"); d.querySelector("#bcYes").click();
+    L(`after delete: books=${[...d.querySelectorAll("#bookList b")].map(b => b.textContent).join(" | ")} open=${G("S").book}`);
+    await sleep(1200);
+    const saved = JSON.parse(w.localStorage.getItem("pb_data"));
+    L("saved docs: " + Object.keys(saved).sort().join(",") + " | save state: " + save());
+    L("DONE");
+  }
 
   // Lichess explorer with a fake server: Build tables, Scan my tree (paced), suggestions
   function runExplore() {

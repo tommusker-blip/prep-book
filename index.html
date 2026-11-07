@@ -16,7 +16,9 @@
 <body>
 
 <header class="top">
-  <div class="brand"><h1>Prep Book</h1><span>rapid</span></div>
+  <div class="brand"><h1>Prep Book</h1>
+    <div class="sub"><button type="button" class="bookbtn" id="bookName" aria-label="Prep book: open the book list">My prep</button>
+      <button type="button" class="savestate" id="saveState" data-state="idle" aria-live="polite"><i></i><span></span></button></div></div>
   <div class="seg" role="group" aria-label="Repertoire colour">
     <button type="button" data-color="white" aria-pressed="true"><i class="sw"></i>White</button>
     <button type="button" data-color="black" aria-pressed="false"><i class="sw"></i>Black</button>
@@ -141,10 +143,27 @@
 <section data-view="settings" hidden>
   <div class="stack">
     <h2>Settings</h2>
+    <div class="card" id="booksCard" style="display:flex;flex-direction:column;gap:12px">
+      <h3>Prep books</h3>
+      <p class="help">Each book has its own White and Black repertoire and its own training history. Your games and settings are shared between books.</p>
+      <ul class="list" id="bookList"></ul>
+      <div class="field"><label for="bookRename">Name of the open book</label><input type="text" id="bookRename" maxlength="40"></div>
+      <div class="row" style="margin:0">
+        <button type="button" class="btn ghost" data-bookact="new">New empty book</button>
+        <button type="button" class="btn ghost" data-bookact="copy">Duplicate this book</button>
+      </div>
+      <div class="row" style="margin:0">
+        <button type="button" class="btn ghost" data-bookact="clear-white">Clear White repertoire</button>
+        <button type="button" class="btn ghost" data-bookact="clear-black">Clear Black repertoire</button>
+        <button type="button" class="btn ghost" data-bookact="delete" id="bookDelete">Delete this book</button>
+      </div>
+      <div class="confirm" id="bookConfirm" hidden></div>
+      <p class="help">To clear only part of a line, open the position in Build and use Remove on a move: that removes the move and everything after it.</p>
+    </div>
     <div class="card" style="display:flex;flex-direction:column;gap:14px">
       <div class="field"><label for="setUser">chess.com username</label><input type="text" id="setUser" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. MagnusCarlsen"><p class="help">Your username as shown on your chess.com profile, not your email address. Used to fetch your games and to tell which side you played.</p></div>
       <div class="field"><label for="setMonths">Months of games to fetch</label><select id="setMonths"><option value="1">1</option><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
-      <div class="field"><label for="setToken">Lichess API token</label><input type="password" id="setToken" autocomplete="off"><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Stored on this device only.</p></div>
+      <div class="field"><label for="setToken">Lichess API token</label><input type="password" id="setToken" autocomplete="off"><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Saved with your settings, so every device you sign in on uses it.</p></div>
       <div class="field"><span class="lbl" style="margin:0">Lichess rating bands</span><div class="chips" id="bands"></div><p class="help">Lichess ratings usually run higher than chess.com ones. For a 1500–1600 chess.com rapid player, 1600–1999 is a reasonable starting point.</p></div>
       <fieldset class="field gemset"><legend class="lbl">Hidden gems and better moves</legend>
         <div class="gemgrid">

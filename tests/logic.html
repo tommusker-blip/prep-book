@@ -22,7 +22,7 @@ function t(name, fn) {
 }
 const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((msg || "") + " got " + JSON.stringify(a) + " want " + JSON.stringify(b)); };
 Store.save = () => {}; // no storage in tests
-const reset = () => { S.rep = { white: { pos: {}, cards: {}, flagged: [] }, black: { pos: {}, cards: {}, flagged: [] } }; S.games = []; };
+const reset = () => { S.books = { main: { white: emptyRep(), black: emptyRep() } }; S.book = "main"; S.rep = S.books.main; S.settings.books = undefined; S.settings.book = undefined; S.games = []; };
 const line = (color, moves) => { const p = []; for (const m of moves.split(" ")) { addMove(p, m, color); p.push(m); } walk(color); };
 
 t("book builds every curated line", () => eq(Object.keys(BOOK).length > 120, true, "BOOK size " + Object.keys(BOOK).length));
@@ -146,6 +146,34 @@ t("old en-passant keys are migrated on load", () => {
 t("grade: pass schedules forward, fail comes back in 10 min", () => {
   const c = newCard(); grade(c, true); eq(c.iv, 1);
   grade(c, false); eq(c.iv, 0); eq(Math.round((c.due - Date.now()) / 60000), 10);
+});
+
+/* ----- prep books ----- */
+t("book doc names: main keeps white/black, others get @id", () => {
+  eq(repDoc("white", "main"), "white"); eq(repDoc("black", "k9"), "black@k9");
+  eq(parseRepDoc("black@k9"), { color: "black", id: "k9" }); eq(parseRepDoc("white"), { color: "white", id: "main" });
+  eq(parseRepDoc("settings"), null);
+});
+t("loading several books keeps them apart and opens the saved one", () => {
+  reset();
+  line("white", "e4 e5 Nf3");
+  const main = JSON.parse(JSON.stringify(rep("white")));
+  reset();
+  line("white", "d4 d5 c4");
+  const second = JSON.parse(JSON.stringify(rep("white")));
+  reset();
+  applyData({ white: main, "white@b2": second, settings: { books: [{ id: "main", name: "My prep" }, { id: "b2", name: "Queen's pawn" }], book: "b2" } });
+  eq(S.book, "b2"); eq(rep("white").pos[K(START)].m, ["d4"]);
+  eq(S.books.main.white.pos[K(START)].m, ["e4"]);
+  eq(bookList().map(b => b.name), ["My prep", "Queen's pawn"]);
+  eq(allDocNames().sort(), ["acc", "black", "black@b2", "games", "settings", "white", "white@b2"]);
+  const snap = localSnapshot();
+  eq(Object.keys(snap.white.pos).length > 0 && Object.keys(snap["white@b2"].pos).length > 0, true);
+});
+t("a deleted book's tombstone removes it on other devices", () => {
+  applyData({ "white@b2": { deleted: true }, settings: { book: "main" } });
+  eq("b2" in S.books, false); eq(S.book, "main");
+  eq(Store.docFor("black@b2"), { deleted: true });
 });
 
 /* ----- explorer: tree index, gems, alternatives, transpositions, structures (synthetic data) ----- */

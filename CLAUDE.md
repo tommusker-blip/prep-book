@@ -11,7 +11,7 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.4, proof of concept)
+## Current state (v0.5, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -76,7 +76,7 @@ Node on the dev machine):
 - `tests/logic.html`: unit tests for `core.js`, `book.js` and `rep.js`
   (position keys, transpositions, repertoire building, PGN round trip,
   `analyseGame()`, misplay flags, key migration, scheduling)
-- `tests/smoke.html#local` / `#hosted` / `#train` / `#multi` / `#explore`: loads the real app in an
+- `tests/smoke.html#local` / `#hosted` / `#train` / `#multi` / `#explore` / `#books`: loads the real app in an
   iframe and reports what's on screen. `#train` runs a whole training session:
   replay, skip, wrong answer, retry, and first-attempt-only grading. Add
   `--force-prefers-reduced-motion` to check that the replay is skipped.
@@ -147,11 +147,29 @@ chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000
 3. **Local only**: browser `localStorage` (`pb_data`), chosen with "Use
    without an account".
 
-The data is saved as five JSON documents: `white`, `black`, `settings`,
-`games`, `acc`. Each save writes a whole document about 700 ms after the last
-change. The Lichess token (`pb_token`), the explorer cache (`pb_expl`) and the
-engine eval cache (`pb_eval`) stay in `localStorage` and never go to the
-database.
+The data is saved as JSON documents: `settings`, `games`, `acc`, and two per
+prep book. Each save writes a whole document about 700 ms after the last
+change. The explorer cache (`pb_expl`) and the engine eval cache (`pb_eval`)
+stay in `localStorage` and never go to the database.
+
+- **Prep books** (`S.books`, `S.book`; `S.rep` points at the open book):
+  - Each book has its own White and Black repertoire, cards and flags.
+  - The first book, `main`, keeps the doc names `white` and `black`, so
+    existing data needs no migration. Other books are `white@<id>` and
+    `black@<id>` (`repDoc()` / `parseRepDoc()`).
+  - `settings.books` holds `[{id, name}]` and `settings.book` the open book,
+    so both sync.
+  - Deleting a book saves `{deleted: true}` in its docs, so other devices drop
+    it too. `main` can be cleared but not deleted.
+  - Always save repertoire changes with `Store.save(repDoc(color))`.
+- **Lichess token:** since v0.5 it's in `settings.lichessToken`, so it syncs
+  (the user asked for this). It's protected by the table's row-level
+  security. The token has no scopes, so it can only read public data.
+  `pb_token` is kept as a local copy, removed on sign-out, and migrated into
+  settings once by `syncToken()`.
+- **Save indicator** in the header: `Store.status()` returns one of
+  `pending`, `saving`, `saved`, `error` (will retry; tap to retry now) or
+  `device` (local only). The UI updates through `Store.onStatus`.
 
 ## Supabase
 
