@@ -97,9 +97,19 @@ f.onload = () => {
       L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
       d.querySelector('#sugOut [data-sug^="gems"]').click();
       L("gem opens: " + G("S").build.white.join(" ") + " | table pills: " + [...d.querySelectorAll("#prompt .pill")].map(p => p.closest("tr").querySelector(".chip").textContent + "=" + p.textContent).join(", "));
+      L("arrows at 1.e4 e5: " + [...d.querySelectorAll("#board .arw")].map(a => a.getAttribute("class").split(" ")[1] + ":" + (+a.querySelector("line").getAttribute("stroke-width")).toFixed(2)).join(" "));
       d.querySelector("#back").click();
+      L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
       L("opp table after 1.e4: " + [...d.querySelectorAll("#prompt tbody tr")].map(tr => tr.querySelector(".chip").textContent + " " + tr.cells[1].textContent + " " + tr.querySelector(".pill").textContent).join(", "));
-      L("DONE");
+      // "Your moves here": what I played in my games from 1.e4 e5
+      w.eval(`S.games = [["e4 e5 Nf3 Nc6","1-0"],["e4 e5 Nf3 d6","0-1"],["e4 e5 Bc4 Nf6","1-0"]].map(([m, r], i) => ({ id: "y" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" }))`);
+      d.querySelector('#line [data-jump="2"]') ? d.querySelector('#line [data-jump="2"]').click() : null;
+      w.eval('S.build.white = ["e4","e5"]; renderBuild()');
+      L("your moves here: " + [...d.querySelectorAll("#prompt table")[0].querySelectorAll("tbody tr")].map(tr => [...tr.cells].map(c => c.textContent.replace(/\s+/g, " ").trim()).join(" / ")).join(" || "));
+      // Auto-play the most common reply after my move
+      w.eval('S.settings.autoOpp = "common"; S.build.white = []; renderBuild()');
+      play("#board", "e2", "e4");
+      setTimeout(() => { L("auto reply after 1.e4: path=" + G("S").build.white.join(" ")); L("DONE"); }, 1500);
     };
     wait(0);
   }

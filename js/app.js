@@ -121,11 +121,47 @@ function applyLook() {
 }
 function redrawBoards() { applyLook(); if (BB) BB.draw(); if (TB) TB.draw(); }
 
+/* ---------- move arrows ---------- */
+// arrows: [{from, to, w (0..1, thickness), kind}] where kind is "mine" (in my repertoire),
+// "gap" (opponent move I haven't prepared), "gem" (hidden gem / scores better) or "other"
+function arrowsSvg(arrows, flip) {
+  if (!arrows || !arrows.length) return "";
+  const xy = sq => { const f = sq.charCodeAt(0) - 97, r = +sq[1]; return [(flip ? 7 - f : f) + 0.5, (flip ? r - 1 : 8 - r) + 0.5]; };
+  const body = arrows.slice().sort((a, b) => a.w - b.w).map(a => {
+    const [x1, y1] = xy(a.from), [x2, y2] = xy(a.to);
+    const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    const sw = 0.07 + 0.23 * a.w, head = 0.22 + 0.2 * a.w;
+    const ex = x2 - ux * head, ey = y2 - uy * head; // shaft stops where the head starts
+    const px = -uy * head * 0.75, py = ux * head * 0.75;
+    return `<g class="arw ${a.kind}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke-width="${sw}"/><polygon points="${x2},${y2} ${ex + px},${ey + py} ${ex - px},${ey - py}"/></g>`;
+  }).join("");
+  return `<svg class="arrows" viewBox="0 0 8 8" aria-hidden="true">${body}</svg>`;
+}
+// Arrows for the Build position: Lichess moves at my level, thicker for more common moves
+function buildArrows(fen, key, n) {
+  if (S.settings.arrows === false) return [];
+  const ex = cachedExplorer(fen), mine = n ? n.m : [], myTurn = isMine(key, S.color);
+  const c = new Chess(fen), sq = san => { const m = c.move(san, { sloppy: true }); if (m) c.undo(); return m; };
+  const out = [];
+  if (ex && ex.total) {
+    const top = ex.moves.filter(m => m.n / ex.total >= 0.03).sort((a, b) => b.n - a.n).slice(0, 6);
+    const maxF = Math.max(...top.map(m => m.n / ex.total), 0.01);
+    for (const m of top) {
+      const mv = sq(m.san); if (!mv) continue;
+      const kind = mine.includes(m.san) ? "mine" : myTurn ? (judgeMove(m, ex, S.color, mine) ? "gem" : "other") : "gap";
+      out.push({ from: mv.from, to: mv.to, w: m.n / ex.total / maxF, kind });
+    }
+  }
+  // My moves always show, even without Lichess data
+  for (const s of mine) if (!out.some(a => a.kind === "mine" && sq(s) && a.to === sq(s).to && a.from === sq(s).from)) { const mv = sq(s); if (mv) out.push({ from: mv.from, to: mv.to, w: 0.5, kind: "mine" }); }
+  return out;
+}
+
 /* ---------- board ---------- */
-const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const GLYPH ={ k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 function Board(el) {
-  const b = { el, fen: START, flip: false, sel: null, last: null, hint: null, bad: null, onMove: null, locked: false };
-  b.set = (fen, opts = {}) => { b.fen = fen; b.sel = null; Object.assign(b, { last: null, hint: null, bad: null }, opts); b.draw(); };
+  const b = { el, fen: START, flip: false, sel: null, last: null, hint: null, bad: null, onMove: null, locked: false, arrows: [] };
+  b.set = (fen, opts = {}) => { b.fen = fen; b.sel = null; Object.assign(b, { last: null, hint: null, bad: null, arrows: [] }, opts); b.draw(); };
   b.draw = () => {
     const c = new Chess(b.fen);
     const targets = b.sel ? c.moves({ square: b.sel, verbose: true }).map(m => m.to) : [];
@@ -149,7 +185,7 @@ function Board(el) {
       // --f/--r place this square's slice of a board-wide texture (wood, marble)
       html += `<button type="button" class="${cls.join(" ")}" style="--f:${f};--r:${r}" data-sq="${sq}" aria-label="${sq}${p ? " " + (p.color === "w" ? "white " : "black ") + p.type : ""}">${pc}${dot}${coordF}${coordR}</button>`;
     }
-    el.innerHTML = html;
+    el.innerHTML = html + arrowsSvg(b.arrows, b.flip);
   };
   // A missing piece image falls back to the Unicode pieces
   el.addEventListener("error", e => {
@@ -201,7 +237,8 @@ function renderBuild() {
   BB.flip = S.color === "black";
   let last = null;
   if (path.length) { const c = new Chess(fenAfter(START, path.slice(0, -1))); const mv = c.move(path[path.length - 1]); if (mv) last = [mv.from, mv.to]; }
-  BB.set(fen, { last });
+  const n = rep().pos[key];
+  BB.set(fen, { last, arrows: buildArrows(fen, key, n) });
   // line strip
   $("#line").innerHTML = lineHtml(path, true);
   const op = openingFor(path);
@@ -209,7 +246,6 @@ function renderBuild() {
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
   $("#opIdea").textContent = op && op.idea ? op.idea : "";
   // prompt
-  const n = rep().pos[key];
   const mine = isMine(key, S.color);
   const pr = $("#prompt");
   if (mine) {
@@ -221,9 +257,9 @@ function renderBuild() {
     } else {
       pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the table below. Use the engine if you want a suggestion.</p>`;
     }
-    pr.innerHTML += myTable(fen, key, n);
+    pr.innerHTML += yourMovesTable(fen, key, n, path) + myTable(fen, key, n);
   } else {
-    pr.innerHTML = `<p class="lbl">Opponent's options</p>${oppTable(fen, key, n)}`;
+    pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${oppTable(fen, key, n)}`;
   }
   if (!ex && S.token && !explorerBlocked) explorer(fen).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   // engine panel
@@ -238,6 +274,115 @@ function wdlBar(r, color) {
   if (!tot) return `<span class="wdl empty"></span>`;
   const you = color === "white" ? r.w : r.b, them = color === "white" ? r.b : r.w;
   return `<span class="wdl" title="Your results from here at this rating: ${pct(you, tot)}% win, ${pct(r.d, tot)}% draw, ${pct(them, tot)}% loss"><i class="w" style="width:${pct(you, tot)}%"></i><i class="d" style="width:${pct(r.d, tot)}%"></i><i class="l" style="width:${pct(them, tot)}%"></i></span>`;
+}
+/* ----- opponent's turn: quick picks ----- */
+// "common": the most played reply at my level. "weak": my weakest spot here, which is the most
+// common reply I haven't prepared, or (if all are prepared) the one I score worst against.
+function pickOpp(fen, key, n, mode) {
+  const ex = cachedExplorer(fen);
+  if (!ex || !ex.total) return null;
+  const prepared = n ? n.m : [];
+  const moves = ex.moves.filter(m => m.n / ex.total >= 0.03).sort((a, b) => b.n - a.n);
+  if (!moves.length) return null;
+  const f = m => m.n / ex.total;
+  if (mode === "common") { const m = moves[0]; return { san: m.san, why: `${Math.round(f(m) * 100)}% of games` }; }
+  const gap = moves.find(m => !prepared.includes(m.san));
+  if (gap) return { san: gap.san, why: `not prepared · ${Math.round(f(gap) * 100)}% of games` };
+  const worst = moves.slice().sort((a, b) => scoreFor(a, S.color) - scoreFor(b, S.color))[0];
+  return { san: worst.san, why: `you score ${Math.round(scoreFor(worst, S.color) * 100)}% after it` };
+}
+function quickOppButtons(fen, key, n) {
+  const common = pickOpp(fen, key, n, "common"), weak = pickOpp(fen, key, n, "weak");
+  if (!common) return "";
+  const btn = (p, label) => `<button type="button" class="btn ghost quick" data-go="${esc(p.san)}"><b>${label}: ${esc(p.san)}</b><span>${esc(p.why)}</span></button>`;
+  const same = weak && weak.san === common.san;
+  return `<div class="row quickrow">${btn(same ? weak : common, same ? "Most common · weakest spot" : "Most common")}${weak && !same ? btn(weak, "Weakest spot") : ""}</div>`;
+}
+// Settings > "After my move": play the opponent's reply automatically ("common" | "weak" | off)
+async function autoOpponent(path) {
+  const mode = S.settings.autoOpp;
+  if (!mode || mode === "off") return;
+  const fen = fenAfter(START, path), key = K(fen);
+  if (isMine(key, S.color)) return;
+  if (!cachedExplorer(fen)) await explorer(fen);
+  const same = () => S.view === "build" && curPath() === path && curPath().join(" ") === path.join(" ");
+  if (!same()) return;
+  const p = pickOpp(fen, key, rep().pos[key], mode);
+  if (!p) return;
+  setTimeout(() => { if (same()) goMove(p.san); }, 450);
+}
+
+/* ----- my turn: what I play here, and is it any good? ----- */
+// Moves I actually played from this position in my games, by this exact move order
+// (transpositions aren't counted): san -> {n, pts}
+function myGameMoves(path, color) {
+  const pre = path.join(" "), out = {};
+  for (const g of S.games) {
+    if (g.my !== color || !g.moves) continue;
+    if (pre && !(g.moves === pre || g.moves.startsWith(pre + " "))) continue;
+    const san = g.moves.split(" ")[path.length];
+    if (!san) continue;
+    const s = myScore(g);
+    const o = out[san] || (out[san] = { n: 0, pts: 0, scored: 0 });
+    o.n++; if (s != null) { o.pts += s; o.scored++; }
+  }
+  return out;
+}
+// Stockfish verdict on a move: centipawns lost against the best move (depth 14, cached)
+const VERDICT_DEPTH = 14, verdictBusy = new Set();
+function verdictFor(fen, san) {
+  const best = EVALC[K(fen)], c = new Chess(fen);
+  if (!c.move(san)) return null;
+  const after = EVALC[K(c.fen())];
+  if (!best || !after || best.d < VERDICT_DEPTH || after.d < VERDICT_DEPTH) return null;
+  const loss = Math.max(0, best.cp - -after.cp); // after.cp is from the opponent's side
+  const label = loss <= 30 ? "Good" : loss <= 80 ? "OK" : loss <= 180 ? "Dubious" : "Mistake";
+  return { loss, label, cls: loss <= 80 ? "ok" : "gap" };
+}
+// Work out missing verdicts in the background, then redraw if we're still on this position
+function queueVerdicts(fen, sans) {
+  if (Engine.failed) return;
+  const jobs = [fen, ...sans.map(s => fenAfter(fen, [s])).filter(Boolean)].filter(f => { const e = EVALC[K(f)]; return !(e && e.d >= VERDICT_DEPTH && e.e === "wasm") && !verdictBusy.has(K(f)); });
+  if (!jobs.length) return;
+  jobs.forEach(f => verdictBusy.add(K(f)));
+  const key = K(fen);
+  Promise.all(jobs.map(f => Engine.analyse(f, VERDICT_DEPTH).catch(() => null))).then(() => {
+    jobs.forEach(f => verdictBusy.delete(K(f)));
+    saveEvalCache();
+    if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild();
+  });
+}
+// How a move fits my prep: it transposes into a position I already have, or it keeps a pawn
+// structure from one of my other lines. (A real "fits my style" judgement needs chess
+// understanding, so these are only the two signals the data supports.)
+function fitPills(fen, san, mineHere) {
+  const c = new Chess(fen);
+  if (!c.move(san)) return "";
+  const idx = indexTree(), k = K(c.fen()), pills = [];
+  if (!mineHere.includes(san) && idx[k]) pills.push('<span class="pill gem">Transposes to your prep</span>');
+  const pk = pawnKey(k.split(" ")[0]);
+  const same = Object.values(idx).find(p => p.path.length >= 8 && pawnKey(K(p.fen).split(" ")[0]) === pk && !p.path.join(" ").startsWith(curPath().join(" ")));
+  if (same) { const op = openingFor(same.path); pills.push(`<span class="pill gem" title="${esc(same.path.join(" "))}">Same pawns as your ${esc(op ? op.name.split(":")[0] : "other line")}</span>`); }
+  return pills.join(" ");
+}
+function yourMovesTable(fen, key, n, path) {
+  const mine = n ? n.m : [], played = myGameMoves(path, S.color);
+  const sans = [...new Set([...mine, ...Object.keys(played).sort((a, b) => played[b].n - played[a].n)])].slice(0, 6);
+  if (!sans.length) return "";
+  const ex = cachedExplorer(fen);
+  queueVerdicts(fen, sans);
+  const totalGames = Object.values(played).reduce((a, o) => a + o.n, 0);
+  const rows = sans.map(s => {
+    const g = played[s], lm = ex && ex.moves.find(m => m.san === s), v = verdictFor(fen, s);
+    const tags = (mine.includes(s) ? '<span class="pill ok">Yours</span>' : g ? '<span class="pill gap">Not in your prep</span>' : "") + fitPills(fen, s, mine);
+    return `<tr><td><button type="button" class="chip" data-go="${esc(s)}">${esc(s)}</button>${tags ? `<div class="tags">${tags}</div>` : ""}</td>
+      <td class="num">${g ? `${g.n}×<br><span class="muted">${g.scored ? Math.round((100 * g.pts) / g.scored) + "%" : "–"}</span>` : "–"}</td>
+      <td class="num">${lm ? Math.round(scoreFor(lm, S.color) * 100) + "%" : "–"}</td>
+      <td>${v ? `<span class="pill ${v.cls}" title="Loses about ${(v.loss / 100).toFixed(2)} against Stockfish's best move">${v.label}</span>` : Engine.failed ? "–" : '<span class="muted">checking…</span>'}</td></tr>`;
+  }).join("");
+  return `<p class="lbl" style="margin-top:14px">Your moves here</p>
+    <div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Your games<br>(score)</th><th class="num">Lichess<br>score</th><th>Engine</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="src">${totalGames ? `You reached this position in ${totalGames} rapid game${totalGames === 1 ? "" : "s"} by this move order. ` : ""}Engine: Stockfish depth ${VERDICT_DEPTH}, compared with its best move (Good, OK, Dubious, Mistake).</p>`;
 }
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 // At my turn: what players at my level play here, how each move scores for me, and which
@@ -400,11 +545,13 @@ function onBuildMove(mv) {
 // Add (or, with `replaces`, swap in) a move at the current Build position and step into it
 function commitBuildMove(san, replaces = null) {
   const path = curPath();
+  const myMove = isMine(K(fenAfter(START, path)), S.color);
   const r = addMove(path, san, S.color, replaces);
   path.push(san);
   walk();
   if (r !== "same") Store.save(repDoc(S.color));
   renderBuild();
+  if (myMove) autoOpponent(path);
 }
 // On my turn, a new move where I already have one: add it as another option, or replace one
 function showAddOrReplace(newSan, have) {
@@ -629,6 +776,8 @@ function renderLook() {
   $("#lookPreview").innerHTML = row.map((x, i) => `<span class="sq${i % 2 ? " dk" : ""}" style="--f:${i};--r:${i % 2 ? 4 : 3}">${pieceHtml({ color: x[0], type: x[1].toLowerCase() }, set)}</span>`).join("");
   $("#pieceSets").innerHTML = PIECE_SETS.map(p => `<button type="button" class="chip lookchip" aria-pressed="${p.id === set}" data-pieces="${p.id}">${pieceHtml({ color: "w", type: "n" }, p.id)}<span>${esc(p.name)}</span></button>`).join("");
   $("#boardThemes").innerHTML = BOARD_THEMES.map(t => `<button type="button" class="chip lookchip" aria-pressed="${t.id === theme}" data-boardtheme="${t.id}"><span class="swatch" data-swatch="${t.id}"><i></i><i></i></span><span>${esc(t.name)}</span></button>`).join("");
+  $("#arrowOpt").innerHTML = [["on", "Show"], ["off", "Hide"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${(S.settings.arrows !== false) === (v === "on")}" data-arrows="${v}">${l}</button>`).join("");
+  $("#autoOpp").value = S.settings.autoOpp || "off";
   $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
 }
 function renderSettings() {
@@ -773,6 +922,7 @@ async function boot() {
     else if (d.addopt) commitBuildMove(d.addopt);
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
+    else if (d.arrows) { S.settings.arrows = d.arrows === "on"; Store.save("settings"); renderLook(); }
     else if (d.openbook) switchBook(d.openbook);
     else if (d.bookact) onBookAction(d.bookact);
     else if (d.pieces) { S.settings.pieces = d.pieces; pieceFallback = false; Store.save("settings"); redrawBoards(); renderLook(); }
@@ -820,6 +970,7 @@ async function boot() {
   $("#setToken").onchange = e => { S.token = e.target.value.trim(); S.settings.lichessToken = S.token; lsSet("pb_token", S.token); Store.save("settings"); explorerBlocked = false; };
   $("#bookRename").onchange = e => { const v = e.target.value.trim(); if (!v) { renderBooks(); return; } S.settings.books = bookList().map(b => (b.id === S.book ? { ...b, name: v } : b)); Store.save("settings"); renderHeader(); renderBooks(); };
   $("#bookName").onclick = () => setView("settings");
+  $("#autoOpp").onchange = e => { S.settings.autoOpp = e.target.value; Store.save("settings"); };
   $("#saveState").onclick = onSaveStateTap;
   setInterval(() => { if (Store.status() === "saved") renderSaveState("saved"); }, 30000);
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };

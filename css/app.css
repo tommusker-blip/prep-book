@@ -200,3 +200,19 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 @keyframes pulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.savestate i{animation:none!important}}
 .bookrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* move arrows over the board (Build) */
+.board{position:relative}
+.arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+.arw line{stroke-linecap:round}
+.arw.mine line{stroke:#2E9D5B} .arw.mine polygon{fill:#2E9D5B}
+.arw.gap line{stroke:#E0802F} .arw.gap polygon{fill:#E0802F}
+.arw.gem line{stroke:#8E5BD0} .arw.gem polygon{fill:#8E5BD0}
+.arw.other line{stroke:#3F6FA8} .arw.other polygon{fill:#3F6FA8}
+.arw{opacity:.72}
+.quickrow{margin:4px 0 10px}
+.btn.quick{display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;padding:6px 12px}
+.btn.quick span{font-size:.78rem;font-weight:500;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tags .pill,.pill{white-space:nowrap}
+table.yours td{vertical-align:top}
