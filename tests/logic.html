@@ -8,6 +8,7 @@
 <div id="toast" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="../js/core.js"></script>
+<script src="../js/openings.js"></script>
 <script src="../js/book.js"></script>
 <script src="../js/store.js"></script>
 <script src="../js/rep.js"></script>
@@ -24,7 +25,19 @@ const reset = () => { S.rep = { white: { pos: {}, cards: {}, flagged: [] }, blac
 const line = (color, moves) => { const p = []; for (const m of moves.split(" ")) { addMove(p, m, color); p.push(m); } walk(color); };
 
 t("book builds every curated line", () => eq(Object.keys(BOOK).length > 120, true, "BOOK size " + Object.keys(BOOK).length));
-t("opening name lookup", () => eq(openingFor("e4 e5 Nf3 Nc6 Bb5 a6".split(" ")).name, "Ruy Lopez, Morphy Defence"));
+t("opening names come from the Lichess dataset", () => {
+  eq(Object.keys(OPENINGS).length > 3000, true, "OPENINGS size");
+  eq(openingFor("e4 e5 Nf3 Nc6 Bb5 a6".split(" ")).name, "Ruy Lopez: Morphy Defence");
+  eq(openingFor("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6".split(" ")).name, "Sicilian Defence: Najdorf Variation");
+});
+t("curated idea carries through deeper named lines", () => {
+  const op = openingFor("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1".split(" "));
+  eq(op.idea.startsWith("Slow manoeuvring"), true, "idea: " + op.idea + " name: " + op.name);
+});
+t("every curated line is still found", () => {
+  for (const [, , moves] of BOOK_RAW) if (!openingFor(moves.split(" "))) throw new Error("no name for " + moves);
+});
+t("transposition finds the name", () => eq(openingFor("Nf3 d5 d4 Nf6 c4 e6 Nc3".split(" ")).name.startsWith("Queen's Gambit Declined"), true));
 t("en passant dropped when no capture is possible", () => eq(K(fenAfter(START, ["e4"])).split(" ")[3], "-"));
 t("en passant kept when a capture is possible", () => eq(K(fenAfter(START, "e4 a6 e5 d5".split(" "))).split(" ")[3], "d6"));
 t("black en passant kept", () => eq(K(fenAfter(START, "a3 e5 a4 e4 d4".split(" "))).split(" ")[3], "d3"));

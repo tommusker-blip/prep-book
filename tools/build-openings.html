@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build openings.js</title>
+<style>body{font:15px/1.4 system-ui,sans-serif;margin:16px;max-width:900px}textarea{width:100%;height:200px;font:12px monospace}</style>
+</head>
+<body>
+<h1>Build js/openings.js</h1>
+<p>Downloads the Lichess <a href="https://github.com/lichess-org/chess-openings">chess-openings</a> TSV files (CC0),
+replays each line with chess.js and keys the final position with the app's own <code>K()</code>.
+Run this from a local server (for example <code>npx serve</code>) or on the Pages site, then save the output over
+<code>js/openings.js</code>. Rerun it whenever <code>K()</code> in <code>js/core.js</code> changes.</p>
+<p><button id="go">Build</button> <a id="dl" hidden download="openings.js">Download openings.js</a></p>
+<p id="status"></p>
+<textarea id="out" readonly></textarea>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="../js/core.js"></script>
+<script>
+"use strict";
+const BASE = "https://raw.githubusercontent.com/lichess-org/chess-openings/master/";
+document.getElementById("go").onclick = async () => {
+  const st = document.getElementById("status");
+  const best = {}, bad = [];
+  let lines = 0;
+  for (const f of ["a", "b", "c", "d", "e"]) {
+    st.textContent = `Fetching ${f}.tsv…`;
+    const text = await (await fetch(BASE + f + ".tsv")).text();
+    for (const line of text.split("\n").slice(1)) {
+      if (!line.trim()) continue;
+      const [eco, name, pgn] = line.split("\t");
+      const sans = pgn.replace(/\d+\.(\.\.)?/g, " ").trim().split(/\s+/);
+      const c = new Chess();
+      if (!sans.every(s => c.move(s))) { bad.push(line); continue; }
+      lines++;
+      const k = K(c.fen());
+      // When two lines reach the same position, keep the shorter (more canonical) one
+      if (!best[k] || sans.length < best[k][2]) best[k] = [eco, name, sans.length];
+    }
+  }
+  const keyed = {};
+  for (const [k, [eco, name]] of Object.entries(best)) keyed[k] = [eco, name];
+  const js = `"use strict";
+// Opening names from the Lichess chess-openings dataset (CC0, https://github.com/lichess-org/chess-openings),
+// ${lines.toLocaleString("en-GB")} lines from a.tsv-e.tsv, pre-keyed with K() so nothing is replayed at startup.
+// Regenerate with tools/build-openings.html if K() changes. Format: { positionKey: [ECO, name] }
+const OPENINGS = ${JSON.stringify(keyed)};
+`;
+  document.getElementById("out").value = js;
+  const dl = document.getElementById("dl");
+  dl.href = URL.createObjectURL(new Blob([js], { type: "text/javascript" }));
+  dl.hidden = false;
+  st.textContent = `${lines} lines, ${Object.keys(keyed).length} positions, ${bad.length} unreadable.`;
+};
+</script>
+</body>
+</html>

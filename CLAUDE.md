@@ -32,8 +32,15 @@ when it loads; the others just define things.
 - `css/app.css`: all styles (theme tokens on `:root`, light and dark)
 - `js/core.js`: constants, helpers (`K()`, `fenAfter()`, `lsGet`/`lsSet`,
   `toast`), the state object `S`, and the explorer and eval caches
+- `js/openings.js`: `OPENINGS`, the Lichess `chess-openings` dataset (CC0,
+  3,865 names) as `{positionKey: [ECO, name]}`, keyed ahead of time so nothing
+  is replayed at startup. Rebuild it with `tools/build-openings.html` whenever
+  `K()` changes.
 - `js/book.js`: `BOOK_RAW` (about 130 hand-curated openings `[ECO, name, SAN
-  line, idea]`), then `BOOK` and `openingFor()`
+  line, idea]`), then `BOOK` and `openingFor()`. Names come from `OPENINGS`
+  ("Defense" is shown as "Defence"). The curated list adds the one-line idea,
+  taken from the deepest curated position on the path, and supplies a name
+  only where the dataset has none.
 - `js/store.js`: `Store` (three storage modes, described below) and the
   sign-in screen
 - `js/rep.js`: pure logic with no DOM: repertoire model (`walk()`,
@@ -162,7 +169,8 @@ and accuracy into their own table, with one row per game.
       the old asm.js build and is slow. Consider the WASM "lite single-thread"
       build from the `stockfish` npm package, self-hosted in the repo.
 - [ ] chess.com fetch and Lichess explorer from the Pages site (CORS, token)
-- [ ] Supabase sign-up, confirmation, first save, and sync between two devices
+- [x] Supabase sign-up, confirmation, first save, and sync between two devices
+      (phone to laptop, 2026-11-07)
 - [x] PGN repertoire export and import round trip (logic covered by
       `tests/logic.html`; the Copy/paste UI hasn't been tried on a phone yet)
 - [x] App boots on desktop Chrome in local and hosted modes
@@ -170,10 +178,8 @@ and accuracy into their own table, with one row per game.
 
 ## Known limitations
 
-- Opening names come from a hand-curated list of about 130 lines. Replace it
-  with the full Lichess `chess-openings` dataset (TSV files, CC0, about 3,400
-  names): https://github.com/lichess-org/chess-openings. Bundle it or load it
-  as JSON.
+- Only about 130 openings have a one-line idea. The other names from the
+  dataset have none.
 - Explorer data is only fetched for positions I visit. Gap ranking uses the
   product of opponent move frequencies along the path, so unvisited branches
   rank poorly. Add a "scan my tree" job that prefetches explorer data across

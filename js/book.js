@@ -137,6 +137,8 @@ const BOOK_RAW = [
 ];
 
 /* ---------- opening book ---------- */
+// Names come from OPENINGS (Lichess dataset, js/openings.js). The curated list above adds the
+// one-line ideas, and its names are only used for positions the dataset doesn't name.
 const BOOK = {};
 (function buildBook() {
   for (const [eco, name, moves, idea] of BOOK_RAW) {
@@ -146,9 +148,20 @@ const BOOK = {};
     if (ok) BOOK[K(c.fen())] = { eco, name, idea };
   }
 })();
+function bookName(key) {
+  const o = typeof OPENINGS !== "undefined" && OPENINGS[key];
+  if (o) return { eco: o[0], name: o[1].replace(/Defense/g, "Defence") }; // dataset is US English
+  return BOOK[key] ? { eco: BOOK[key].eco, name: BOOK[key].name } : null;
+}
+// Deepest named position along the path, plus the deepest curated idea (which may be shallower).
 function openingFor(path) {
   const c = new Chess();
-  let best = BOOK[K(c.fen())] || null, depth = 0;
-  path.forEach((m, i) => { c.move(m); const b = BOOK[K(c.fen())]; if (b) { best = b; depth = i + 1; } });
-  return best ? { ...best, depth } : null;
+  let best = bookName(K(c.fen())), depth = 0, idea = "";
+  path.forEach((m, i) => {
+    if (!c.move(m)) return;
+    const k = K(c.fen()), b = bookName(k);
+    if (b) { best = b; depth = i + 1; }
+    if (BOOK[k] && BOOK[k].idea) idea = BOOK[k].idea;
+  });
+  return best ? { ...best, idea, depth } : null;
 }
