@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Prep Book logic tests</title></head>
+<body>
+<!-- Open this file in a browser (or headless Chrome with --dump-dom) to run the pure-logic tests.
+     It loads the real app scripts except app.js (the UI), with a stub in place of the network store. -->
+<pre id="out">running…</pre>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/book.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/rep.js"></script>
+<script>
+"use strict";
+const results = [];
+function t(name, fn) {
+  try { const r = fn(); results.push((r === false ? "FAIL " : "ok   ") + name); }
+  catch (e) { results.push("FAIL " + name + " — " + e.message); }
+}
+const eq = (a, b, msg) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((msg || "") + " got " + JSON.stringify(a) + " want " + JSON.stringify(b)); };
+Store.save = () => {}; // no storage in tests
+const reset = () => { S.rep = { white: { pos: {}, cards: {}, flagged: [] }, black: { pos: {}, cards: {}, flagged: [] } }; S.games = []; };
+const line = (color, moves) => { const p = []; for (const m of moves.split(" ")) { addMove(p, m, color); p.push(m); } walk(color); };
+
+t("book builds every curated line", () => eq(Object.keys(BOOK).length > 120, true, "BOOK size " + Object.keys(BOOK).length));
+t("opening name lookup", () => eq(openingFor("e4 e5 Nf3 Nc6 Bb5 a6".split(" ")).name, "Ruy Lopez, Morphy Defence"));
+t("en passant dropped when no capture is possible", () => eq(K(fenAfter(START, ["e4"])).split(" ")[3], "-"));
+t("en passant kept when a capture is possible", () => eq(K(fenAfter(START, "e4 a6 e5 d5".split(" "))).split(" ")[3], "d6"));
+t("black en passant kept", () => eq(K(fenAfter(START, "a3 e5 a4 e4 d4".split(" "))).split(" ")[3], "d3"));
+t("transposition merges", () => eq(K(fenAfter(START, "d4 Nf6 c4 e6".split(" "))), K(fenAfter(START, "c4 e6 d4 Nf6".split(" ")))));
+
+t("build a white repertoire, cards on my moves only", () => {
+  reset();
+  line("white", "e4 e5 Nf3 Nc6 Bb5");
+  line("white", "e4 c5 Nf3 d6 d4");
+  line("white", "e4 c5 Nf3 Nc6 d4");
+  const cards = Object.keys(rep("white").cards).length;
+  eq(cards, 6, "cards"); // e4; Nf3 after e5; Bb5; Nf3 after c5 (shared); d4 after d6; d4 after Nc6
+});
+t("my move is replaced, not added", () => {
+  const p = ["e4", "e5"]; eq(addMove(p, "Bc4", "white"), "replaced"); walk("white");
+  eq(rep("white").pos[K(fenAfter(START, p))].m, ["Bc4"]);
+});
+t("PGN export / import round trip", () => {
+  reset();
+  line("white", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4");
+  line("white", "e4 e5 Nf3 d6 d4");
+  line("white", "e4 c5 Nf3 e6 d4");
+  line("white", "e4 c6 d4 d5 e5");
+  const before = JSON.stringify(Object.entries(rep("white").pos).map(([k, n]) => [k, n.m.slice().sort()]).sort());
+  const pgn = exportPGN("white");
+  reset();
+  const r = importRepertoire(pgn, "white");
+  const after = JSON.stringify(Object.entries(rep("white").pos).map(([k, n]) => [k, n.m.slice().sort()]).sort());
+  eq(r.bad, 0, "unreadable moves");
+  eq(after, before, "tree differs after round trip. PGN: " + pgn);
+});
+t("black repertoire round trip", () => {
+  reset();
+  line("black", "e4 c6 d4 d5 Nc3 dxe4");
+  line("black", "e4 c6 d4 d5 e5 Bf5");
+  line("black", "d4 Nf6 c4 e6");
+  const before = JSON.stringify(rep("black").pos, Object.keys(rep("black").pos).sort());
+  const pgn = exportPGN("black");
+  const keys = Object.keys(rep("black").pos).length;
+  reset();
+  importRepertoire(pgn, "black");
+  eq(Object.keys(rep("black").pos).length, keys, "position count. PGN: " + pgn);
+});
+t("analyseGame exit types", () => {
+  reset();
+  line("white", "e4 e5 Nf3 Nc6 Bb5");
+  const g = moves => ({ id: moves, my: "white", result: "1-0", moves });
+  eq(analyseGame(g("e4 e5 Nf3 Nc6 Bc4")).type, "misplay");
+  eq(analyseGame(g("e4 c5 Nf3")).type, "opp_new");
+  eq(analyseGame(g("e4 e5 Nf3 Nc6 Bb5 a6 Ba4")).type, "end");
+  eq(analyseGame(g("e4 e5 Nf3 Nc6 Bb5")).type, "full");
+});
+t("misplay flags once and records the game in the repertoire doc", () => {
+  reset();
+  line("white", "e4 e5 Nf3");
+  S.games = [{ id: "g1", my: "white", tc: "rapid", result: "0-1", moves: "e4 e5 Bc4" }];
+  eq(flagMisplays("white"), 1); eq(flagMisplays("white"), 0);
+  eq(rep("white").flagged, ["g1"]);
+});
+t("old en-passant keys are migrated on load", () => {
+  reset();
+  line("white", "e4 e5 Nf3");
+  const oldKey = fenAfter(START, ["e4"]).split(" ").slice(0, 3).join(" ") + " e3";
+  const newKey = K(fenAfter(START, ["e4"]));
+  const stored = JSON.parse(JSON.stringify(rep("white")));
+  stored.pos[oldKey] = stored.pos[newKey]; delete stored.pos[newKey];
+  applyData({ white: stored });
+  walk("white");
+  eq(rep("white").pos[newKey].m, ["e5"]);
+  eq(Object.keys(rep("white").cards).length, 2);
+});
+t("grade: pass schedules forward, fail comes back in 10 min", () => {
+  const c = newCard(); grade(c, true); eq(c.iv, 1);
+  grade(c, false); eq(c.iv, 0); eq(Math.round((c.due - Date.now()) / 60000), 10);
+});
+
+const fails = results.filter(r => r.startsWith("FAIL")).length;
+document.getElementById("out").textContent = results.join("\n") + `\n\n${results.length - fails} passed, ${fails} failed`;
+document.title = fails ? "FAIL" : "PASS";
+</script>
+</body>
+</html>

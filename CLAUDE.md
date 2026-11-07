@@ -11,10 +11,10 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.2, proof of concept)
+## Current state (v0.3, proof of concept)
 
-Everything lives in one file, `index.html`: markup, CSS and one inline script.
-No build step. External scripts come from CDNs:
+Plain static files, no build step and no bundler. GitHub Pages serves the repo
+as it is. External scripts come from CDNs:
 
 - chess.js 0.10.3 (cdnjs, UMD global `Chess`): move legality, SAN, FEN
 - @supabase/supabase-js 2.45.4 (jsdelivr, UMD global `supabase`)
@@ -23,32 +23,51 @@ No build step. External scripts come from CDNs:
 - Fonts: IBM Plex Sans / Sans Condensed / Mono. Pieces are Unicode glyphs drawn
   with Noto Sans Symbols 2 (Google Fonts, subset with `text=`).
 
-The code is laid out in this order:
+Files, in load order. They are **classic scripts** (not ES modules) and share
+one global scope, so a top-level `const`/`function` in one file is visible in
+the later ones. Each starts with `"use strict"`. Only `app.js` touches the page
+when it loads; the others just define things.
 
-1. `BOOK_RAW`: about 130 hand-curated named openings `[ECO, name, SAN line, idea]`
-2. Constants, helpers and state object `S`
-3. `Store`: storage layer (three modes, described below)
-4. Repertoire model: `walk()`, `addMove()`, `removeMove()`
-5. PGN parsing: main line for games, full variation tree for repertoire import
-6. `analyseGame()`: compares a game with the repertoire
-7. Scheduler: `grade()`, `dueCards()`, `flagMisplays()`
-8. Lichess explorer client
-9. chess.com importer
-10. `Engine`: Stockfish wrapper with an eval cache
-11. Board component, then the four views: Build, Train, Games, Settings
+- `index.html`: markup only, plus the script tags
+- `css/app.css`: all styles (theme tokens on `:root`, light and dark)
+- `js/core.js`: constants, helpers (`K()`, `fenAfter()`, `lsGet`/`lsSet`,
+  `toast`), the state object `S`, and the explorer and eval caches
+- `js/book.js`: `BOOK_RAW` (about 130 hand-curated openings `[ECO, name, SAN
+  line, idea]`), then `BOOK` and `openingFor()`
+- `js/store.js`: `Store` (three storage modes, described below) and the
+  sign-in screen
+- `js/rep.js`: pure logic with no DOM: repertoire model (`walk()`,
+  `addMove()`, `removeMove()`), PGN parsing, `analyseGame()`, scheduler
+  (`grade()`, `dueCards()`, `flagMisplays()`), and repertoire PGN
+  export/import
+- `js/engine.js`: `Engine` (Stockfish wrapper with an eval cache) and the
+  accuracy formula
+- `js/app.js`: Lichess explorer client, chess.com importer, engine game
+  analysis, board component, the four views (Build, Train, Games, Settings),
+  and `boot()`
 
-**Suggested first job:** split it into `index.html`, `css/app.css`,
-`js/book.js`, `js/store.js`, `js/engine.js`, `js/app.js`. Use plain ES modules
-or classic scripts, with no bundler unless there's a clear reason. GitHub Pages
-serves it as it is.
+Tests (open in a browser, or run headless Chrome with `--dump-dom`; there's no
+Node on the dev machine):
+
+- `tests/logic.html`: unit tests for `core.js`, `book.js` and `rep.js`
+  (position keys, transpositions, repertoire building, PGN round trip,
+  `analyseGame()`, misplay flags, key migration, scheduling)
+- `tests/smoke.html#local` / `#hosted`: loads the real app in an iframe and
+  reports what's on screen
+
+```sh
+chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000 \
+  --dump-dom file:///C:/git/prep-book/tests/logic.html
+```
 
 ### Data model
 
-- A position key is the first four FEN fields (board, side to move, castling,
-  en passant). Keying on this merges transpositions. Note: chess.js 0.10 always
-  sets the en-passant square after a double pawn push, so a few transpositions
-  are missed. Consider normalising en passant to "-" unless a capture is
-  actually legal.
+- A position key, `K(fen)`, is the first four FEN fields (board, side to move,
+  castling, en passant). Keying on this merges transpositions. chess.js 0.10
+  always sets the en-passant square after a double pawn push, so `K()` keeps it
+  only when a pawn of the side to move stands next to the pushed pawn (pins are
+  ignored), and sets it to `-` otherwise. Repertoires saved by older builds are
+  re-keyed on load by `normRep()` in `store.js`.
 - `S.rep[color].pos[key] = { m: [san...], path: "e4 e5 Nf3" }`
   - On my turn, `m` has exactly one move (my repertoire choice).
   - On the opponent's turn, `m` lists the replies I've prepared for.
@@ -59,6 +78,10 @@ serves it as it is.
   - Scheduling is SM-2 style. A fail is due again after 10 minutes. `flag` is
     raised when I misplay that position in a real game, and flagged cards are
     trained first.
+- `S.rep[color].flagged = [gameId…]`: games already counted by
+  `flagMisplays()`, so a misplay only raises a flag once. It lives in the
+  repertoire doc so it syncs. Older builds kept it in localStorage
+  `pb_flagged_<color>`, which is read once as a migration.
 - `S.games[]`: rapid games only, as `{id, my, tc, url, date, white, black,
   welo, belo, result, moves: "SAN SAN …"}`
 - `S.acc[gameId] = {inb:[…], post:[…], exitCp}`: per-move accuracy, using the
@@ -79,8 +102,15 @@ serves it as it is.
    outside sites, so no Supabase, chess.com or Lichess there.
 2. **Hosted (GitHub Pages)**: Supabase, with email and password sign-in. On the
    first sign-in, anything saved in the browser is copied up to the database.
-   On `visibilitychange`, it pulls changes newer than the last seen
-   `updated_at`. Last write wins, which is fine for a single user.
+   - When the app becomes visible, it pulls changes newer than the last seen
+     `updated_at`. The database sets `updated_at` with a trigger, the app reads
+     it back after each save, and the values are compared as times.
+   - When the app is hidden or closed, pending saves are sent at once.
+   - Docs whose save hasn't been confirmed are listed in `pb_dirty`
+     (`{doc: localMs}`). On the next load, a dirty local doc that is newer than
+     the database copy wins and is pushed up, so a failed save isn't lost on
+     reload.
+   - Otherwise last write wins, which is fine for a single user.
 3. **Local only**: browser `localStorage` (`pb_data`), chosen with "Use
    without an account".
 
@@ -99,18 +129,14 @@ database.
 - Auth: email and password. Site URL and Redirect URLs are set to the Pages
   address. For local testing, add a localhost URL (for example
   `http://localhost:5500/`) to Redirect URLs.
-- Schema, already applied through the SQL Editor. Save it as
-  `supabase/migrations/0001_prep_data.sql` so the schema lives in the repo:
-
-```sql
-create table public.prep_data (user_id uuid not null default auth.uid() references auth.users(id) on delete cascade, doc text not null, data jsonb not null, updated_at timestamptz not null default now(), primary key (user_id, doc));
-alter table public.prep_data enable row level security;
-create policy "read own" on public.prep_data for select to authenticated using ((select auth.uid()) = user_id);
-create policy "insert own" on public.prep_data for insert to authenticated with check ((select auth.uid()) = user_id);
-create policy "update own" on public.prep_data for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-create policy "delete own" on public.prep_data for delete to authenticated using ((select auth.uid()) = user_id);
-grant select, insert, update, delete on public.prep_data to authenticated;
-```
+- Schema lives in `supabase/migrations/`. Both files were applied by hand
+  through the SQL Editor, so Supabase's own migration history is empty. They
+  were checked against the live database on 2026-11-07:
+  - `0001_prep_data.sql`: table, RLS policies, grants
+  - `0002_server_updated_at.sql`: trigger that sets `updated_at = now()` on
+    every write
+- Claude Code reaches the database through the claude.ai Supabase connector,
+  which has **write** access. Ask before running anything other than reads.
 
 The whole-document approach is fine for now. If `games` grows large, move games
 and accuracy into their own table, with one row per game.
@@ -137,7 +163,10 @@ and accuracy into their own table, with one row per game.
       build from the `stockfish` npm package, self-hosted in the repo.
 - [ ] chess.com fetch and Lichess explorer from the Pages site (CORS, token)
 - [ ] Supabase sign-up, confirmation, first save, and sync between two devices
-- [ ] PGN repertoire export and import round trip
+- [x] PGN repertoire export and import round trip (logic covered by
+      `tests/logic.html`; the Copy/paste UI hasn't been tried on a phone yet)
+- [x] App boots on desktop Chrome in local and hosted modes
+      (`tests/smoke.html`)
 
 ## Known limitations
 

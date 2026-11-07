@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><pre id="log"></pre>
+<!-- Smoke test: loads ../index.html in an iframe and reports what is on screen. Open smoke.html#local
+     (local-only mode, also plays 1.e4) or smoke.html#hosted (should show the sign-in screen).
+     Clears localStorage for the file:// origin, so run it in a throwaway browser profile. -->
+<script>
+const L = m => document.getElementById("log").textContent += m + "\n";
+window.onerror = (m, s, l) => L("ERR " + m + " @" + s + ":" + l);
+window.addEventListener("unhandledrejection", e => L("REJ " + (e.reason && e.reason.stack || e.reason)));
+const mode = location.hash.slice(1);
+localStorage.clear(); if (mode === "local") localStorage.setItem("pb_local_only", "true");
+const f = document.createElement("iframe"); f.style.width = "400px"; f.style.height = "800px"; f.src = "../index.html"; document.body.append(f);
+f.onload = () => {
+  const w = f.contentWindow, d = f.contentDocument;
+  w.onerror = (m, s, l) => L("APPERR " + m + " @" + s + ":" + l);
+  w.addEventListener("unhandledrejection", e => L("APPREJ " + (e.reason && e.reason.stack || e.reason)));
+  setTimeout(() => {
+    const vis = s => { const e = d.querySelector(s); return e ? (e.hidden ? "hidden" : "shown") : "missing"; };
+    L("loading=" + vis("#loading") + " auth=" + vis("#authView") + " tabs=" + vis(".tabs") + " build=" + vis('[data-view="build"]'));
+    L("storeMode=" + (w.eval("S") && w.eval("S").storeMode) + " squares=" + d.querySelectorAll("#board .sq").length + " pieces=" + d.querySelectorAll("#board .pc").length);
+    if (mode === "local") {
+      const click = sq => d.querySelector(`#board [data-sq="${sq}"]`).click();
+      click("e2"); click("e4");
+      L("after e4: path=" + w.eval("S").build.white.join(" ") + " cards=" + Object.keys(w.eval("S").rep.white.cards).length + " name=" + d.querySelector("#opName").textContent);
+      d.querySelector('[data-nav="train"]').click();
+      L("train tiles: " + d.querySelector("#tStats").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('[data-nav="settings"]').click();
+      L("settings: " + d.querySelector("#repCounts").textContent);
+    }
+    L("DONE");
+  }, 6000);
+};
+</script>
