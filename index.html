@@ -161,6 +161,20 @@ details summary{cursor:pointer;font-weight:600;padding:6px 0}
   </div>
 </header>
 <div id="loading">Loading your repertoire…</div>
+<section id="authView" hidden>
+  <div class="stack" style="max-width:440px">
+    <h2>Sign in</h2>
+    <p class="help">Your repertoire, training history and games are saved to your own database, so your phone and laptop stay in step.</p>
+    <form class="card" id="authForm" style="display:flex;flex-direction:column;gap:12px" novalidate>
+      <div class="field"><label for="authEmail">Email</label><input type="text" id="authEmail" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false"></div>
+      <div class="field"><label for="authPass">Password</label><input type="password" id="authPass" autocomplete="current-password"></div>
+      <div class="row" style="margin:0"><button type="submit" class="btn">Sign in</button><button type="button" class="btn ghost" id="authSignup">Create account</button></div>
+      <p class="help" id="authStatus" aria-live="polite"></p>
+    </form>
+    <button type="button" class="btn ghost" id="authLocal">Use without an account (this device only)</button>
+  </div>
+</section>
+
 
 <main>
 <section data-view="build" hidden>
@@ -270,6 +284,7 @@ details summary{cursor:pointer;font-weight:600;padding:6px 0}
       <h3>Repertoire backup</h3>
       <p class="help" id="storeNote"></p>
       <p class="mono help" id="repCounts"></p>
+      <div class="row" style="margin:0"><button type="button" class="btn ghost" id="signOut" hidden>Sign out</button><button type="button" class="btn ghost" id="signIn" hidden>Sign in to sync across devices</button></div>
       <p class="help">Export writes the colour selected at the top as PGN with variations. Import adds moves from a pasted PGN to that colour without overwriting your existing choices.</p>
       <textarea id="ioText" aria-label="Repertoire PGN"></textarea>
       <div class="row" style="margin:0"><button type="button" class="btn ghost" id="exportBtn">Export</button><button type="button" class="btn ghost" id="copyBtn">Copy</button><button type="button" class="btn ghost" id="importRepBtn">Import into repertoire</button></div>
@@ -286,6 +301,7 @@ details summary{cursor:pointer;font-weight:600;padding:6px 0}
 </nav>
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 // Curated opening names: [ECO, name, SAN moves from the start, main idea]
 const BOOK_RAW = [
@@ -472,46 +488,89 @@ function openingFor(path) {
   return best ? { ...best, depth } : null;
 }
 
-/* ---------- storage: claude db when available, else localStorage ---------- */
+/* ---------- storage: Claude db inside Claude, Supabase when hosted, else this browser ---------- */
+const SB_URL = "https://serjfzitcbixkhnuxhol.supabase.co";
+const SB_KEY = "sb_publishable_sCOcKwpCMuAIbLvPtfmcUw_i6n7FZVF";
+const DOCS = ["white", "black", "settings", "games", "acc"];
+function applyData(d) {
+  if (d.white) S.rep.white = d.white;
+  if (d.black) S.rep.black = d.black;
+  if (d.settings) Object.assign(S.settings, d.settings);
+  if (d.games && d.games.list) S.games = d.games.list;
+  if (d.acc && d.acc.map) S.acc = d.acc.map;
+}
+function hasLocalData() {
+  const d = lsGet("pb_data", null);
+  return !!(d && ((d.white && Object.keys(d.white.pos || {}).length) || (d.black && Object.keys(d.black.pos || {}).length) || (d.games && d.games.list && d.games.list.length)));
+}
 const Store = {
-  db: null, uid: null, timers: {}, inflight: {}, pending: {},
+  db: null, uid: null, sb: null, user: null, timers: {}, inflight: {}, pending: {}, seen: {},
+  // Returns "ready" or "auth" (hosted copy, not signed in yet)
   async init() {
-    const local = () => {
-      const d = lsGet("pb_data", null);
-      if (d) apply(d);
-    };
-    const apply = d => {
-      if (d.white) S.rep.white = d.white;
-      if (d.black) S.rep.black = d.black;
-      if (d.settings) Object.assign(S.settings, d.settings);
-      if (d.games && d.games.list) S.games = d.games.list;
-      if (d.acc && d.acc.map) S.acc = d.acc.map;
-    };
-    try {
-      if (!window.claude || !window.claude.use) throw 0;
-      const [db, user] = await Promise.race([
-        Promise.all([window.claude.use("db"), window.claude.use("user")]),
-        new Promise(r => setTimeout(() => r([null, null]), 10000)),
-      ]);
-      if (!db || !user) throw 0;
-      const uid = await user.id();
-      if (!uid) throw 0;
-      this.db = db; this.uid = uid;
-      const names = ["white", "black", "settings", "games", "acc"];
-      const snaps = await Promise.race([
-        Promise.all(names.map(n => db.doc(`data/users/${uid}/${n}`).get())),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000)),
-      ]);
-      const d = {};
-      snaps.forEach((s, i) => { if (s.exists) d[names[i]] = s.data(); });
-      if (!Object.keys(d).length) local(); // first run in Claude: pick up anything saved locally
-      else apply(JSON.parse(JSON.stringify(d)));
-      S.storeMode = "db";
-    } catch (e) {
-      this.db = null;
-      local();
-      S.storeMode = "local";
+    if (window.claude && window.claude.use) {
+      try {
+        const [db, user] = await Promise.race([
+          Promise.all([window.claude.use("db"), window.claude.use("user")]),
+          new Promise(r => setTimeout(() => r([null, null]), 10000)),
+        ]);
+        if (!db || !user) throw 0;
+        const uid = await user.id();
+        if (!uid) throw 0;
+        this.db = db; this.uid = uid;
+        const snaps = await Promise.race([
+          Promise.all(DOCS.map(n => db.doc(`data/users/${uid}/${n}`).get())),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000)),
+        ]);
+        const d = {};
+        snaps.forEach((s, i) => { if (s.exists) d[DOCS[i]] = s.data(); });
+        if (!Object.keys(d).length) applyData(lsGet("pb_data", {}));
+        else applyData(JSON.parse(JSON.stringify(d)));
+        S.storeMode = "db";
+        return "ready";
+      } catch (e) { this.db = null; }
+    } else if (window.supabase && window.supabase.createClient && !lsGet("pb_local_only", false)) {
+      try {
+        this.sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+        const { data } = await this.sb.auth.getSession();
+        if (data && data.session) return (await this.loadRemote(data.session.user)) ? "ready" : "auth";
+        return "auth";
+      } catch (e) { this.sb = null; }
     }
+    applyData(lsGet("pb_data", {}));
+    S.storeMode = "local";
+    return "ready";
+  },
+  async loadRemote(user) {
+    this.user = user;
+    const { data, error } = await this.sb.from("prep_data").select("doc,data,updated_at");
+    if (error) { toast("Couldn't load from the database: " + error.message); return false; }
+    S.storeMode = "supabase";
+    if (!data.length) {
+      // First sign-in: move anything saved in this browser up to the database
+      applyData(lsGet("pb_data", {}));
+      if (hasLocalData()) for (const n of DOCS) this.save(n);
+    } else {
+      const d = {};
+      for (const r of data) { d[r.doc] = r.data; this.seen[r.doc] = r.updated_at; }
+      applyData(d);
+    }
+    return true;
+  },
+  // Pull changes made on another device since we last looked
+  async refresh() {
+    if (S.storeMode !== "supabase" || Object.values(this.inflight).some(Boolean) || Object.keys(this.timers).some(k => this.timers[k])) return false;
+    const { data, error } = await this.sb.from("prep_data").select("doc,data,updated_at");
+    if (error || !data) return false;
+    const d = {};
+    for (const r of data) if (!this.seen[r.doc] || r.updated_at > this.seen[r.doc]) { d[r.doc] = r.data; this.seen[r.doc] = r.updated_at; }
+    if (!Object.keys(d).length) return false;
+    applyData(d);
+    return true;
+  },
+  async signOut() {
+    if (this.sb) await this.sb.auth.signOut();
+    try { localStorage.removeItem("pb_data"); } catch (e) {}
+    location.reload();
   },
   docFor(name) {
     if (name === "games") return { list: S.games };
@@ -521,28 +580,72 @@ const Store = {
   },
   save(name) {
     clearTimeout(this.timers[name]);
-    this.timers[name] = setTimeout(() => this.flush(name), 700);
+    this.timers[name] = setTimeout(() => { this.timers[name] = null; this.flush(name); }, 700);
   },
   async flush(name) {
     lsSet("pb_data", { white: S.rep.white, black: S.rep.black, settings: S.settings, games: { list: S.games }, acc: { map: S.acc } });
-    if (!this.db) return;
+    if (!this.db && S.storeMode !== "supabase") return;
     if (this.inflight[name]) { this.pending[name] = true; return; }
     this.inflight[name] = true;
     try {
       let body = this.docFor(name);
-      if (name === "games") {
-        let list = S.games.slice();
-        while (JSON.stringify(list).length > 230000 && list.length) list = list.slice(0, Math.floor(list.length * 0.85));
-        body = { list };
+      if (this.db) {
+        if (name === "games") {
+          let list = S.games.slice();
+          while (JSON.stringify(list).length > 230000 && list.length) list = list.slice(0, Math.floor(list.length * 0.85));
+          body = { list };
+        }
+        await this.db.doc(`data/users/${this.uid}/${name}`).set(JSON.parse(JSON.stringify(body)));
+      } else {
+        const now = new Date().toISOString();
+        const { error } = await this.sb.from("prep_data").upsert({ user_id: this.user.id, doc: name, data: JSON.parse(JSON.stringify(body)), updated_at: now }, { onConflict: "user_id,doc" });
+        if (error) throw error;
+        this.seen[name] = now;
       }
-      await this.db.doc(`data/users/${this.uid}/${name}`).set(JSON.parse(JSON.stringify(body)));
     } catch (e) {
       if (e && e.code === "quota_exceeded") toast("Cloud storage is full; saved on this device only.");
+      else if (S.storeMode === "supabase") toast("Couldn't save to the database. Your changes are kept on this device and will save with your next change.");
     }
     this.inflight[name] = false;
     if (this.pending[name]) { this.pending[name] = false; this.flush(name); }
   },
 };
+
+/* ---------- sign-in screen (hosted copy) ---------- */
+function showAuth(onDone) {
+  const v = $("#authView");
+  v.hidden = false;
+  document.querySelector("main").hidden = true;
+  document.querySelector(".tabs").hidden = true;
+  $("#loading").hidden = true;
+  const st = $("#authStatus");
+  const creds = () => ({ email: $("#authEmail").value.trim(), password: $("#authPass").value });
+  const done = () => { v.hidden = true; document.querySelector("main").hidden = false; document.querySelector(".tabs").hidden = false; onDone(); };
+  $("#authForm").onsubmit = async e => {
+    e.preventDefault();
+    const c = creds();
+    if (!c.email || !c.password) { st.textContent = "Enter your email and password."; return; }
+    st.textContent = "Signing in…";
+    const { data, error } = await Store.sb.auth.signInWithPassword(c);
+    if (error) { st.textContent = /confirm/i.test(error.message) ? "Confirm your email first: open the link in the email Supabase sent you, then sign in here." : "Sign-in failed: " + error.message; return; }
+    if (await Store.loadRemote(data.user)) done(); else st.textContent = "Signed in, but the database couldn't be read. Try again in a moment.";
+  };
+  $("#authSignup").onclick = async () => {
+    const c = creds();
+    if (!c.email || c.password.length < 6) { st.textContent = "Enter your email and a password of at least 6 characters."; return; }
+    st.textContent = "Creating your account…";
+    const { data, error } = await Store.sb.auth.signUp({ ...c, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) { st.textContent = "Couldn't create the account: " + error.message; return; }
+    if (data.session) { if (await Store.loadRemote(data.user)) done(); return; }
+    st.textContent = "Account created. Open the confirmation link in your email, then sign in here.";
+  };
+  $("#authLocal").onclick = () => {
+    lsSet("pb_local_only", true);
+    applyData(lsGet("pb_data", {}));
+    S.storeMode = "local";
+    done();
+  };
+}
 
 /* ---------- repertoire model ---------- */
 function rep(color = S.color) { return S.rep[color]; }
@@ -1297,7 +1400,11 @@ function renderSettings() {
   $("#bands").innerHTML = BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
   $("#storeNote").textContent = S.storeMode === "db"
     ? "Your repertoire and games are saved to your Claude account, so they follow you between your phone and computer. The Lichess token stays on this device."
+    : S.storeMode === "supabase"
+    ? `Saved to your database, signed in as ${Store.user && Store.user.email ? Store.user.email : "you"}. Sign in with the same account on another device to pick up where you left off. The Lichess token stays on this device.`
     : "Your data is saved in this browser only. Use Export regularly as a backup.";
+  $("#signOut").hidden = S.storeMode !== "supabase";
+  $("#signIn").hidden = !(S.storeMode === "local" && window.supabase && !window.claude);
   const w = Object.keys(rep("white").cards).length, b = Object.keys(rep("black").cards).length;
   $("#repCounts").textContent = `White: ${w} of your moves · Black: ${b} of your moves`;
 }
@@ -1342,9 +1449,14 @@ async function boot() {
   TB = Board($("#tBoard"));
   BB.onMove = mv => onBuildMove(mv);
   TB.onMove = mv => onTrainMove(mv);
-  await Store.init();
+  const state = await Store.init();
+  if (state === "auth") await new Promise(res => showAuth(res));
   walk("white"); walk("black");
   $("#loading").hidden = true;
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible") return;
+    if (await Store.refresh()) { walk("white"); walk("black"); if (!(S.view === "train" && T.state === "run")) render(); }
+  });
   document.addEventListener("click", e => {
     const t = e.target.closest("button");
     if (!t) return;
@@ -1397,6 +1509,8 @@ async function boot() {
     toast(`Added ${r.added} moves${r.conflicts ? `, skipped ${r.conflicts} that clash with your existing choices` : ""}${r.bad ? `, ${r.bad} unreadable` : ""}.`);
     renderSettings();
   };
+  $("#signOut").onclick = () => Store.signOut();
+  $("#signIn").onclick = () => { try { localStorage.removeItem("pb_local_only"); } catch (e) {} location.reload(); };
   $("#clearGames").onclick = () => { $("#confirmClear").hidden = false; };
   $("#confirmNo").onclick = () => { $("#confirmClear").hidden = true; };
   $("#confirmYes").onclick = () => { S.games = []; S.acc = {}; lsSet("pb_flagged_white", []); lsSet("pb_flagged_black", []); Store.save("games"); Store.save("acc"); $("#confirmClear").hidden = true; toast("Imported games cleared. Your repertoire is untouched."); };
