@@ -35,8 +35,21 @@ f.onload = () => {
     if (mode === "multi") runMulti();
     if (mode === "explore") runExplore();
     if (mode === "books") runBooks();
+    if (mode === "anim") runAnim();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Piece animation: a move slides, castling slides the rook too, Back slides the piece home.
+  // Run with --force-prefers-reduced-motion to check that nothing slides.
+  function runAnim() {
+    const moving = () => [...d.querySelectorAll("#board .pc.moving")].map(p => p.closest("[data-sq]").dataset.sq).join(",") || "none";
+    play("#board", "e2", "e4"); L("after e4, sliding: " + moving());
+    play("#board", "e7", "e5"); play("#board", "g1", "f3"); play("#board", "b8", "c6"); play("#board", "f1", "c4"); play("#board", "f8", "c5");
+    play("#board", "e1", "g1"); L("after O-O, sliding: " + moving());
+    d.querySelector("#back").click(); L("after Back, sliding: " + moving());
+    d.querySelector("#toStart").click(); L("after Start (many moves), sliding: " + moving());
+    L("DONE");
+  }
 
   // Prep books, clearing, and the save indicator (local mode)
   async function runBooks() {

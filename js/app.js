@@ -26,7 +26,7 @@ async function fetchChessCom() {
       added += addGames(list);
     }
     st.textContent = `Added ${added} new rapid game${added === 1 ? "" : "s"}.`;
-    flagMisplays("white"); flagMisplays("black");
+    warmGameKeys(() => { flagMisplays("white"); flagMisplays("black"); render(); });
     render();
   } catch (e) {
     st.textContent = e.message && !/fetch|network|Failed/i.test(e.message)
@@ -157,11 +157,60 @@ function buildArrows(fen, key, n) {
   return out;
 }
 
+/* ---------- piece animation ---------- */
+// When the board goes from one position to the next by a single move (forwards, or back one
+// move), slide the moved piece (and the rook when castling) instead of jumping.
+const SLIDE_MS = 180;
+function slideFor(oldFen, oldLast, newFen, newLast) {
+  if (!oldFen || oldFen === newFen || reduceMotion()) return null;
+  const rook = mv => (mv.flags.includes("k") ? ["h", "f"] : mv.flags.includes("q") ? ["a", "d"] : null);
+  const withRook = (mv, rev) => {
+    const out = [rev ? { from: mv.to, to: mv.from } : { from: mv.from, to: mv.to }];
+    const r = rook(mv);
+    if (r) { const rank = mv.from[1]; out.push(rev ? { from: r[1] + rank, to: r[0] + rank } : { from: r[0] + rank, to: r[1] + rank }); }
+    return out;
+  };
+  if (newLast) { // forwards: the new last move, played from the old position
+    const c = new Chess(oldFen), mv = c.move({ from: newLast[0], to: newLast[1], promotion: "q" });
+    if (mv && K(c.fen()) === K(newFen)) return withRook(mv, false);
+  }
+  if (oldLast) { // back one move: the old last move, played from the new position, gives the old one
+    const c = new Chess(newFen), mv = c.move({ from: oldLast[0], to: oldLast[1], promotion: "q" });
+    if (mv && K(c.fen()) === K(oldFen)) return withRook(mv, true);
+  }
+  return null;
+}
+// FLIP: draw the piece at its new square, offset it back to where it came from, then let it go
+function slidePieces(el, moves, flip) {
+  const size = el.clientWidth / 8;
+  if (!size) return;
+  const cr = sq => { const f = sq.charCodeAt(0) - 97, r = +sq[1]; return [flip ? 7 - f : f, flip ? r - 1 : 8 - r]; };
+  for (const { from, to } of moves) {
+    const pc = el.querySelector(`[data-sq="${to}"] .pc`);
+    if (!pc) continue;
+    const [fc, fr] = cr(from), [tc, tr] = cr(to);
+    pc.style.transition = "none";
+    pc.style.transform = `translate(${(fc - tc) * size}px, ${(fr - tr) * size}px)`;
+    pc.classList.add("moving");
+    pc.getBoundingClientRect(); // apply the offset before animating
+    pc.style.transition = `transform ${SLIDE_MS}ms ease-out`;
+    pc.style.transform = "";
+    setTimeout(() => pc.classList.remove("moving"), SLIDE_MS + 20);
+  }
+}
+
 /* ---------- board ---------- */
 const GLYPH ={ k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 function Board(el) {
   const b = { el, fen: START, flip: false, sel: null, last: null, hint: null, bad: null, onMove: null, locked: false, arrows: [] };
-  b.set = (fen, opts = {}) => { b.fen = fen; b.sel = null; Object.assign(b, { last: null, hint: null, bad: null, arrows: [] }, opts); b.draw(); };
+  b.set = (fen, opts = {}) => {
+    const oldFen = b.fen, oldLast = b.last;
+    b.fen = fen; b.sel = null;
+    Object.assign(b, { last: null, hint: null, bad: null, arrows: [] }, opts);
+    b.anim = opts.animate === false ? null : slideFor(oldFen, oldLast, fen, b.last);
+    b.draw();
+    b.anim = null;
+  };
   b.draw = () => {
     const c = new Chess(b.fen);
     const targets = b.sel ? c.moves({ square: b.sel, verbose: true }).map(m => m.to) : [];
@@ -186,6 +235,7 @@ function Board(el) {
       html += `<button type="button" class="${cls.join(" ")}" style="--f:${f};--r:${r}" data-sq="${sq}" aria-label="${sq}${p ? " " + (p.color === "w" ? "white " : "black ") + p.type : ""}">${pc}${dot}${coordF}${coordR}</button>`;
     }
     el.innerHTML = html + arrowsSvg(b.arrows, b.flip);
+    if (b.anim) slidePieces(el, b.anim, b.flip);
   };
   // A missing piece image falls back to the Unicode pieces
   el.addEventListener("error", e => {
@@ -764,7 +814,7 @@ function importPasted() {
   const added = addGames(list);
   $("#importStatus").textContent = `Read ${list.length} game${list.length === 1 ? "" : "s"}: ${mine.length} with you playing, ${rapid.length} rapid, ${added} new.`;
   $("#pgnIn").value = "";
-  flagMisplays("white"); flagMisplays("black");
+  warmGameKeys(() => { flagMisplays("white"); flagMisplays("black"); render(); });
   render();
 }
 
@@ -904,11 +954,12 @@ async function boot() {
   if (state === "auth") await new Promise(res => showAuth(res));
   applyLook(); syncToken(); renderHeader();
   walk("white"); walk("black");
+  warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") { Store.flushAll(); return; }
-    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); if (!(S.view === "train" && T.state === "run")) render(); }
+    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); warmGameKeys(() => render()); if (!(S.view === "train" && T.state === "run")) render(); }
   });
   document.addEventListener("click", e => {
     const t = e.target.closest("button");

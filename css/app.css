@@ -216,3 +216,5 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .tags .pill,.pill{white-space:nowrap}
 table.yours td{vertical-align:top}
+/* a piece sliding to its square sits above the other squares and the arrows */
+.pc.moving{z-index:5;will-change:transform}

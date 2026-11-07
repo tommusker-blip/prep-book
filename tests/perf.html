@@ -1,0 +1,49 @@
+<!doctype html><meta charset="utf-8"><title>Prep Book performance</title><pre id="out">running…</pre>
+<!-- Times Build with a realistic load: 1,800 imported games and a branching White repertoire.
+     Serve over HTTP and open tests/perf.html. Under a test server with POST /report the results
+     are sent there as well. Uses local-only mode and clears this origin's localStorage. -->
+<body><script>
+const out = [], L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
+const report = () => fetch("/report", { method: "POST", body: "== perf " + (location.hash || "") + "\n" + out.join("\n") }).catch(() => {});
+window.onerror = m => { L("ERR " + m); report(); };
+localStorage.clear(); localStorage.setItem("pb_local_only", "true");
+const f = document.createElement("iframe"); f.style.cssText = "width:420px;height:900px;border:0"; f.src = "../index.html"; document.body.append(f);
+f.onload = () => setTimeout(async () => {
+  f.contentWindow.onerror = m => { L("APPERR " + m); report(); };
+  const w = f.contentWindow, d = f.contentDocument, G = n => w.eval(n);
+  const S = G("S");
+  const lines = ["e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O", "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3",
+    "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5 Ndb5 d6", "e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7", "e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5", "e4 d5 exd5 Qxd5 Nc3 Qa5 d4 Nf6 Nf3 c6",
+    "e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6 Nc3 Be7", "e4 Nf6 e5 Nd5 d4 d6 Nf3 g6"];
+  for (const l of lines) { const p = []; for (const m of l.split(" ")) { G("addMove")(p, m, "white"); p.push(m); } }
+  G("walk")("white");
+  // 1,800 games that follow those lines and leave them at different points
+  const games = [];
+  for (let i = 0; i < 1800; i++) { const l = lines[i % lines.length].split(" "); const cut = 4 + (i % 9); games.push({ id: "p" + i, my: i % 2 ? "black" : "white", tc: "rapid", date: "2026-01-01", result: ["1-0", "0-1", "1/2-1/2"][i % 3], moves: l.slice(0, cut).join(" ") + " h3 h6 a3 a6", white: "me", black: "x" }); }
+  S.games = games;
+  // Like the app at start-up: game positions are worked out in the background first
+  await new Promise(r => G("warmGameKeys")(r));
+  const time = (label, fn, n = 5) => {
+    const t = [];
+    for (let i = 0; i < n; i++) { const t0 = performance.now(); fn(); t.push(performance.now() - t0); }
+    t.sort((a, b) => a - b);
+    L(`${label}: median ${t[Math.floor(n / 2)].toFixed(1)} ms (min ${t[0].toFixed(1)}, max ${t[n - 1].toFixed(1)})`);
+  };
+  S.build.white = "e4 e5 Nf3".split(" ");
+  time("renderBuild at an opponent move (1.e4 e5 2.Nf3)", () => G("renderBuild")(), 3);
+  S.build.white = "e4 e5".split(" ");
+  time("renderBuild at my move (1.e4 e5)", () => G("renderBuild")(), 3);
+  time("board redraw only", () => G("BB").draw());
+  // the parts of a Build redraw
+  time("  walk (tidy the tree)", () => G("walk")("white"));
+  time("  renderGaps", () => G("renderGaps")());
+  time("  renderSuggest", () => G("renderSuggest")());
+  time("  analysis (memoised)", () => G("analysis")("white"));
+  time("  yourMovesTable", () => G("yourMovesTable")(G("fenAfter")(G("START"), ["e4", "e5"]), G("K")(G("fenAfter")(G("START"), ["e4", "e5"])), G("rep")("white").pos[G("K")(G("fenAfter")(G("START"), ["e4", "e5"]))], ["e4", "e5"]));
+  time("tap a move on the board (select + move + render)", () => {
+    S.build.white = "e4 e5".split(" "); G("renderBuild")();
+    d.querySelector('#board [data-sq="g1"]').click(); d.querySelector('#board [data-sq="f3"]').click();
+  }, 3);
+  report();
+}, 2500);
+</script>

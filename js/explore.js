@@ -89,25 +89,23 @@ function judgeMove(m, ex, color, mine) {
 // (a move missing from the Lichess data counts as 1%; no data yet counts as 100%).
 // Memoised on the repertoire, the explorer cache and the rating bands.
 let treeMemo = { sig: "", idx: null };
-function repSig(color) { return color + "|" + bandKey() + "|" + explVer + "|" + hashStr(Object.entries(rep(color).pos).map(([k, n]) => k + ":" + n.m.join()).join("|")); }
+// Changes whenever the open book's tree, the explorer cache or the rating bands change
+function repSig(color) { return color + "|" + S.book + "|" + bandKey() + "|" + explVer + "|" + walk(color).sig; }
+// Built from walk()'s nodes, so no moves are replayed here
 function indexTree(color = S.color) {
   const sig = repSig(color);
   if (treeMemo.sig === sig) return treeMemo.idx;
-  const R = rep(color), idx = {}, q = [{ fen: START, path: [], reach: 1 }];
+  const { nodes } = walk(color), idx = {}, q = [{ key: K(START), reach: 1 }];
   while (q.length) {
-    const { fen, path, reach } = q.shift();
-    const key = K(fen);
-    if (idx[key]) continue;
-    idx[key] = { path, fen, reach };
-    const n = R.pos[key];
-    if (!n) continue;
-    const opp = !isMine(key, color), ex = opp ? cachedExplorer(fen) : null;
-    for (const m of n.m) {
-      const c = new Chess(fen);
-      if (!c.move(m)) continue;
+    const { key, reach } = q.shift();
+    if (idx[key] || !nodes[key]) continue;
+    const node = nodes[key];
+    idx[key] = { path: node.path, fen: node.fen, reach };
+    const ex = isMine(key, color) ? null : cachedExplorer(node.fen);
+    for (const kid of node.kids) {
       let r = reach;
-      if (ex && ex.total) { const mv = ex.moves.find(x => x.san === m); r *= mv ? mv.n / ex.total : 0.01; }
-      q.push({ fen: c.fen(), path: path.concat(m), reach: r });
+      if (ex && ex.total) { const mv = ex.moves.find(x => x.san === kid.san); r *= mv ? mv.n / ex.total : 0.01; }
+      q.push({ key: kid.key, reach: r });
     }
   }
   treeMemo = { sig, idx };

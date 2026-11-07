@@ -5,9 +5,18 @@ function rep(color = S.color) { return S.rep[color]; }
 function node(key, color = S.color) { const p = rep(color).pos; return p[key] || (p[key] = { m: [] }); }
 function newCard() { return { due: Date.now(), iv: 0, ef: 2.5, reps: 0, lapses: 0, flag: 0, seen: 0 }; }
 
+// A cheap fingerprint of a repertoire's moves and cards, to tell whether anything changed
+const treeHash = R => hashStr(Object.entries(R.pos).map(([k, n]) => k + ":" + n.m.join()).join("|")) + ":" + Object.keys(R.cards).length;
 // Walk the tree from the start; fix paths, drop unreachable positions and stale cards.
+// Returns {seen: key -> path, order: keys breadth first, nodes: key -> {path, fen, kids:[{san, key}]}}.
+// Replaying moves with chess.js is the slow part, so the result is memoised until the tree
+// changes (walk is called from many places on every redraw).
+const walkMemo = {};
 function walk(color = S.color) {
-  const R = rep(color), seen = {}, order = [];
+  const R = rep(color), mk = color + "|" + S.book;
+  const memo = walkMemo[mk];
+  if (memo && memo.R === R && memo.sig === treeHash(R)) return memo;
+  const seen = {}, order = [], nodes = {};
   const q = [[START, []]];
   while (q.length) {
     const [fen, path] = q.shift();
@@ -15,12 +24,20 @@ function walk(color = S.color) {
     if (seen[key]) continue;
     seen[key] = path;
     order.push(key);
+    const node = nodes[key] = { path, fen, kids: [] };
     const n = R.pos[key];
     if (!n) continue;
     n.path = path.join(" ");
-    const c = new Chess(fen);
-    n.m = n.m.filter(m => { const mv = c.move(m); if (mv) { c.undo(); return true; } return false; });
-    for (const m of n.m) { const cc = new Chess(fen); cc.move(m); q.push([cc.fen(), path.concat(m)]); }
+    const c = new Chess(fen), keep = [];
+    for (const m of n.m) {
+      if (!c.move(m)) continue; // illegal here: dropped
+      const cf = c.fen();
+      c.undo();
+      keep.push(m);
+      node.kids.push({ san: m, key: K(cf) });
+      q.push([cf, path.concat(m)]);
+    }
+    if (keep.length !== n.m.length) n.m = keep;
   }
   for (const k of Object.keys(R.pos)) if (!(k in seen)) delete R.pos[k];
   for (const k of Object.keys(R.cards)) {
@@ -31,7 +48,7 @@ function walk(color = S.color) {
     const n = R.pos[k];
     if (n && n.m.length && isMine(k, color) && !R.cards[k]) R.cards[k] = newCard();
   }
-  return { seen, order };
+  return (walkMemo[mk] = { R, sig: treeHash(R), seen, order, nodes });
 }
 
 // Add a move at the position after `path`. On my turn a position can hold several moves
@@ -155,12 +172,43 @@ function addGames(list) {
 }
 
 /* ---------- game analysis against the repertoire ---------- */
+// Position keys of a game's opening (before ply 0, 1, …), worked out once per game and reused.
+// Replaying games with chess.js is slow (SAN parsing); with 1,800 games, doing it on every
+// redraw made Build take seconds. Openings rarely stay in book past GAME_PLIES.
+const GAME_PLIES = 40, GAMEKEYS = new Map();
+function gameKeys(g) {
+  let keys = GAMEKEYS.get(g.id);
+  if (keys) return keys;
+  const c = new Chess(), moves = g.moves ? g.moves.split(" ") : [];
+  keys = [K(c.fen())];
+  for (let i = 0; i < Math.min(moves.length, GAME_PLIES); i++) { if (!c.move(moves[i])) break; keys.push(K(c.fen())); }
+  GAMEKEYS.set(g.id, keys);
+  return keys;
+}
+// Fill GAMEKEYS in small batches so the page stays responsive; onDone runs when all are ready
+let warming = false, warmWaiting = [];
+function warmGameKeys(onDone) {
+  if (onDone) warmWaiting.push(onDone);
+  if (warming) return;
+  const finish = () => { warming = false; const cbs = warmWaiting; warmWaiting = []; cbs.forEach(cb => cb()); };
+  if (!S.games.some(g => !GAMEKEYS.has(g.id))) { finish(); return; }
+  warming = true;
+  const step = () => {
+    const end = performance.now() + 12; // ~12 ms of work per tick keeps taps responsive
+    let left = false;
+    for (const g of S.games) { if (GAMEKEYS.has(g.id)) continue; if (performance.now() > end) { left = true; break; } gameKeys(g); }
+    if (left) setTimeout(step, 0); else finish();
+  };
+  setTimeout(step, 0);
+}
 function analyseGame(g) {
   const color = g.my, R = rep(color);
   const moves = g.moves ? g.moves.split(" ") : [];
-  const c = new Chess();
+  const keys = gameKeys(g);
   for (let i = 0; i < moves.length; i++) {
-    const key = K(c.fen()); const n = R.pos[key]; const played = moves[i];
+    const key = keys[i];
+    if (!key) return { type: "full", ply: i, key: keys[keys.length - 1], path: moves.slice(0, i) }; // past GAME_PLIES and still in book
+    const n = R.pos[key], played = moves[i];
     const mine = isMine(key, color);
     const path = moves.slice(0, i);
     if (mine) {
@@ -170,12 +218,21 @@ function analyseGame(g) {
       if (!n || !n.m.length) return { type: "end", ply: i, key, played, path };
       if (!n.m.includes(played)) return { type: "opp_new", ply: i, key, played, path };
     }
-    c.move(played);
   }
-  return { type: "full", ply: moves.length, key: K(c.fen()), path: moves };
+  return { type: "full", ply: moves.length, key: keys[keys.length - 1], path: moves };
 }
-function analysis(color = S.color) {
-  return S.games.filter(g => g.my === color).map(g => ({ g, a: analyseGame(g), s: myScore(g) }));
+// Every game of mine with this colour, analysed against the open repertoire. Memoised until
+// the repertoire or the games change. While game keys are still being worked out in the
+// background, games without keys are left out, and the view redraws when they're ready.
+let analysisMemo = { sig: "", out: null };
+function analysis(color = S.color, all = false) {
+  // all = true works out any missing keys now (slow the first time); used where completeness matters
+  const ready = all || !(warming || S.games.some(g => !GAMEKEYS.has(g.id))) ? S.games : S.games.filter(g => GAMEKEYS.has(g.id));
+  const sig = color + "|" + S.book + "|" + ready.length + "|" + S.games.length + "|" + hashStr(Object.entries(rep(color).pos).map(([k, n]) => k + ":" + n.m.join()).join("|"));
+  if (analysisMemo.sig === sig) return analysisMemo.out;
+  const out = ready.filter(g => g.my === color).map(g => ({ g, a: analyseGame(g), s: myScore(g) }));
+  analysisMemo = { sig, out };
+  return out;
 }
 // Opponent replies seen in games at positions inside the tree: key -> san -> count
 function oppSeen(color = S.color) {
@@ -212,7 +269,7 @@ function flagMisplays(color = S.color) {
   if (!R.flagged) R.flagged = lsGet("pb_flagged_" + color, []);
   const done = new Set(R.flagged), before = done.size;
   let n = 0;
-  for (const { g, a } of analysis(color)) {
+  for (const { g, a } of analysis(color, true)) {
     if (a.type !== "misplay" || done.has(g.id)) continue;
     const card = R.cards[a.key];
     if (card) { card.flag = Math.min(3, (card.flag || 0) + 2); card.due = Math.min(card.due, Date.now()); n++; }
