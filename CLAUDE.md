@@ -11,7 +11,7 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.5, proof of concept)
+## Current state (v0.6, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -67,6 +67,10 @@ when it loads; the others just define things.
   - `scanTree()`: "Scan my tree", most-reached positions first
   - `suggestions()`: hidden gems, better alternatives, transpositions and
     same pawn structure
+- `js/ideas.js`: "Find ideas" (see *Suggestion logic* below):
+  `analyseIdeas()` for one position, `findIdeasInTree()` as a background job,
+  `memorability()`, `ideaTags()` and `treeIdeas()`. Results are cached in
+  `pb_ideas`.
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
   four views (Build, Train, Games, Settings), and `boot()`
 
@@ -244,6 +248,58 @@ and accuracy into their own table, with one row per game.
 - Promotion always makes a queen.
 - Errors are shown as toasts, and there is no offline queue beyond
   `localStorage`.
+
+## Suggestion logic (v0.6)
+
+What I asked for: suggested moves should be **practical**. The two kinds:
+
+1. **Easy to remember.** The move is sound and "looks like" what I already
+   play, so it's easy to learn. That includes a good chance of transposing
+   into lines I know.
+2. **Hidden gems for humans.** The move isn't the most played or the
+   engine's top choice, but it works well, either because it scores well at
+   my level or because the opponent must find specific, non-obvious moves to
+   stay equal. A weaker engine evaluation is fine for these.
+
+How it's measured (`js/ideas.js`, for any position where it's my move). The
+candidates are the moves peers play there (at least 30 games, up to 8) plus
+Stockfish's choice:
+
+- **Engine:** the eval after the move at depth 14, from my side, and the
+  `loss` against the best move.
+- **Opponents go wrong (`err`):** for the replies peers play after the
+  candidate (Lichess, my bands, covering about 90%, up to 8), Stockfish
+  evaluates each resulting position at depth 12. A reply counts as a
+  **mistake** if it gives me at least 100 centipawns (`MISTAKE_CP`) more than
+  their best defence. `err` is the share of peer replies that are mistakes.
+  This measures "not obvious": if peers usually find the good reply, it's
+  obvious.
+- **Fits your prep (`memorability()`):**
+  - Transposition chance: the share of peer replies after which the position
+    is in my tree (full weight), or one move of mine away from it (0.7).
+  - Setup similarity: the Jaccard similarity of my "developed" pieces and
+    pawns (those off their starting squares, e.g. `Pd4 Pe3 Bf4 Nf3`) with
+    setups in my other lines at least 6 plies deep. This line, its ancestors
+    and its descendants are excluded.
+  - The score is the larger of the transposition chance and the average of
+    the two.
+- **Tags:**
+  - **Easy to remember:** loss ≤ 0.8 and fit ≥ 50%.
+  - **Practical trick:** not the most played, not the engine's choice, loss
+    ≤ `trapLoss` (default 1.5 pawns), `err` ≥ `trapErr` (default 30%), replies
+    covering ≥ 50%, and at least 100 games after the move.
+  - **Hidden gem:** the peer-score rule from backlog item 4.
+  - Both thresholds are in Settings.
+- **Cost:** about 10 Lichess lookups (1 per second) and about 70 short engine
+  checks per position. It runs on demand ("Find ideas here" in Build) or as a
+  background job ("Find ideas across my tree" in Suggestions).
+- **Limits:** "looks similar" is only setup and transposition. It doesn't
+  understand plans or typical manoeuvres. Depth 12 can underrate a trick: in
+  the Blackburne Shilling, 4.Nxe5? Qg5 shows as only about +0.3. The checks
+  only cover replies peers actually play.
+- **Test:** `tests/ideas.html` (served over HTTP, real Stockfish, fake
+  Lichess). It finds 3...Nd4 as a practical trick (40% go wrong with 4.Nxe5)
+  and 3...Nf6 as easy to remember (the same setup as the Berlin).
 
 ## Backlog: new requirements
 

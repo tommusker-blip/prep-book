@@ -73,6 +73,7 @@
         <h3>Suggestions from Lichess</h3>
         <p class="help">Based on Lichess rapid games at your rating bands. Scan your tree first so every position has data.</p>
         <div id="scanBox" style="margin-top:10px"></div>
+        <div id="ideaBox" style="margin-top:10px"></div>
         <div id="sugOut"></div>
       </div>
     </div>
@@ -170,6 +171,8 @@
           <label for="gemMin">At least <input type="number" id="gemMin" inputmode="numeric" min="50" step="50"> games</label>
           <label for="gemFreq">Played at most <input type="number" id="gemFreq" inputmode="numeric" min="1" max="50"> % of the time</label>
           <label for="gemEdge">Scoring at least <input type="number" id="gemEdge" inputmode="numeric" min="1" max="30"> points above average</label>
+          <label for="gemTrapErr">Practical trick: opponents go wrong at least <input type="number" id="gemTrapErr" inputmode="numeric" min="10" max="90"> % of the time</label>
+          <label for="gemTrapLoss">Practical trick: accept up to <input type="number" id="gemTrapLoss" inputmode="decimal" min="0" max="5" step="0.1"> pawns worse than the engine's best</label>
         </div>
         <p class="help">A hidden gem must pass all three. A "better" move must have the minimum games and score that many points more than your move. Small samples are noisy, so keep the game count high.</p>
       </fieldset>
@@ -216,6 +219,7 @@
 <script src="js/rep.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/explore.js"></script>
+<script src="js/ideas.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

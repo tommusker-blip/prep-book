@@ -13,6 +13,8 @@
 <script src="../js/store.js"></script>
 <script src="../js/rep.js"></script>
 <script src="../js/explore.js"></script>
+<script src="../js/engine.js"></script>
+<script src="../js/ideas.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -148,6 +150,32 @@ t("grade: pass schedules forward, fail comes back in 10 min", () => {
   grade(c, false); eq(c.iv, 0); eq(Math.round((c.due - Date.now()) / 60000), 10);
 });
 
+const ideaTests = () => {
+/* ----- ideas: setups, similarity, trick rule (no engine needed) ----- */
+t("developed: only my pieces and pawns that left home", () => {
+  eq([...developed(fenOf("e4 e5 Nf3 Nc6"), "white")].sort(), ["Nf3", "Pe4"]);
+  eq([...developed(fenOf("e4 e5 Nf3 Nc6"), "black")].sort(), ["Nc6", "Pe5"]);
+});
+t("jaccard similarity of setups", () => {
+  eq(jaccard(new Set(["Pd4", "Pe3", "Bf4", "Nf3"]), new Set(["Pd4", "Pe3", "Bf4", "Nd2"])), 3 / 5);
+  eq(jaccard(new Set(), new Set()), 0);
+});
+t("practical trick needs: not most played, not engine's choice, small enough loss, enough errors", () => {
+  reset(); resetEx();
+  const cand = { san: "Nd4", p1: fenOf("e4 e5 Nf3 Nc6 Bc4 Nd4"), top: false, engineBest: false, loss: 120, err: 0.4, cover: 0.8, total: 500, replies: [], peer: null };
+  const tags = c => ideaTags(c, "e4 e5 Nf3 Nc6 Bc4".split(" "), "black").tags;
+  eq(tags(cand).includes("trick"), true, "basic");
+  eq(tags({ ...cand, top: true }).includes("trick"), false, "most played");
+  eq(tags({ ...cand, engineBest: true }).includes("trick"), false, "engine's choice");
+  eq(tags({ ...cand, loss: 200 }).includes("trick"), false, "too much worse at default 1.5");
+  S.settings.gem = { ...S.settings.gem, trapLoss: 250 };
+  eq(tags({ ...cand, loss: 200 }).includes("trick"), true, "accepted with 2.5 allowed");
+  S.settings.gem = { ...S.settings.gem, trapErr: 50 };
+  eq(tags(cand).includes("trick"), false, "40% < 50% required");
+  S.settings.gem = { min: 300, freq: 10, edge: 5 };
+});
+}; // run after the explorer helpers below are defined
+
 /* ----- prep books ----- */
 t("book doc names: main keeps white/black, others get @id", () => {
   eq(repDoc("white", "main"), "white"); eq(repDoc("black", "k9"), "black@k9");
@@ -232,6 +260,7 @@ t("same pawn structure finds other named openings", () => {
   eq(st.every(r => !r.name.startsWith("Caro-Kann")), true, "same family excluded");
 });
 
+ideaTests();
 const fails = results.filter(r => r.startsWith("FAIL")).length;
 document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
 document.title = fails ? "FAIL" : "PASS";

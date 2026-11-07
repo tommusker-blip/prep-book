@@ -307,7 +307,7 @@ function renderBuild() {
     } else {
       pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the table below. Use the engine if you want a suggestion.</p>`;
     }
-    pr.innerHTML += yourMovesTable(fen, key, n, path) + myTable(fen, key, n);
+    pr.innerHTML += yourMovesTable(fen, key, n, path) + myTable(fen, key, n) + ideasPanel(fen, key, n, path);
   } else {
     pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${oppTable(fen, key, n)}`;
   }
@@ -434,6 +434,60 @@ function yourMovesTable(fen, key, n, path) {
     <div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Your games<br>(score)</th><th class="num">Lichess<br>score</th><th>Engine</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="src">${totalGames ? `You reached this position in ${totalGames} rapid game${totalGames === 1 ? "" : "s"} by this move order. ` : ""}Engine: Stockfish depth ${VERDICT_DEPTH}, compared with its best move (Good, OK, Dubious, Mistake).</p>`;
 }
+/* ----- my turn: practical, memorable ideas (js/ideas.js) ----- */
+let ideaRun = null; // {key, step} while "Find ideas here" is working
+const pawns = cp => (cp >= 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
+function ideaWhy(c, m) {
+  const out = [];
+  if (m.joins && m.transP >= 0.2) out.push(`${Math.round(m.transP * 100)}% of replies lead into your prep (${esc(m.joins.join(" ") || "start")})`);
+  if (m.like && m.setup >= 0.6) { const op = openingFor(m.like); out.push(`same setup as your ${esc(op ? op.name.split(":")[0] : "other line")} (${Math.round(m.setup * 100)}%)`); }
+  if (c.err != null && c.cover) {
+    const good = c.replies.filter(r => !r.mistake).map(r => r.san), bad = c.replies.filter(r => r.mistake).map(r => r.san);
+    if (c.err < 0.1) out.push("opponents rarely go wrong");
+    else out.push(`${Math.round(c.err * 100)}% of opponents go wrong (${bad.map(esc).join(", ")}?)${good.length ? `; ${good.map(esc).join(", ")} hold${good.length === 1 ? "s" : ""}` : ""}`);
+  }
+  if (c.peer) out.push(`you score ${Math.round(c.peer.sc * 100)}% (${c.peer.n.toLocaleString("en-GB")} games)`);
+  return out.join(" · ");
+}
+function ideasPanel(fen, key, n, path) {
+  const res = cachedIdeas(fen), mine = n ? n.m : [];
+  const head = `<p class="lbl" style="margin-top:14px">Ideas for this position</p>`;
+  if (ideaRun && ideaRun.key === key) return `${head}<p class="help" aria-live="polite">Working: ${esc(ideaRun.step)}… (Lichess lookups go at about one a second)</p>`;
+  if (!res) {
+    if (Engine.failed) return "";
+    return `${head}<p class="help">Checks the moves played here for how memorable they are (they lead back into your prep, or build the same setup as your other lines) and how practical (how often opponents at your level go wrong against them). Takes about 10–20 seconds.</p>
+      <div class="row" style="margin:6px 0 0"><button type="button" class="btn ghost" data-ideas="here">Find ideas here</button></div>`;
+  }
+  const rows = res.cands.slice().sort((a, b) => a.loss - b.loss).map(c => {
+    const { tags, m } = ideaTags(c, path);
+    const pills = [mine.includes(c.san) ? '<span class="pill ok">Yours</span>' : "",
+      tags.includes("memorable") ? '<span class="pill ok">Easy to remember</span>' : "",
+      tags.includes("trick") ? '<span class="pill gem">Practical trick</span>' : "",
+      tags.includes("gem") ? '<span class="pill gem">Hidden gem</span>' : "",
+      c.engineBest ? '<span class="pill">Engine’s choice</span>' : "", c.top ? '<span class="pill">Most played</span>' : ""].join("");
+    return `<tr><td><button type="button" class="chip" data-go="${esc(c.san)}">${esc(c.san)}</button><div class="tags">${pills}</div></td>
+      <td class="num">${pawns(c.myEval)}<br><span class="muted">${c.loss >= 5 ? "−" + (c.loss / 100).toFixed(1) : "best"}</span></td>
+      <td class="num">${c.err == null ? "–" : Math.round(c.err * 100) + "%"}</td>
+      <td class="num">${Math.round(m.score * 100)}%</td></tr>
+      <tr class="why"><td colspan="4">${ideaWhy(c, m) || ""}</td></tr>`;
+  }).join("");
+  return `${head}<div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Engine<br>(vs best)</th><th class="num">Opponents<br>go wrong</th><th class="num">Fits your<br>prep</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="src">Engine: Stockfish, from your side. "Go wrong": the share of replies played at your level that give you at least ${(MISTAKE_CP / 100).toFixed(1)} pawns more than their best defence. "Fits your prep": the chance of transposing into your lines, and how alike the setup is to your other lines. <button type="button" class="linkbtn" data-ideas="here">Check again</button></p>`;
+}
+async function findIdeasHere() {
+  const path = curPath().slice(), fen = fenAfter(START, path), key = K(fen);
+  if (ideaRun) return;
+  ideaRun = { key, step: "starting the engine" };
+  renderBuild();
+  try {
+    await analyseIdeas(fen, S.color, step => {
+      ideaRun.step = step;
+      if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) { const p = $("#prompt [aria-live]"); if (p) p.textContent = `Working: ${step}… (Lichess lookups go at about one a second)`; }
+    });
+  } catch (e) { toast("The engine couldn't run in this browser."); }
+  ideaRun = null;
+  if (S.view === "build") renderBuild();
+}
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 // At my turn: what players at my level play here, how each move scores for me, and which
 // ones are hidden gems or score better than my choice
@@ -524,7 +578,7 @@ function renderGaps() {
 }
 
 /* ----- suggestions from Lichess (scan, hidden gems, transpositions, structures, alternatives) ----- */
-let sugOpen = { gems: 6, better: 6, trans: 6, struct: 6 };
+let sugOpen = { memorable: 6, trick: 6, gems: 6, better: 6, trans: 6, struct: 6 };
 function renderScanBox() {
   const box = $("#scanBox");
   if (!box) return;
@@ -543,7 +597,7 @@ function renderScanBox() {
     ${todo ? `<button type="button" class="btn" data-scan>Scan my tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
 }
 function renderSuggest() {
-  renderScanBox();
+  renderScanBox(); renderIdeaBox();
   const out = $("#sugOut");
   if (!S.token) { out.innerHTML = ""; return; }
   const s = suggestions();
@@ -556,7 +610,13 @@ function renderSuggest() {
       ${rows.length > shown.length ? `<button type="button" class="btn ghost" data-more="${id}">Show more</button>` : ""}`;
   };
   const row = (id, i, title, line, detail) => `<button type="button" class="gap-row" data-sug="${id}:${i}"><span class="gt">${title}</span><span class="gl mono">${esc(line || "start")}</span><span class="gd">${detail}</span></button>`;
+  const ti = treeIdeas();
+  s.memorable = ti.memorable; s.trick = ti.trick;
   const html =
+    section("memorable", "Easy to remember", "Sound moves (Stockfish rates them OK or better) that lead back into your prep or build the same setup as your other lines. From \"Find ideas\".", ti.memorable,
+      (r, i) => row("memorable", i, `${esc(moveLabel(r.path, r.c.san))} · fits your prep ${pc(r.m.score)}`, r.path.join(" "), ideaWhy(r.c, r.m))) +
+    section("trick", "Practical tricks", "Not the most played move or the engine's choice, but opponents at your level often go wrong against them. A little worse for the engine is accepted. From \"Find ideas\".", ti.trick,
+      (r, i) => row("trick", i, `${esc(moveLabel(r.path, r.c.san))} · ${pc(r.c.err)} go wrong`, r.path.join(" "), `engine ${pawns(r.c.myEval)} (${r.c.loss >= 5 ? "−" + (r.c.loss / 100).toFixed(1) + " vs best" : "best"}) · ${ideaWhy(r.c, r.m)}`)) +
     section("gems", "Hidden gems", "Rarely played at your level but score well for you. Check the number of games before trusting the score.", s.gems,
       (r, i) => row("gems", i, `${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · ${r.n.toLocaleString("en-GB")} games · you score ${pc(r.sc)} vs ${pc(r.avg)} on average`)) +
     section("better", "Better-scoring alternatives", "One move away from your choice, and scoring better at your level.", s.better,
@@ -572,6 +632,25 @@ function renderSuggest() {
 function onScanTick(finished) {
   if (S.view !== "build") return;
   if (finished) renderBuild(); else renderScanBox();
+}
+function renderIdeaBox() {
+  const box = $("#ideaBox");
+  if (!box) return;
+  if (Engine.failed) { box.innerHTML = ""; return; }
+  if (IdeaJob.running) {
+    box.innerHTML = `<div class="scanrow"><span class="help" aria-live="polite">Finding ideas: ${IdeaJob.done} of ${IdeaJob.total} of your positions${IdeaJob.note ? ", " + esc(IdeaJob.note) : ""}…</span><button type="button" class="btn ghost" data-ideas="tree">Stop</button></div>
+      <progress max="${IdeaJob.total}" value="${IdeaJob.done}"></progress>`;
+    return;
+  }
+  const todo = ideaTodo().length;
+  box.innerHTML = `<div class="scanrow"><span class="help">${IdeaJob.note && !IdeaJob.running ? esc(IdeaJob.note) + " " : ""}${todo
+    ? `${todo} of your move positions haven't been checked for easy-to-remember moves and practical tricks.`
+    : "Every position where it's your move has been checked for ideas."}</span>
+    ${todo ? `<button type="button" class="btn ghost" data-ideas="tree">Find ideas across my tree (about ${Math.max(1, Math.round(todo * 15 / 60))} min)</button>` : ""}</div>`;
+}
+function onIdeaTick(finished) {
+  if (S.view !== "build") return;
+  if (finished) renderBuild(); else renderIdeaBox();
 }
 function goMove(san) {
   const path = curPath();
@@ -838,6 +917,7 @@ function renderSettings() {
   $("#setMonths").value = String(S.settings.months);
   const gem = { ...gemDefaults(), ...S.settings.gem };
   $("#gemMin").value = gem.min; $("#gemFreq").value = gem.freq; $("#gemEdge").value = gem.edge;
+  $("#gemTrapErr").value = gem.trapErr ?? 30; $("#gemTrapLoss").value = ((gem.trapLoss ?? 150) / 100).toFixed(1);
   $("#bands").innerHTML = BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
   $("#storeNote").textContent = S.storeMode === "db"
     ? "Your repertoire and games are saved to your Claude account, so they follow you between your phone and computer. The Lichess token stays on this device."
@@ -979,6 +1059,8 @@ async function boot() {
     else if (d.pieces) { S.settings.pieces = d.pieces; pieceFallback = false; Store.save("settings"); redrawBoards(); renderLook(); }
     else if (d.boardtheme) { S.settings.board = d.boardtheme; Store.save("settings"); redrawBoards(); renderLook(); }
     else if ("scan" in d) scanTree(S.color, onScanTick);
+    else if (d.ideas === "here") findIdeasHere();
+    else if (d.ideas === "tree") findIdeasInTree(S.color, onIdeaTick);
     else if (d.more) { sugOpen[d.more] += 10; renderSuggest(); }
     else if (d.sug) {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
@@ -1025,10 +1107,10 @@ async function boot() {
   $("#saveState").onclick = onSaveStateTap;
   setInterval(() => { if (Store.status() === "saved") renderSaveState("saved"); }, 30000);
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };
-  for (const [id, field, lo, hi] of [["gemMin", "min", 50, 100000], ["gemFreq", "freq", 1, 50], ["gemEdge", "edge", 1, 30]]) {
+  for (const [id, field, lo, hi] of [["gemMin", "min", 50, 100000], ["gemFreq", "freq", 1, 50], ["gemEdge", "edge", 1, 30], ["gemTrapErr", "trapErr", 10, 90], ["gemTrapLoss", "trapLoss", 0, 500]]) {
     $("#" + id).onchange = e => {
-      const v = Math.round(+e.target.value);
-      if (!(v >= lo && v <= hi)) { toast(`Use a number from ${lo} to ${hi}.`); renderSettings(); return; }
+      const v = Math.round(+e.target.value * (id === "gemTrapLoss" ? 100 : 1)); // pawns are stored as centipawns
+      if (!(v >= lo && v <= hi)) { toast(id === "gemTrapLoss" ? "Use a number of pawns from 0 to 5." : `Use a number from ${lo} to ${hi}.`); renderSettings(); return; }
       S.settings.gem = { ...gemDefaults(), ...S.settings.gem, [field]: v }; Store.save("settings");
     };
   }

@@ -1,0 +1,52 @@
+<!doctype html><meta charset="utf-8"><title>Prep Book ideas test</title><pre id="out">running…</pre>
+<!-- End-to-end test of "Find ideas here" with the real Stockfish and a fake Lichess explorer.
+     Serve over HTTP and open tests/ideas.html (the WASM engine can't start from file://).
+     Under a test server with POST /report the results are sent there too.
+     Scenario, as Black after 1.e4 e5 2.Nf3 Nc6 3.Bc4:
+       3...Nd4!? (Blackburne Shilling) should come out as a practical trick: objectively a bit
+       worse, but the common reply 4.Nxe5? loses to 4...Qg5.
+       3...Nf6 should fit my prep: my repertoire has the Berlin (3.Bb5 Nf6), same setup. -->
+<body><script>
+const out = [], L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
+const report = () => fetch("/report", { method: "POST", body: "== ideas\n" + out.join("\n") }).catch(() => {});
+window.onerror = m => { L("ERR " + m); report(); };
+localStorage.clear(); localStorage.setItem("pb_local_only", "true");
+const f = document.createElement("iframe"); f.style.cssText = "width:420px;height:900px;border:0"; f.src = "../index.html"; document.body.append(f);
+f.onload = () => setTimeout(async () => {
+  const w = f.contentWindow, d = f.contentDocument, G = n => w.eval(n);
+  w.onerror = m => { L("APPERR " + m); report(); };
+  const key = s => G("K")(G("fenAfter")(G("START"), s.split(" ")));
+  const P = "e4 e5 Nf3 Nc6 Bc4";
+  const data = {
+    [key(P)]: { white: 4800, draws: 600, black: 4600, moves: [["Bc5", 2100, 300, 2100], ["Nf6", 1600, 200, 1700], ["Be7", 420, 50, 330], ["Nd4", 200, 30, 370], ["d6", 300, 20, 280]] },
+    [key(P + " Nd4")]: { white: 260, draws: 20, black: 720, moves: [["Nxe5", 100, 10, 290], ["Nxd4", 160, 20, 120], ["c3", 80, 10, 60], ["O-O", 70, 5, 75]] },
+    [key(P + " Nf6")]: { white: 1600, draws: 200, black: 1700, moves: [["Ng5", 640, 60, 700], ["d3", 520, 80, 600], ["Nc3", 240, 30, 230], ["O-O", 160, 20, 170]] },
+    [key(P + " Bc5")]: { white: 2100, draws: 300, black: 2100, moves: [["c3", 860, 120, 820], ["O-O", 520, 80, 540], ["d3", 430, 60, 400], ["Nc3", 290, 40, 340]] },
+  };
+  w.fetch = async url => { const x = data[G("K")(decodeURIComponent(url.split("fen=")[1]))] || { white: 50, draws: 10, black: 50, moves: [] };
+    return { ok: true, status: 200, json: async () => ({ ...x, moves: x.moves.map(([san, a, b, c]) => ({ san, white: a, draws: b, black: c })) }) }; };
+  w.eval('S.token = "t"; S.color = "black"');
+  for (const l of ["e4 e5 Nf3 Nc6 Bb5 Nf6 O-O", "e4 e5 Nf3 Nc6 Bc4"]) { const p = []; for (const m of l.split(" ")) { G("addMove")(p, m, "black"); p.push(m); } }
+  G("walk")("black");
+  w.eval(`S.build.black = "${P}".split(" "); render()`);
+  const t0 = performance.now();
+  d.querySelector('[data-ideas="here"]').click();
+  while (G("ideaRun") && performance.now() - t0 < 180000) await new Promise(r => setTimeout(r, 250));
+  L(`analysed in ${Math.round(performance.now() - t0)} ms with engine=${G("Engine").which}`);
+  const res = G("cachedIdeas")(G("fenAfter")(G("START"), P.split(" ")));
+  if (!res) { L("FAIL no ideas cached"); report(); return; }
+  L(`engine best: ${res.best} (${(res.base / 100).toFixed(2)} from my side)`);
+  for (const c of res.cands) {
+    const { tags, m } = G("ideaTags")(c, P.split(" "), "black");
+    L(`${c.san.padEnd(4)} eval ${(c.myEval / 100).toFixed(2)} loss ${(c.loss / 100).toFixed(2)} err ${c.err == null ? "-" : Math.round(c.err * 100) + "%"} fits ${Math.round(m.score * 100)}% (trans ${Math.round(m.transP * 100)}%, setup ${Math.round(m.setup * 100)}%) tags [${tags.join(", ")}]` +
+      (c.replies.length ? " | replies " + c.replies.map(r => `${r.san}${r.mistake ? "?" : ""}(${(r.myEval / 100).toFixed(1)})`).join(" ") : ""));
+  }
+  const nd4 = res.cands.find(c => c.san === "Nd4"), nf6 = res.cands.find(c => c.san === "Nf6");
+  const tagsOf = c => c ? G("ideaTags")(c, P.split(" "), "black").tags : [];
+  L(tagsOf(nd4).includes("trick") ? "ok   3...Nd4 is a practical trick" : "FAIL 3...Nd4 not tagged as a trick");
+  L(tagsOf(nf6).includes("memorable") ? "ok   3...Nf6 is easy to remember (same setup as the Berlin)" : "FAIL 3...Nf6 not tagged memorable");
+  const panel = [...d.querySelectorAll("#prompt table.yours")].pop();
+  L("panel: " + (panel ? panel.innerText.replace(/\s+/g, " ").slice(0, 700) : "missing"));
+  report();
+}, 2500);
+</script>
