@@ -29,10 +29,15 @@ async function explorer(fen) {
 function cachedExplorer(fen) { return EXPL[K(fen) + "|" + S.settings.band.join(",")] || null; }
 
 /* ---------- chess.com import ---------- */
+// chess.com usernames: letters, digits, "_" and "-". An email address is the usual mistake,
+// and chess.com answers it without CORS headers, so the browser only reports a network error.
+const validChessComUser = u => /^[A-Za-z0-9_-]{3,25}$/.test(u);
+const USER_HELP = "Use your chess.com username (as shown on your profile), not your email address.";
 async function fetchChessCom() {
   const u = S.settings.user.trim();
   if (!u) { toast("Add your chess.com username in Settings first."); return; }
   const st = $("#importStatus");
+  if (!validChessComUser(u)) { st.textContent = `"${u}" isn't a chess.com username. ${USER_HELP} Change it in Settings.`; return; }
   st.textContent = "Fetching your game archive list…";
   try {
     const r = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(u.toLowerCase())}/games/archives`);
@@ -55,7 +60,9 @@ async function fetchChessCom() {
   } catch (e) {
     st.textContent = e.message && !/fetch|network|Failed/i.test(e.message)
       ? e.message
-      : "Can't reach chess.com from here. Inside Claude, outside websites are blocked: use Paste PGN below, or run the page from your own hosted copy.";
+      : S.storeMode === "db"
+      ? "Can't reach chess.com from here. Inside Claude, outside websites are blocked: use Paste PGN below, or open the hosted copy."
+      : "Couldn't reach chess.com. Check your connection, and that Settings has your chess.com username (not your email). You can also use Paste PGN below.";
   }
 }
 
@@ -574,7 +581,12 @@ async function boot() {
   $("#pasteBtn").onclick = importPasted;
   $("#pgnFile").onchange = async e => { const f = e.target.files[0]; if (f) { $("#pgnIn").value = await f.text(); importPasted(); } e.target.value = ""; };
   $("#engBtn").onclick = () => analyseGamesWithEngine(8);
-  $("#setUser").onchange = e => { S.settings.user = e.target.value.trim(); Store.save("settings"); };
+  $("#setUser").onchange = e => {
+    const v = e.target.value.trim();
+    if (v && !validChessComUser(v)) { toast(USER_HELP); e.target.setAttribute("aria-invalid", "true"); return; }
+    e.target.removeAttribute("aria-invalid");
+    S.settings.user = v; Store.save("settings");
+  };
   $("#setToken").onchange = e => { S.token = e.target.value.trim(); lsSet("pb_token", S.token); explorerBlocked = false; };
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };
   $("#exportBtn").onclick = () => { $("#ioText").value = exportPGN(S.color); toast(`${S.color === "white" ? "White" : "Black"} repertoire exported below.`); };

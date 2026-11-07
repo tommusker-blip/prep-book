@@ -131,6 +131,7 @@ label{display:block;font-weight:600;margin-bottom:4px}
 .field{display:flex;flex-direction:column;gap:4px}
 .help{font-size:.82rem;color:var(--muted);max-width:62ch}
 input[type=text],input[type=password],select,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px}
+input[aria-invalid="true"]{border-color:var(--bad)}
 textarea{min-height:120px;font-family:var(--f-mono);font-size:.82rem;resize:vertical}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 details summary{cursor:pointer;font-weight:600;padding:6px 0}

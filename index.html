@@ -136,7 +136,7 @@
   <div class="stack">
     <h2>Settings</h2>
     <div class="card" style="display:flex;flex-direction:column;gap:14px">
-      <div class="field"><label for="setUser">chess.com username</label><input type="text" id="setUser" autocomplete="off" autocapitalize="off" spellcheck="false"><p class="help">Used to tell which side you played in imported games.</p></div>
+      <div class="field"><label for="setUser">chess.com username</label><input type="text" id="setUser" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. MagnusCarlsen"><p class="help">Your username as shown on your chess.com profile, not your email address. Used to fetch your games and to tell which side you played.</p></div>
       <div class="field"><label for="setMonths">Months of games to fetch</label><select id="setMonths"><option value="1">1</option><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
       <div class="field"><label for="setToken">Lichess API token</label><input type="password" id="setToken" autocomplete="off"><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Stored on this device only.</p></div>
       <div class="field"><span class="lbl" style="margin:0">Lichess rating bands</span><div class="chips" id="bands"></div><p class="help">Lichess ratings usually run higher than chess.com ones. For a 1500–1600 chess.com rapid player, 1600–1999 is a reasonable starting point.</p></div>
