@@ -33,8 +33,43 @@ f.onload = () => {
     }
     if (mode === "train") runTrain();
     if (mode === "multi") runMulti();
+    if (mode === "explore") runExplore();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Lichess explorer with a fake server: Build tables, Scan my tree (paced), suggestions
+  function runExplore() {
+    const calls = [];
+    const after = s => G("K")(G("fenAfter")(G("START"), s ? s.split(" ") : []));
+    const data = {
+      [after("e4 e5")]: { white: 4800, draws: 1000, black: 4200, moves: [["Nf3", 3500, 700, 2800], ["Nc3", 700, 200, 400], ["Bc4", 300, 50, 150]] },
+      [after("e4")]: { white: 4000, draws: 1000, black: 5000, moves: [["e5", 1000, 250, 1250], ["c5", 1600, 400, 2000]] },
+    };
+    w.fetch = async url => {
+      calls.push(Date.now());
+      const fen = decodeURIComponent(url.split("fen=")[1]);
+      const x = data[G("K")(fen)] || { white: 100, draws: 50, black: 100, moves: [] };
+      return { ok: true, status: 200, json: async () => ({ ...x, moves: x.moves.map(([san, w1, d1, b1]) => ({ san, white: w1, draws: d1, black: b1 })) }) };
+    };
+    w.eval('S.token = "test-token"');
+    play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
+    d.querySelector("#toStart").click();
+    L("scan box: " + d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim());
+    d.querySelector("#scanBox [data-scan]").click();
+    const wait = n => {
+      if (G("Scan").running && n < 600) return setTimeout(() => wait(n + 1), 100);
+      const gaps = calls.slice(1).map((t, i) => t - calls[i]);
+      L(`scan done: ${d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim()} | requests=${calls.length} min gap=${Math.min(...gaps)}ms`);
+      L("sections: " + [...d.querySelectorAll("#sugOut h4")].map(h => h.textContent).join(" / "));
+      L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
+      d.querySelector('#sugOut [data-sug^="gems"]').click();
+      L("gem opens: " + G("S").build.white.join(" ") + " | table pills: " + [...d.querySelectorAll("#prompt .pill")].map(p => p.closest("tr").querySelector(".chip").textContent + "=" + p.textContent).join(", "));
+      d.querySelector("#back").click();
+      L("opp table after 1.e4: " + [...d.querySelectorAll("#prompt tbody tr")].map(tr => tr.querySelector(".chip").textContent + " " + tr.cells[1].textContent + " " + tr.querySelector(".pill").textContent).join(", "));
+      L("DONE");
+    };
+    wait(0);
+  }
 
   // Two first moves for White: add 1.d4 next to 1.e4, then replace 1.d4 with 1.c4, then train
   function runMulti() {

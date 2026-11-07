@@ -1,33 +1,4 @@
 "use strict";
-/* ---------- Lichess explorer (works when the page runs outside Claude) ---------- */
-let explorerBlocked = false;
-async function explorer(fen) {
-  const key = K(fen) + "|" + S.settings.band.join(",");
-  if (EXPL[key]) return EXPL[key];
-  if (!S.token || explorerBlocked) return null;
-  const url = `https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid&ratings=${S.settings.band.join(",")}&moves=12&topGames=0&recentGames=0&fen=${encodeURIComponent(fen)}`;
-  try {
-    const r = await fetch(url, { headers: { Authorization: "Bearer " + S.token } });
-    if (r.status === 401) { toast("Lichess rejected the token. Check it in Settings."); return null; }
-    if (!r.ok) return null;
-    const d = await r.json();
-    const total = d.white + d.draws + d.black;
-    const small = {
-      total, name: d.opening ? d.opening.name : "", eco: d.opening ? d.opening.eco : "",
-      moves: (d.moves || []).map(m => ({ san: m.san, n: m.white + m.draws + m.black, w: m.white, d: m.draws, b: m.black })),
-    };
-    EXPL[key] = small;
-    const keys = Object.keys(EXPL);
-    if (keys.length > 1500) for (const k of keys.slice(0, 300)) delete EXPL[k];
-    lsSet("pb_expl", EXPL);
-    return small;
-  } catch (e) {
-    explorerBlocked = true;
-    return null;
-  }
-}
-function cachedExplorer(fen) { return EXPL[K(fen) + "|" + S.settings.band.join(",")] || null; }
-
 /* ---------- chess.com import ---------- */
 // chess.com usernames: letters, digits, "_" and "-". An email address is the usual mistake,
 // and chess.com answers it without CORS headers, so the browser only reports a network error.
@@ -211,16 +182,45 @@ function renderBuild() {
       <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button><button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button></li>`).join("")}</ul>
       <p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`;
     } else {
-      pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board. Use the engine below if you want a suggestion.</p>`;
+      pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the table below. Use the engine if you want a suggestion.</p>`;
     }
+    pr.innerHTML += myTable(fen, key, n);
   } else {
     pr.innerHTML = `<p class="lbl">Opponent's options</p>${oppTable(fen, key, n)}`;
-    if (!ex) explorer(fen).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   }
+  if (!ex && S.token && !explorerBlocked) explorer(fen).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   // engine panel
   const ev = EVALC[key];
   $("#engOut").innerHTML = ev ? `<b class="mono">${fmtEval(ev.cp, ev.mate, sideOf(key))}</b> <span class="muted">depth ${ev.d}</span> · best <b>${esc(uciToSan(fen, ev.best))}</b>` : `<span class="muted">Not analysed yet.</span>`;
   renderGaps();
+  renderSuggest();
+}
+// A win/draw/loss bar from my side for Lichess counts {w, d, b}
+function wdlBar(r, color) {
+  const tot = (r.w || 0) + (r.d || 0) + (r.b || 0);
+  if (!tot) return `<span class="wdl empty"></span>`;
+  const you = color === "white" ? r.w : r.b, them = color === "white" ? r.b : r.w;
+  return `<span class="wdl" title="Your results from here at this rating: ${pct(you, tot)}% win, ${pct(r.d, tot)}% draw, ${pct(them, tot)}% loss"><i class="w" style="width:${pct(you, tot)}%"></i><i class="d" style="width:${pct(r.d, tot)}%"></i><i class="l" style="width:${pct(them, tot)}%"></i></span>`;
+}
+const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
+// At my turn: what players at my level play here, how each move scores for me, and which
+// ones are hidden gems or score better than my choice
+function myTable(fen, key, n) {
+  const ex = cachedExplorer(fen);
+  if (!ex || !ex.total) return S.token && !explorerBlocked && !ex ? `<p class="help" style="margin-top:10px">Loading how players at your level score here…</p>` : "";
+  const mine = n ? n.m : [];
+  const avg = posAverage(ex, S.color);
+  const rows = ex.moves.slice().sort((a, b) => b.n - a.n).filter((m, i) => i < 8 || mine.includes(m.san) || judgeMove(m, ex, S.color, mine));
+  const body = rows.map(m => {
+    const kind = judgeMove(m, ex, S.color, mine), sc = scoreFor(m, S.color);
+    const pill = mine.includes(m.san) ? '<span class="pill ok">Yours</span>' : kind === "gem" ? '<span class="pill gem">Hidden gem</span>' : kind === "better" ? '<span class="pill gem">Scores better</span>' : "";
+    return `<tr><td><button type="button" class="chip" data-go="${esc(m.san)}">${esc(m.san)}</button></td>
+      <td class="num">${Math.round((100 * m.n) / ex.total)}%</td><td>${wdlBar(m, S.color)}</td>
+      <td class="num">${Math.round(sc * 100)}%</td><td class="num">${m.n.toLocaleString("en-GB")}</td><td>${pill}</td></tr>`;
+  }).join("");
+  return `<p class="lbl" style="margin-top:14px">At your level on Lichess</p>
+    <div class="tblwrap"><table><thead><tr><th>Move</th><th class="num">Freq</th><th>Results</th><th class="num">You score</th><th class="num">Games</th><th></th></tr></thead><tbody>${body}</tbody></table></div>
+    <p class="src">${esc(srcLine(ex))}. Average score here ${Math.round(avg * 100)}%. Tap a move to add it.</p>`;
 }
 function moveLabel(path, san) {
   const n = Math.floor(path.length / 2) + 1;
@@ -246,33 +246,29 @@ function oppTable(fen, key, n) {
     if (explorerBlocked) return `<p class="muted">Lichess stats can't load here because this page can't reach outside websites. Play the opponent's move you want to prepare for on the board.</p>`;
     return `<p class="muted">${S.token ? "Loading what players at your level play here…" : "No data here yet. Play the opponent's move you want to prepare for on the board, or add a Lichess token in Settings to see the most popular replies at your level."}</p>`;
   }
-  const meW = S.color === "white";
+  const idx = indexTree();
   const body = list.map(r => {
-    const tot = (r.w || 0) + (r.d || 0) + (r.b || 0);
-    const you = meW ? r.w : r.b, them = meW ? r.b : r.w;
-    const bar = tot ? `<span class="wdl" title="Your results from here at this rating: ${pct(you, tot)}% win, ${pct(r.d, tot)}% draw, ${pct(them, tot)}% loss"><i class="w" style="width:${pct(you, tot)}%"></i><i class="d" style="width:${pct(r.d, tot)}%"></i><i class="l" style="width:${pct(them, tot)}%"></i></span>` : `<span class="wdl empty"></span>`;
     const ok = prepared.includes(r.san);
+    // An unprepared move that leads into a position I already have is a cheap gap to close
+    let trans = false;
+    if (!ok) { const c = new Chess(fen); trans = !!(c.move(r.san) && idx[K(c.fen())]); }
     return `<tr><td><button type="button" class="chip" data-go="${esc(r.san)}">${esc(r.san)}</button></td>
       <td class="num">${r.f != null ? Math.round(r.f * 100) + "%" : "–"}</td>
-      <td>${bar}</td>
+      <td>${wdlBar(r, S.color)}</td>
       <td class="num">${r.g ? r.g + "×" : ""}</td>
-      <td>${ok ? '<span class="pill ok">Prepared</span>' : '<span class="pill gap">Gap</span>'}</td></tr>`;
+      <td>${ok ? '<span class="pill ok">Prepared</span>' : trans ? '<span class="pill gem">Transposes to your prep</span>' : '<span class="pill gap">Gap</span>'}</td></tr>`;
   }).join("");
-  const src = ex ? `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString()} games` : "From your games";
+  const src = ex ? srcLine(ex) : "From your games";
   return `<div class="tblwrap"><table class="opp"><thead><tr><th>Move</th><th class="num">Freq</th><th>You score</th><th class="num">Your games</th><th></th></tr></thead><tbody>${body}</tbody></table></div><p class="src">${esc(src)}. Tap a move to follow it.</p>`;
 }
 function renderGaps() {
   const color = S.color, R = rep(color);
-  const { seen } = walk(color);
+  walk(color);
   const games = oppSeen(color);
   const gaps = [];
-  // reach estimate from explorer frequencies along the path
-  for (const [key, path] of Object.entries(seen)) {
+  // reach: estimated share of games that get here, from explorer frequencies along the path
+  for (const [key, { path, fen, reach }] of Object.entries(indexTree(color))) {
     const n = R.pos[key];
-    const fen = fenAfter(START, path);
-    if (!fen) continue;
-    let reach = 1;
-    { const c = new Chess(); for (const m of path) { const k = K(c.fen()); if (!isMine(k, color)) { const ex = cachedExplorer(c.fen()); const mv = ex && ex.moves.find(x => x.san === m); if (ex && mv && ex.total) reach *= mv.n / ex.total; } c.move(m); } }
     if (isMine(key, color)) {
       if (!n || !n.m.length) gaps.push({ path, score: reach, text: "Your move is missing", detail: path.length ? "after " + path.slice(-1)[0] : "first move" });
     } else {
@@ -293,6 +289,57 @@ function renderGaps() {
   if (!gaps.length) { el.innerHTML = `<p class="muted">No gaps found in the positions checked so far.</p>`; return; }
   el.innerHTML = gaps.slice(0, 12).map((g, i) => `<li><button type="button" class="gap-row" data-gap="${i}"><span class="gt">${esc(g.text)}</span><span class="gl mono">${esc(g.path.join(" ") || "start")}</span><span class="gd">${esc(g.detail)}</span></button></li>`).join("");
   el._gaps = gaps;
+}
+
+/* ----- suggestions from Lichess (scan, hidden gems, transpositions, structures, alternatives) ----- */
+let sugOpen = { gems: 6, better: 6, trans: 6, struct: 6 };
+function renderScanBox() {
+  const box = $("#scanBox");
+  if (!box) return;
+  if (!S.token) { box.innerHTML = `<p class="help">Add a Lichess token in Settings to get suggestions.</p>`; return; }
+  if (explorerBlocked) { box.innerHTML = `<p class="help">Lichess can't be reached from here.</p>`; return; }
+  const who = S.color === "white" ? "White" : "Black";
+  if (Scan.running) {
+    box.innerHTML = `<div class="scanrow"><span class="help" aria-live="polite">Fetching ${Scan.done} of ${Scan.total} positions for your ${Scan.color === "white" ? "White" : "Black"} repertoire…${Scan.note ? " " + esc(Scan.note) : ""}</span><button type="button" class="btn ghost" data-scan>Stop</button></div>
+      <progress max="${Scan.total}" value="${Scan.done}"></progress>`;
+    return;
+  }
+  const todo = scanTodo().length;
+  box.innerHTML = `<div class="scanrow"><span class="help">${Scan.note ? esc(Scan.note) + " " : ""}${todo
+    ? `${todo} position${todo === 1 ? "" : "s"} in your ${who} repertoire ${todo === 1 ? "has" : "have"} no Lichess data yet.`
+    : `Lichess data is loaded for every position in your ${who} repertoire.`}</span>
+    ${todo ? `<button type="button" class="btn" data-scan>Scan my tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
+}
+function renderSuggest() {
+  renderScanBox();
+  const out = $("#sugOut");
+  if (!S.token) { out.innerHTML = ""; return; }
+  const s = suggestions();
+  const pc = x => Math.round(x * 100) + "%";
+  const section = (id, title, help, rows, fmt) => {
+    if (!rows.length) return "";
+    const shown = rows.slice(0, sugOpen[id]);
+    return `<h4 class="lbl" style="margin-top:14px">${title} <span class="muted">(${rows.length})</span></h4><p class="help">${help}</p>
+      <ol class="gaplist">${shown.map((r, i) => `<li>${fmt(r, i)}</li>`).join("")}</ol>
+      ${rows.length > shown.length ? `<button type="button" class="btn ghost" data-more="${id}">Show more</button>` : ""}`;
+  };
+  const row = (id, i, title, line, detail) => `<button type="button" class="gap-row" data-sug="${id}:${i}"><span class="gt">${title}</span><span class="gl mono">${esc(line || "start")}</span><span class="gd">${detail}</span></button>`;
+  const html =
+    section("gems", "Hidden gems", "Rarely played at your level but score well for you. Check the number of games before trusting the score.", s.gems,
+      (r, i) => row("gems", i, `${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · ${r.n.toLocaleString("en-GB")} games · you score ${pc(r.sc)} vs ${pc(r.avg)} on average`)) +
+    section("better", "Better-scoring alternatives", "One move away from your choice, and scoring better at your level.", s.better,
+      (r, i) => row("better", i, `${esc(moveLabel(r.path, r.san))} instead of ${esc(r.mine.join(" / "))}`, r.path.join(" "), `${pc(r.sc)} vs ${pc(r.myBest)} for yours · ${r.n.toLocaleString("en-GB")} games`)) +
+    section("trans", "Transpositions", "Moves from your positions that lead into another position you've already prepared.", s.trans,
+      (r, i) => row("trans", i, `${r.myTurn ? "You could play" : "Opponent plays"} ${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · joins your line ${esc(r.to.join(" ") || "start")}`)) +
+    section("struct", "Same pawn structure", "Named openings that reach the same pawn structure as one of your lines, so your plans carry over.", s.struct,
+      (r, i) => `<div class="gap-row"><span class="gt">${esc(r.eco)} ${esc(r.name)}</span><span class="gd">Same pawns as your ${esc(r.myName || "line")}: <span class="mono">${esc(r.mine.join(" "))}</span></span>
+        <span class="row" style="margin-top:4px"><button type="button" class="btn ghost" data-sug="struct:${i}">Go to your line</button><a class="btn ghost" href="${lichessAnalysis(r.key)}" target="_blank" rel="noopener">Open on Lichess</a></span></div>`);
+  out.innerHTML = html || `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree to look for suggestions." : "No suggestions with the current thresholds. You can change them in Settings."}</p>`;
+  out._s = s;
+}
+function onScanTick(finished) {
+  if (S.view !== "build") return;
+  if (finished) renderBuild(); else renderScanBox();
 }
 function goMove(san) {
   const path = curPath();
@@ -543,6 +590,8 @@ function renderSettings() {
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
   $("#setMonths").value = String(S.settings.months);
+  const gem = { ...gemDefaults(), ...S.settings.gem };
+  $("#gemMin").value = gem.min; $("#gemFreq").value = gem.freq; $("#gemEdge").value = gem.edge;
   $("#bands").innerHTML = BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
   $("#storeNote").textContent = S.storeMode === "db"
     ? "Your repertoire and games are saved to your Claude account, so they follow you between your phone and computer. The Lichess token stays on this device."
@@ -582,6 +631,12 @@ async function boot() {
     else if (d.addopt) commitBuildMove(d.addopt);
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
+    else if ("scan" in d) scanTree(S.color, onScanTick);
+    else if (d.more) { sugOpen[d.more] += 10; renderSuggest(); }
+    else if (d.sug) {
+      const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
+      S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     else if (d.gap) { const g = $("#gaps")._gaps[+d.gap]; S.build[S.color] = g.path.slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" }); }
     else if ("open" in d) { S.build[S.color] = d.open ? d.open.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
     else if (d.band) {
@@ -618,6 +673,13 @@ async function boot() {
   };
   $("#setToken").onchange = e => { S.token = e.target.value.trim(); lsSet("pb_token", S.token); explorerBlocked = false; };
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };
+  for (const [id, field, lo, hi] of [["gemMin", "min", 50, 100000], ["gemFreq", "freq", 1, 50], ["gemEdge", "edge", 1, 30]]) {
+    $("#" + id).onchange = e => {
+      const v = Math.round(+e.target.value);
+      if (!(v >= lo && v <= hi)) { toast(`Use a number from ${lo} to ${hi}.`); renderSettings(); return; }
+      S.settings.gem = { ...gemDefaults(), ...S.settings.gem, [field]: v }; Store.save("settings");
+    };
+  }
   $("#exportBtn").onclick = () => { $("#ioText").value = exportPGN(S.color); toast(`${S.color === "white" ? "White" : "Black"} repertoire exported below.`); };
   $("#copyBtn").onclick = async () => { const ta = $("#ioText"); try { await navigator.clipboard.writeText(ta.value); toast("Copied."); } catch (e) { ta.select(); toast("Selected: copy it with your keyboard or long-press."); } };
   $("#importRepBtn").onclick = () => {

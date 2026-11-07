@@ -11,7 +11,7 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.3, proof of concept)
+## Current state (v0.4, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -49,9 +49,16 @@ when it loads; the others just define things.
   export/import
 - `js/engine.js`: `Engine` (Stockfish wrapper with an eval cache) and the
   accuracy formula
-- `js/app.js`: Lichess explorer client, chess.com importer, engine game
-  analysis, board component, the four views (Build, Train, Games, Settings),
-  and `boot()`
+- `js/explore.js`: the Lichess explorer code:
+  - client: one shared request queue, about 1 request per second, with a 61 s
+    pause after a 429
+  - `indexTree()`: every position in the tree with its path, FEN and *reach*,
+    memoised
+  - `scanTree()`: "Scan my tree", most-reached positions first
+  - `suggestions()`: hidden gems, better alternatives, transpositions and
+    same pawn structure
+- `js/app.js`: chess.com importer, engine game analysis, board component, the
+  four views (Build, Train, Games, Settings), and `boot()`
 
 Tests (open in a browser, or run headless Chrome with `--dump-dom`; there's no
 Node on the dev machine):
@@ -59,7 +66,7 @@ Node on the dev machine):
 - `tests/logic.html`: unit tests for `core.js`, `book.js` and `rep.js`
   (position keys, transpositions, repertoire building, PGN round trip,
   `analyseGame()`, misplay flags, key migration, scheduling)
-- `tests/smoke.html#local` / `#hosted` / `#train` / `#multi`: loads the real app in an
+- `tests/smoke.html#local` / `#hosted` / `#train` / `#multi` / `#explore`: loads the real app in an
   iframe and reports what's on screen. `#train` runs a whole training session:
   replay, skip, wrong answer, retry, and first-attempt-only grading. Add
   `--force-prefers-reduced-motion` to check that the replay is skipped.
@@ -165,10 +172,15 @@ and accuracy into their own table, with one row per game.
   - each archive URL returns `{games:[{pgn, time_class, rules, url, …}]}`
   - keep games where `time_class === "rapid"` and `rules === "chess"`
 - **Lichess opening explorer**:
-  - `GET https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid&ratings=1600,1800&moves=12&topGames=0&recentGames=0&fen=…`
+  - `GET https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid&ratings=1600,1800&moves=20&topGames=0&recentGames=0&fen=…`
   - Since mid-2026 it **requires** `Authorization: Bearer <personal token>`.
     The token needs no scopes and is entered in Settings.
-  - Responses are cached per position and rating band.
+  - Requests from the Pages site are allowed, including the `Authorization`
+    header (checked 2026-11-07).
+  - Responses are cached per position and rating band in `pb_expl`, as
+    `{total, w, d, b, moves:[{san, n, w, d, b}]}`, keeping at most 2,500
+    positions. Entries cached by older builds have no `w`/`d`/`b` totals, so
+    `posAverage()` falls back to summing the moves.
   - Lichess ratings run higher than chess.com, so the default band is
     1600–1999.
 
@@ -177,7 +189,10 @@ and accuracy into their own table, with one row per game.
 - [ ] Board, tap-to-move and Stockfish on Android Chrome. stockfish.js 10 is
       the old asm.js build and is slow. Consider the WASM "lite single-thread"
       build from the `stockfish` npm package, self-hosted in the repo.
-- [ ] chess.com fetch and Lichess explorer from the Pages site (CORS, token)
+- [x] chess.com fetch and Lichess explorer from the Pages site (CORS, token),
+      2026-11-07. 1,798 games imported.
+- [ ] Scan my tree and the suggestions against real Lichess data. The tests
+      use a fake server and made-up numbers.
 - [x] Supabase sign-up, confirmation, first save, and sync between two devices
       (phone to laptop, 2026-11-07)
 - [x] PGN repertoire export and import round trip (logic covered by
@@ -189,10 +204,13 @@ and accuracy into their own table, with one row per game.
 
 - Only about 130 openings have a one-line idea. The other names from the
   dataset have none.
-- Explorer data is only fetched for positions I visit. Gap ranking uses the
-  product of opponent move frequencies along the path, so unvisited branches
-  rank poorly. Add a "scan my tree" job that prefetches explorer data across
-  the repertoire, rate-limited.
+- Explorer data comes only from positions I visit, or from "Scan my tree" (one
+  colour at a time). Gap ranking and *reach* are the product of opponent move
+  frequencies along the path. A move missing from the data counts as 1%, and
+  a position with no data counts as 100%, so scan first.
+- The explorer cache is in `localStorage`, alongside `pb_data` (games are
+  about 850 KB). If storage runs out, `lsSet` fails silently. Consider
+  IndexedDB for the caches.
 - Training tests one position at a time. The line is replayed first, but I
   only play the final move, not every move of mine along the way.
 - Promotion always makes a queen.
@@ -218,18 +236,22 @@ and accuracy into their own table, with one row per game.
    back `RETRY_GAP` (3) cards later in the same session until it's answered
    correctly. Only the first attempt is graded (`T.graded`). A correct answer
    also moves on by itself, after 0.9 s, so there's no Next button.
-4. **Hidden gems from Lichess peer data.** Recommend moves that are rarely
-   played but score well at my rating band. A starting rule: at least about 300
-   games, frequency at most 10%, and my score from that move at least 5
-   percentage points above the position's average. Make the thresholds
-   configurable, and show the sample size so small samples aren't over-trusted.
-5. **Neighbouring and transposing lines.** Recommend lines that are close to my
-   current prep:
-   - (a) explorer moves that transpose into positions already in my tree
-     (same position key)
-   - (b) lines that reach the same pawn structure as my existing lines (compare
-     a pawn-only FEN or a pawn-skeleton hash)
-   - (c) alternatives one move away from my lines that score better at my band
+4. ~~**Hidden gems from Lichess peer data.**~~ Done (v0.4).
+   - A gem has at least 300 games, is played at most 10% of the time, and
+     scores at least 5 points above the position's average. All three numbers
+     are set in Settings (`S.settings.gem = {min, freq, edge}`).
+   - Gems show in Build, in the "At your level on Lichess" table at my turn,
+     and in the Suggestions card, always with the game count.
+5. ~~**Neighbouring and transposing lines.**~~ Done (v0.4), in the
+   Suggestions card:
+   - (a) explorer moves from my positions that reach another position in my
+     tree. The opponent's table also marks these "Transposes to your prep".
+   - (b) named openings from `OPENINGS` with the same `pawnKey()` (pawns
+     only) as one of my positions at least 8 plies deep, excluding my own
+     opening family. They link to the Lichess analysis board, since those
+     lines aren't in my tree.
+   - (c) "better-scoring alternatives": other moves with the minimum games
+     that score `edge` points more than my move.
 6. **AI training coach.** The AI must not analyse chess itself; the engine
    does that. The app sends it a compact metrics report: per line, win/draw/loss
    rates, accuracy in book and just after it, misplay counts, training lapses,
