@@ -219,14 +219,19 @@ and accuracy into their own table, with one row per game.
 
 ## Backlog: new requirements
 
-1. **Piece sets and board themes.** Let me choose piece sets and board colours
-   or textures, saved in settings.
-   - Use SVG piece sets with licences that allow reuse. The Lichess sets have
-     mixed licences: cburnett is CC BY-SA, others are GPL. Check each set and
-     credit it.
-   - Make textures with CSS or generated SVG (wood grain, marble), not
-     copyrighted images.
-   - Keep the Unicode pieces as a fallback.
+1. ~~**Piece sets and board themes.**~~ Done (v0.4). The set and theme live in
+   Settings > Board and are saved in `S.settings.pieces` / `S.settings.board`,
+   so they sync.
+   - Pieces: 7 SVG sets from Lichess in `pieces/<set>/`, plus Unicode, which
+     is also the automatic fallback if an image fails. Licences were checked
+     against Lichess's COPYING.md: **cburnett is GPLv2+**, not CC BY-SA as
+     noted before. CC BY-NC-SA, AGPL and "freeware" sets were left out on
+     purpose. `pieces/README.md` lists the sources, and licence texts are in
+     `pieces/licenses/`.
+   - Boards: green (default), brown, blue, grey, and wood and marble.
+     Wood and marble are textures generated from SVG `feTurbulence` in
+     `css/app.css`, with no image files. One texture spans the board, and each
+     square shows its slice via `--f`/`--r`.
 2. ~~**Animate the line before each test.**~~ Done (v0.3). Each card replays
    its line from the start at 250 ms per move, faster for long lines, with
    about 4 s in total at most. The board is locked during the replay, and a tap

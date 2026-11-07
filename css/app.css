@@ -160,3 +160,30 @@ fieldset.gemset{border:0;padding:0;margin:0}
 .gemgrid{display:flex;flex-direction:column;gap:8px}
 .gemgrid label{font-weight:500;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:44px}
+
+/* ---------- board looks (Settings > Board). Green is the default in :root above. ---------- */
+.pc.pimg{width:100%;height:100%;display:block;object-fit:contain;-webkit-user-drag:none}
+:root[data-board="brown"]{--sq-l:#F0D9B5;--sq-d:#B58863}
+:root[data-board="blue"]{--sq-l:#DEE3E6;--sq-d:#8CA2AD}
+:root[data-board="grey"]{--sq-l:#E4E4E4;--sq-d:#A5A8AA}
+:root[data-board="wood"]{--sq-l:#E3C397;--sq-d:#A6754A;
+  --tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.11' numOctaves='4' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.30 0 0 0 0 0.16 0 0 0 0 0.05 0.9 0 0 0 -0.32'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E")}
+:root[data-board="marble"]{--sq-l:#EEECE6;--sq-d:#8E9A94;
+  --tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.012' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.28 0 0 0 0 0.30 0 0 0 0 0.30 -1.6 0 0 0 0.55'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E")}
+/* One texture spread across the whole board: each square shows its own 1/8 slice */
+:root[data-board="wood"] .sq,:root[data-board="marble"] .sq{background-image:var(--tex);background-size:800% 800%;background-position:calc(var(--f) * 100% / 7) calc(var(--r) * 100% / 7)}
+.preview{display:grid;grid-template-columns:repeat(6,1fr);max-width:300px;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.preview .sq{aspect-ratio:1;display:grid;place-items:center;container-type:inline-size;cursor:default}
+.preview .pc:not(.pimg){font-size:80cqw}
+.lookchip{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-body);font-weight:500;min-height:44px}
+.lookchip .pc{width:26px;height:26px;font-size:22px;line-height:26px;text-align:center;position:static}
+.lookchip .pc:not(.pimg){-webkit-text-stroke:.6px #1C1C1C}
+.lookchip[aria-pressed="true"] .pc:not(.pimg){color:inherit}
+.swatch{display:inline-flex;width:26px;height:26px;border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.swatch i{flex:1}
+[data-swatch="green"] i:first-child{background:#E6ECDD} [data-swatch="green"] i:last-child{background:#86A58C}
+[data-swatch="brown"] i:first-child{background:#F0D9B5} [data-swatch="brown"] i:last-child{background:#B58863}
+[data-swatch="blue"] i:first-child{background:#DEE3E6} [data-swatch="blue"] i:last-child{background:#8CA2AD}
+[data-swatch="grey"] i:first-child{background:#E4E4E4} [data-swatch="grey"] i:last-child{background:#A5A8AA}
+[data-swatch="wood"] i:first-child{background:#E3C397} [data-swatch="wood"] i:last-child{background:#A6754A}
+[data-swatch="marble"] i:first-child{background:#EEECE6} [data-swatch="marble"] i:last-child{background:#8E9A94}

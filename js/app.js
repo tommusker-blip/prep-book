@@ -90,6 +90,36 @@ async function analyseGamesWithEngine() {
   render();
 }
 
+/* ---------- board look: piece sets and board themes (saved in settings) ---------- */
+// SVG sets live in pieces/<id>/{w,b}{K,Q,R,B,N,P}.svg. Licences: pieces/README.md.
+const PIECE_SETS = [
+  { id: "cburnett", name: "Cburnett", credit: "Colin M.L. Burnett · GPLv2+" },
+  { id: "merida", name: "Merida", credit: "Armando Hernandez Marroquin · GPLv2+" },
+  { id: "chessnut", name: "Chessnut", credit: "Alexis Luengas · Apache 2.0" },
+  { id: "fantasy", name: "Fantasy", credit: "Maurizio Monge · MIT" },
+  { id: "celtic", name: "Celtic", credit: "Maurizio Monge · MIT" },
+  { id: "spatial", name: "Spatial", credit: "Maurizio Monge · MIT" },
+  { id: "rhosgfx", name: "RhosGFX", credit: "RhosGFX · CC0" },
+  { id: "unicode", name: "Unicode", credit: "Noto Sans Symbols 2 font · OFL" },
+];
+// Colours are set in css/app.css under :root[data-board=…]; wood and marble add generated textures
+const BOARD_THEMES = [
+  { id: "green", name: "Tournament green" }, { id: "brown", name: "Brown" }, { id: "blue", name: "Blue" },
+  { id: "grey", name: "Grey" }, { id: "wood", name: "Wood" }, { id: "marble", name: "Marble" },
+];
+let pieceFallback = false; // set if an SVG fails to load: use the Unicode pieces for this session
+const pieceSet = () => (pieceFallback ? "unicode" : S.settings.pieces || "cburnett");
+const pieceSrc = (set, color, type) => `pieces/${set}/${color}${type.toUpperCase()}.svg`;
+function pieceHtml(p, set = pieceSet()) {
+  if (set === "unicode") return `<span class="pc ${p.color === "w" ? "pw" : "pb"}">${GLYPH[p.type]}︎</span>`;
+  return `<img class="pc pimg" src="${pieceSrc(set, p.color, p.type)}" alt="" draggable="false">`;
+}
+function applyLook() {
+  const t = S.settings.board || "green";
+  if (t === "green") delete document.documentElement.dataset.board; else document.documentElement.dataset.board = t;
+}
+function redrawBoards() { applyLook(); if (BB) BB.draw(); if (TB) TB.draw(); }
+
 /* ---------- board ---------- */
 const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
 function Board(el) {
@@ -114,11 +144,17 @@ function Board(el) {
       const dot = targets.includes(sq) ? (p ? '<i class="cap"></i>' : '<i class="dot"></i>') : "";
       const coordF = r === 7 ? `<span class="cf">${files[file]}</span>` : "";
       const coordR = f === 0 ? `<span class="cr">${rank}</span>` : "";
-      const pc = p ? `<span class="pc ${p.color === "w" ? "pw" : "pb"}">${GLYPH[p.type]}︎</span>` : "";
-      html += `<button type="button" class="${cls.join(" ")}" data-sq="${sq}" aria-label="${sq}${p ? " " + (p.color === "w" ? "white " : "black ") + p.type : ""}">${pc}${dot}${coordF}${coordR}</button>`;
+      const pc = p ? pieceHtml(p) : "";
+      // --f/--r place this square's slice of a board-wide texture (wood, marble)
+      html += `<button type="button" class="${cls.join(" ")}" style="--f:${f};--r:${r}" data-sq="${sq}" aria-label="${sq}${p ? " " + (p.color === "w" ? "white " : "black ") + p.type : ""}">${pc}${dot}${coordF}${coordR}</button>`;
     }
     el.innerHTML = html;
   };
+  // A missing piece image falls back to the Unicode pieces
+  el.addEventListener("error", e => {
+    if (!e.target.classList || !e.target.classList.contains("pimg") || pieceFallback) return;
+    pieceFallback = true; toast("Couldn't load the piece images, so the plain pieces are shown instead."); redrawBoards();
+  }, true);
   el.addEventListener("click", e => {
     const t = e.target.closest("[data-sq]");
     if (!t || b.locked) return;
@@ -586,7 +622,16 @@ function importPasted() {
 
 /* ----- settings ----- */
 const BANDS = [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
+function renderLook() {
+  const set = pieceSet(), theme = S.settings.board || "green";
+  const row = ["wK", "bQ", "wN", "bB", "wR", "bP"];
+  $("#lookPreview").innerHTML = row.map((x, i) => `<span class="sq${i % 2 ? " dk" : ""}" style="--f:${i};--r:${i % 2 ? 4 : 3}">${pieceHtml({ color: x[0], type: x[1].toLowerCase() }, set)}</span>`).join("");
+  $("#pieceSets").innerHTML = PIECE_SETS.map(p => `<button type="button" class="chip lookchip" aria-pressed="${p.id === set}" data-pieces="${p.id}">${pieceHtml({ color: "w", type: "n" }, p.id)}<span>${esc(p.name)}</span></button>`).join("");
+  $("#boardThemes").innerHTML = BOARD_THEMES.map(t => `<button type="button" class="chip lookchip" aria-pressed="${t.id === theme}" data-boardtheme="${t.id}"><span class="swatch" data-swatch="${t.id}"><i></i><i></i></span><span>${esc(t.name)}</span></button>`).join("");
+  $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
+}
 function renderSettings() {
+  renderLook();
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
   $("#setMonths").value = String(S.settings.months);
@@ -611,13 +656,14 @@ async function boot() {
   BB.onMove = mv => onBuildMove(mv);
   TB.onMove = mv => onTrainMove(mv);
   const state = await Store.init();
+  applyLook();
   if (state === "auth") await new Promise(res => showAuth(res));
   walk("white"); walk("black");
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") { Store.flushAll(); return; }
-    if (await Store.refresh()) { walk("white"); walk("black"); if (!(S.view === "train" && T.state === "run")) render(); }
+    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); if (!(S.view === "train" && T.state === "run")) render(); }
   });
   document.addEventListener("click", e => {
     const t = e.target.closest("button");
@@ -631,6 +677,8 @@ async function boot() {
     else if (d.addopt) commitBuildMove(d.addopt);
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
+    else if (d.pieces) { S.settings.pieces = d.pieces; pieceFallback = false; Store.save("settings"); redrawBoards(); renderLook(); }
+    else if (d.boardtheme) { S.settings.board = d.boardtheme; Store.save("settings"); redrawBoards(); renderLook(); }
     else if ("scan" in d) scanTree(S.color, onScanTick);
     else if (d.more) { sugOpen[d.more] += 10; renderSuggest(); }
     else if (d.sug) {

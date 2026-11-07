@@ -155,6 +155,14 @@
         <p class="help">A hidden gem must pass all three. A "better" move must have the minimum games and score that many points more than your move. Small samples are noisy, so keep the game count high.</p>
       </fieldset>
     </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <h3>Board</h3>
+      <div class="preview" id="lookPreview" aria-hidden="true"></div>
+      <div class="field"><span class="lbl" style="margin:0">Pieces</span><div class="chips" id="pieceSets"></div></div>
+      <div class="field"><span class="lbl" style="margin:0">Board colours</span><div class="chips" id="boardThemes"></div></div>
+      <details><summary>Piece set credits</summary><ul class="list help" id="pieceCredits"></ul>
+        <p class="help">Piece images come from the Lichess project, where each set's licence is listed. Licence texts are in the repo under <span class="mono">pieces/</span>. The wood and marble boards are generated, with no image files.</p></details>
+    </div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <h3>Repertoire backup</h3>
       <p class="help" id="storeNote"></p>
