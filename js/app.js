@@ -66,42 +66,56 @@ async function fetchChessCom() {
   }
 }
 
-let analysing = false;
-async function analyseGamesWithEngine(limit = 8) {
-  if (analysing) return;
-  const todo = S.games.filter(g => !S.acc[g.id]).slice(0, limit);
+// Analyse every game that has no result yet, newest first (S.games is sorted newest first).
+// Runs in the background until done or stopped; results are saved every SAVE_EVERY games,
+// so stopping or closing loses at most a few and the next run carries on from there.
+let analysing = false, stopAnalysis = false;
+const SAVE_EVERY = 20;
+function analyseOne(g) {
+  const a = analyseGame(g);
+  const moves = g.moves.split(" ");
+  const last = Math.min(moves.length, a.ply + 8, 40);
+  const c = new Chess(); const fens = [c.fen()];
+  for (let i = 0; i < last; i++) { c.move(moves[i]); fens.push(c.fen()); }
+  return (async () => {
+    const ev = [];
+    for (const f of fens) ev.push(await Engine.analyse(f, 10));
+    const inb = [], post = [];
+    for (let i = 0; i < last; i++) {
+      if (!isMine(K(fens[i]), g.my)) continue;
+      (i < a.ply ? inb : post).push(Math.round(moveAcc(ev[i].cp, -ev[i + 1].cp)));
+    }
+    const x = Math.min(a.ply, last);
+    const exitCp = sideOf(K(fens[x])) === myChar(g.my) ? ev[x].cp : -ev[x].cp;
+    return { inb, post, exitCp: Math.round(exitCp) };
+  })();
+}
+async function analyseGamesWithEngine() {
+  if (analysing) { stopAnalysis = true; $("#engStatus").textContent = "Stopping after this game…"; return; }
+  const todo = S.games.filter(g => !S.acc[g.id]);
   if (!todo.length) { toast("All imported games are analysed."); return; }
-  analysing = true;
+  analysing = true; stopAnalysis = false;
   const st = $("#engStatus");
+  const persist = () => { saveEvalCache(); if (S.storeMode === "supabase") Dirty.mark("acc"); Store.flush("acc"); };
+  let done = 0;
+  render();
   try {
     await Engine.init();
-    for (const [gi, g] of todo.entries()) {
-      const a = analyseGame(g);
-      const moves = g.moves.split(" ");
-      const last = Math.min(moves.length, a.ply + 8, 40);
-      const c = new Chess(); const fens = [c.fen()];
-      for (let i = 0; i < last; i++) { c.move(moves[i]); fens.push(c.fen()); }
-      const ev = [];
-      for (let i = 0; i < fens.length; i++) {
-        if (st) st.textContent = `Game ${gi + 1} of ${todo.length}: position ${i + 1} of ${fens.length}`;
-        ev.push(await Engine.analyse(fens[i], 10));
-      }
-      const inb = [], post = [];
-      for (let i = 0; i < last; i++) {
-        if (!isMine(K(fens[i]), g.my)) continue;
-        const accv = moveAcc(ev[i].cp, -ev[i + 1].cp);
-        (i < a.ply ? inb : post).push(Math.round(accv));
-      }
-      const exitCp = sideOf(K(fens[Math.min(a.ply, last)])) === myChar(g.my) ? ev[Math.min(a.ply, last)].cp : -ev[Math.min(a.ply, last)].cp;
-      S.acc[g.id] = { inb, post, exitCp: Math.round(exitCp) };
-      saveEvalCache();
-      Store.save("acc");
+    for (const g of todo) {
+      if (stopAnalysis) break;
+      st.textContent = `Analysing game ${done + 1} of ${todo.length}${g.date ? ` (${g.date})` : ""}…`;
+      S.acc[g.id] = await analyseOne(g);
+      done++;
+      if (done % SAVE_EVERY === 0) { persist(); if (S.view === "games") renderGames(); }
     }
-    if (st) st.textContent = `Analysed ${todo.length} game${todo.length === 1 ? "" : "s"}.`;
+    st.textContent = stopAnalysis
+      ? `Stopped. Analysed ${done} game${done === 1 ? "" : "s"}; ${todo.length - done} left for next time.`
+      : `Analysed ${done} game${done === 1 ? "" : "s"}. All imported games are done.`;
   } catch (e) {
-    if (st) st.textContent = "The engine couldn't start in this browser.";
+    st.textContent = done ? `Stopped after ${done} games: the engine failed. Tap again to carry on.` : "The engine couldn't start in this browser.";
   }
-  analysing = false;
+  persist();
+  analysing = false; stopAnalysis = false;
   render();
 }
 
@@ -483,8 +497,8 @@ function renderGames() {
   $("#gConv").innerHTML = anyConv ? conv.map(c => `<tr><td>${c.label}</td><td class="num">${c.n}</td><td class="num">${c.sc == null ? "–" : c.sc + "%"}</td><td>${c.n ? `<span class="wdl"><i class="w" style="width:${pct(c.w, c.n)}%"></i><i class="d" style="width:${pct(c.d, c.n)}%"></i><i class="l" style="width:${pct(c.l, c.n)}%"></i></span>` : ""}</td></tr>`).join("")
     : `<tr><td colspan="4" class="muted">Run the engine on your games to see how you convert positions coming out of the opening.</td></tr>`;
   const todo = S.games.filter(g => !S.acc[g.id]).length;
-  $("#engBtn").textContent = todo ? `Analyse ${Math.min(8, todo)} more game${todo === 1 ? "" : "s"} (${todo} left)` : "All games analysed";
-  $("#engBtn").disabled = !todo || analysing;
+  $("#engBtn").textContent = analysing ? "Stop" : todo ? `Analyse all (${todo.toLocaleString("en-GB")} left)` : "All games analysed";
+  $("#engBtn").disabled = !todo && !analysing;
   // recent games
   $("#gList").innerHTML = A.slice(0, 15).map(({ g, a, s }) => {
     const opp = g.my === "white" ? g.black : g.white, oe = g.my === "white" ? g.belo : g.welo;
@@ -580,7 +594,7 @@ async function boot() {
   $("#fetchBtn").onclick = fetchChessCom;
   $("#pasteBtn").onclick = importPasted;
   $("#pgnFile").onchange = async e => { const f = e.target.files[0]; if (f) { $("#pgnIn").value = await f.text(); importPasted(); } e.target.value = ""; };
-  $("#engBtn").onclick = () => analyseGamesWithEngine(8);
+  $("#engBtn").onclick = () => analyseGamesWithEngine();
   $("#setUser").onchange = e => {
     const v = e.target.value.trim();
     if (v && !validChessComUser(v)) { toast(USER_HELP); e.target.setAttribute("aria-invalid", "true"); return; }
