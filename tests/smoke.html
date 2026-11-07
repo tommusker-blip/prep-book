@@ -32,8 +32,37 @@ f.onload = () => {
       L("DONE");
     }
     if (mode === "train") runTrain();
+    if (mode === "multi") runMulti();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Two first moves for White: add 1.d4 next to 1.e4, then replace 1.d4 with 1.c4, then train
+  function runMulti() {
+    const start = () => G("S").rep.white.pos[G("K")(G("START"))].m.join(",");
+    const btns = () => [...d.querySelectorAll("#prompt button")].map(b => b.textContent).join(" | ");
+    play("#board", "e2", "e4"); d.querySelector("#toStart").click();
+    play("#board", "d2", "d4");
+    L("asked: " + d.querySelector("#prompt .lbl").textContent + " → " + btns());
+    d.querySelector("#prompt [data-addopt]").click();
+    L("after Add: start moves=" + start() + " path=" + G("S").build.white.join(" "));
+    d.querySelector("#toStart").click();
+    L("start prompt: " + d.querySelector("#prompt .lbl").textContent + " chips=" + [...d.querySelectorAll("#prompt .chip")].map(c => c.textContent).join(", "));
+    play("#board", "c2", "c4");
+    d.querySelector('#prompt [data-replace][data-old="d4"]').click();
+    L("after Replace d4 with c4: start moves=" + start());
+    d.querySelector("#toStart").click();
+    play("#board", "g1", "f3"); d.querySelector("#prompt [data-cancel]").click();
+    L("after Cancel: start moves=" + start() + " path=" + JSON.stringify(G("S").build.white));
+    d.querySelector('[data-nav="train"]').click(); d.querySelector("#tStart").click();
+    const T = G("T");
+    const wait = n => {
+      if (T.phase !== "move") return n > 200 ? L("TIMEOUT") : setTimeout(() => wait(n + 1), 50);
+      play("#tBoard", "c2", "c4");
+      L("trained start, played c4: " + d.querySelector("#tPrompt").textContent.trim());
+      L("DONE");
+    };
+    wait(0);
+  }
 
   function runTrain() {
     play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");

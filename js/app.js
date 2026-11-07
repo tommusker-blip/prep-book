@@ -206,8 +206,10 @@ function renderBuild() {
   const pr = $("#prompt");
   if (mine) {
     if (n && n.m.length) {
-      pr.innerHTML = `<p class="lbl">Your move</p><div class="mymove"><button type="button" class="chip big" data-go="${esc(n.m[0])}">${esc(moveLabel(path, n.m[0]))}</button><span class="muted">Play a different move on the board to replace it.</span></div>
-      <div class="row"><button type="button" class="btn ghost" data-remove="${esc(n.m[0])}">Remove ${esc(n.m[0])} and the line after it</button></div>`;
+      const many = n.m.length > 1;
+      pr.innerHTML = `<p class="lbl">${many ? `Your moves (${n.m.length} options)` : "Your move"}</p>
+      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button><button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button></li>`).join("")}</ul>
+      <p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`;
     } else {
       pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board. Use the engine below if you want a suggestion.</p>`;
     }
@@ -305,20 +307,31 @@ function onBuildMove(mv) {
   const fen = fenAfter(START, path);
   const key = K(fen);
   const n = rep().pos[key];
-  if (isMine(key, S.color) && n && n.m.length && n.m[0] !== mv.san) {
-    showReplace(mv.san, n.m[0]);
+  if (isMine(key, S.color) && n && n.m.length && !n.m.includes(mv.san)) {
+    showAddOrReplace(mv.san, n.m);
     return;
   }
-  const r = addMove(path, mv.san);
-  path.push(mv.san);
+  commitBuildMove(mv.san);
+}
+// Add (or, with `replaces`, swap in) a move at the current Build position and step into it
+function commitBuildMove(san, replaces = null) {
+  const path = curPath();
+  const r = addMove(path, san, S.color, replaces);
+  path.push(san);
   walk();
-  if (r === "added") Store.save(S.color);
+  if (r !== "same") Store.save(S.color);
   renderBuild();
 }
-function showReplace(newSan, oldSan) {
-  const pr = $("#prompt");
-  pr.innerHTML = `<p class="lbl warn">Change your move?</p><p>Your repertoire plays <b>${esc(oldSan)}</b> here. Replace it with <b>${esc(newSan)}</b>? The old line after ${esc(oldSan)} is removed.</p>
-  <div class="row"><button type="button" class="btn" data-replace="${esc(newSan)}">Replace with ${esc(newSan)}</button><button type="button" class="btn ghost" data-cancel>Keep ${esc(oldSan)}</button></div>`;
+// On my turn, a new move where I already have one: add it as another option, or replace one
+function showAddOrReplace(newSan, have) {
+  const path = curPath();
+  const label = esc(moveLabel(path, newSan));
+  const list = have.map(m => `<b>${esc(m)}</b>`).join(" and ");
+  $("#prompt").innerHTML = `<p class="lbl warn">${have.length > 1 ? "You already have moves here" : "You already have a move here"}</p>
+  <p>Your repertoire plays ${list}. Add <b>${label}</b> as another option, or replace ${have.length > 1 ? "one of them" : "it"}? Replacing removes the old move's line.</p>
+  <div class="row"><button type="button" class="btn" data-addopt="${esc(newSan)}">Add ${esc(newSan)} as another option</button>
+  ${have.map(m => `<button type="button" class="btn ghost" data-replace="${esc(newSan)}" data-old="${esc(m)}">Replace ${esc(m)} with ${esc(newSan)}</button>`).join("")}
+  <button type="button" class="btn ghost" data-cancel>Cancel</button></div>`;
 }
 
 /* ----- train ----- */
@@ -394,10 +407,10 @@ function renderTrainCard() {
   $("#tProgress").title = `${left} left in this session`;
 }
 function cardPrompt() {
-  const card = rep().cards[T.key];
+  const card = rep().cards[T.key], n = rep().pos[T.key];
   const again = T.graded.has(T.key);
   const tag = again ? '<span class="pill gap">Try again</span> ' : card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : "";
-  return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">Play the move from your repertoire.</p>`;
+  return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">${n && n.m.length > 1 ? `Play one of your repertoire moves (you have ${n.m.length} here).` : "Play the move from your repertoire."}</p>`;
 }
 // Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
 function playLine() {
@@ -427,23 +440,26 @@ function skipLine() { if (T.phase === "anim") showPosition(); }
 function onTrainMove(mv) {
   if (T.phase !== "move") return;
   const n = rep().pos[T.key];
-  const want = n.m[0];
   const card = rep().cards[T.key];
   const fenBefore = T.frames[T.frames.length - 1].fen;
   const first = !T.graded.has(T.key);
   T.phase = "feedback";
   TB.locked = true;
   if (first) { T.graded.add(T.key); T.done++; }
-  const c = new Chess(fenBefore); const good = c.move(want);
-  if (mv.san === want) {
+  // Any of my prepared moves here is correct (a position can hold several, e.g. 1.e4 and 1.d4)
+  const labels = n.m.map(m => `<b>${esc(moveLabel(T.path, m))}</b>`);
+  if (n.m.includes(mv.san)) {
     if (first) { T.right++; grade(card, true); Store.save(S.color); }
+    const c = new Chess(fenBefore); c.move(mv.san);
     TB.set(c.fen(), { last: [mv.from, mv.to] });
-    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, want))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}</p>`;
-    later(() => { T.i++; nextCard(); }, 900);
+    const others = n.m.filter(m => m !== mv.san);
+    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, mv.san))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}${others.length ? ` Also in your repertoire: ${others.map(esc).join(", ")}.` : ""}</p>`;
+    later(() => { T.i++; nextCard(); }, others.length ? 1300 : 900);
   } else {
     if (first) { grade(card, false); Store.save(S.color); }
+    const c = new Chess(fenBefore); const good = c.move(n.m[0]);
     TB.set(fenBefore, { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null });
-    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. Your move is <b>${esc(moveLabel(T.path, want))}</b>. This position comes back in a few cards.</p>`;
+    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")} (the first is highlighted).` : `Your move is ${labels[0]}.`} This position comes back in a few cards.</p>`;
     T.queue.splice(Math.min(T.queue.length, T.i + 1 + RETRY_GAP), 0, T.key);
     T.retries++;
     later(() => { T.i++; nextCard(); }, 1500);
@@ -563,9 +579,8 @@ async function boot() {
     else if (d.jump) { S.build[S.color] = curPath().slice(0, +d.jump); renderBuild(); }
     else if (d.go) goMove(d.go);
     else if (d.remove) { removeMove(curPath(), d.remove); Store.save(S.color); renderBuild(); toast("Removed " + d.remove + " and the line after it."); }
-    else if ("replace" in d) {
-      const path = curPath(); addMove(path, d.replace); path.push(d.replace); walk(); Store.save(S.color); renderBuild();
-    }
+    else if (d.addopt) commitBuildMove(d.addopt);
+    else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
     else if (d.gap) { const g = $("#gaps")._gaps[+d.gap]; S.build[S.color] = g.path.slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" }); }
     else if ("open" in d) { S.build[S.color] = d.open ? d.open.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
@@ -608,7 +623,7 @@ async function boot() {
   $("#importRepBtn").onclick = () => {
     const txt = $("#ioText").value; if (!txt.trim()) { toast("Paste a PGN first."); return; }
     const r = importRepertoire(txt, S.color);
-    toast(`Added ${r.added} moves${r.conflicts ? `, skipped ${r.conflicts} that clash with your existing choices` : ""}${r.bad ? `, ${r.bad} unreadable` : ""}.`);
+    toast(`Added ${r.added} moves${r.options ? ` (${r.options} as extra options where you already had a move)` : ""}${r.bad ? `, ${r.bad} unreadable` : ""}.`);
     renderSettings();
   };
   $("#signOut").onclick = () => Store.signOut();

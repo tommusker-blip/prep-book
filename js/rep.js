@@ -34,19 +34,23 @@ function walk(color = S.color) {
   return { seen, order };
 }
 
-function addMove(path, san, color = S.color) {
+// Add a move at the position after `path`. On my turn a position can hold several moves
+// (e.g. both 1.e4 and 1.d4); any of them counts as correct in training. Pass `replaces` to
+// swap one of my moves for another instead: that move's card starts again, and walk()
+// prunes the old move's line if nothing else reaches it.
+function addMove(path, san, color = S.color, replaces = null) {
   const fen = fenAfter(START, path);
   const key = K(fen);
   const n = node(key, color);
-  if (isMine(key, color)) {
-    if (n.m[0] === san) return "same";
-    const had = n.m[0];
-    n.m = [san];
+  if (n.m.includes(san)) return "same";
+  const i = replaces != null && isMine(key, color) ? n.m.indexOf(replaces) : -1;
+  if (i >= 0) {
+    n.m[i] = san;
     rep(color).cards[key] = newCard();
-    return had ? "replaced" : "added";
+    return "replaced";
   }
-  if (!n.m.includes(san)) { n.m.push(san); return "added"; }
-  return "same";
+  n.m.push(san);
+  return "added";
 }
 function removeMove(path, san, color = S.color) {
   const key = K(fenAfter(START, path));
@@ -161,7 +165,7 @@ function analyseGame(g) {
     const path = moves.slice(0, i);
     if (mine) {
       if (!n || !n.m.length) return { type: "you_new", ply: i, key, played, path };
-      if (n.m[0] !== played) return { type: "misplay", ply: i, key, played, expected: n.m[0], path };
+      if (!n.m.includes(played)) return { type: "misplay", ply: i, key, played, expected: n.m.join(" / "), path };
     } else {
       if (!n || !n.m.length) return { type: "end", ply: i, key, played, path };
       if (!n.m.includes(played)) return { type: "opp_new", ply: i, key, played, path };
@@ -246,18 +250,19 @@ function exportPGN(color) {
   const body = line(START, true);
   return `[Event "Prep Book repertoire"]\n[White "${color === "white" ? "Me" : "?"}"]\n[Black "${color === "black" ? "Me" : "?"}"]\n[Result "*"]\n\n${body} *\n`;
 }
+// Adds every move in the PGN, variations included, to the repertoire. Nothing is removed or
+// replaced: a different move of mine in a position I already have becomes another option.
 function importRepertoire(text, color) {
-  let added = 0, conflicts = 0, bad = 0;
+  let added = 0, options = 0, bad = 0;
   for (const g of splitGames(text)) {
     bad += walkPGNTree(g, (before, san) => {
       const key = K(before); const n = node(key, color);
-      if (isMine(key, color)) {
-        if (!n.m.length) { n.m = [san]; added++; }
-        else if (n.m[0] !== san) conflicts++;
-      } else if (!n.m.includes(san)) { n.m.push(san); added++; }
+      if (n.m.includes(san)) return;
+      if (isMine(key, color) && n.m.length) options++;
+      n.m.push(san); added++;
     });
   }
   walk(color);
   Store.save(color);
-  return { added, conflicts, bad };
+  return { added, options, bad };
 }

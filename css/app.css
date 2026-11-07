@@ -148,3 +148,5 @@ details summary{cursor:pointer;font-weight:600;padding:6px 0}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;max-width:min(92vw,420px);font-size:.9rem}
 #loading{padding:40px 0;text-align:center;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+.mymoves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mymoves li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

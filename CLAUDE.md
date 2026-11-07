@@ -59,7 +59,7 @@ Node on the dev machine):
 - `tests/logic.html`: unit tests for `core.js`, `book.js` and `rep.js`
   (position keys, transpositions, repertoire building, PGN round trip,
   `analyseGame()`, misplay flags, key migration, scheduling)
-- `tests/smoke.html#local` / `#hosted` / `#train`: loads the real app in an
+- `tests/smoke.html#local` / `#hosted` / `#train` / `#multi`: loads the real app in an
   iframe and reports what's on screen. `#train` runs a whole training session:
   replay, skip, wrong answer, retry, and first-attempt-only grading. Add
   `--force-prefers-reduced-motion` to check that the replay is skipped.
@@ -78,7 +78,13 @@ chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000
   ignored), and sets it to `-` otherwise. Repertoires saved by older builds are
   re-keyed on load by `normRep()` in `store.js`.
 - `S.rep[color].pos[key] = { m: [san...], path: "e4 e5 Nf3" }`
-  - On my turn, `m` has exactly one move (my repertoire choice).
+  - On my turn, `m` holds one or more moves of mine, for example both 1.e4
+    and 1.d4. In Build, playing a new move where I already have one asks:
+    add it as another option, replace one of mine (`addMove(path, san,
+    color, replaces)`), or cancel. In training, any of my moves counts as
+    correct, since choosing between them is up to me. Each line is still
+    drilled through its later positions. `m[0]` is the main line, which the
+    Next button and the training hint follow.
   - On the opponent's turn, `m` lists the replies I've prepared for.
   - `path` is the shortest move sequence from the start, recomputed by `walk()`.
     `walk()` also prunes positions that can no longer be reached.
@@ -98,7 +104,8 @@ chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000
   `post` covers up to about 8 plies after leaving book, and `exitCp` is the
   engine eval at book exit from my side.
 - `analyseGame()` returns where a game left the tree, as one of these exit types:
-  - `misplay`: I deviated from my own move
+  - `misplay`: I played none of my prepared moves (`expected` lists them,
+    separated by " / ")
   - `you_new`: I had no move prepared
   - `opp_new`: the opponent played a move I hadn't prepared
   - `end`: we reached the end of my tree

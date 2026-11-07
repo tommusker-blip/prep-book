@@ -51,9 +51,42 @@ t("build a white repertoire, cards on my moves only", () => {
   const cards = Object.keys(rep("white").cards).length;
   eq(cards, 6, "cards"); // e4; Nf3 after e5; Bb5; Nf3 after c5 (shared); d4 after d6; d4 after Nc6
 });
-t("my move is replaced, not added", () => {
-  const p = ["e4", "e5"]; eq(addMove(p, "Bc4", "white"), "replaced"); walk("white");
+t("replace swaps my move and prunes its old line", () => {
+  const p = ["e4", "e5"]; eq(addMove(p, "Bc4", "white", "Nf3"), "replaced"); walk("white");
   eq(rep("white").pos[K(fenAfter(START, p))].m, ["Bc4"]);
+  eq(rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" ")))], undefined, "old Nf3 line pruned");
+});
+t("several moves of mine in one position (1.e4 and 1.d4)", () => {
+  reset();
+  line("white", "e4 e5 Nf3");
+  eq(addMove([], "d4", "white"), "added");
+  line("white", "d4 d5 c4");
+  eq(rep("white").pos[K(START)].m, ["e4", "d4"]);
+  eq(Object.keys(rep("white").cards).length, 3, "cards: start, after e4 e5, after d4 d5");
+  eq(rep("white").pos[K(fenAfter(START, "e4 e5".split(" ")))].m, ["Nf3"], "e4 line kept");
+});
+t("games: either of my moves is in book, anything else is a misplay", () => {
+  const g = moves => ({ id: moves, my: "white", result: "1-0", moves });
+  eq(analyseGame(g("d4 d5 c4")).type, "full");
+  eq(analyseGame(g("e4 e5 Nf3")).type, "full");
+  const a = analyseGame(g("c4 e5"));
+  eq(a.type, "misplay"); eq(a.expected, "e4 / d4");
+});
+t("PGN round trip keeps several moves of mine", () => {
+  const before = JSON.stringify(Object.entries(rep("white").pos).map(([k, n]) => [k, n.m.slice().sort()]).sort());
+  const pgn = exportPGN("white");
+  reset();
+  const r = importRepertoire(pgn, "white");
+  const after = JSON.stringify(Object.entries(rep("white").pos).map(([k, n]) => [k, n.m.slice().sort()]).sort());
+  eq(after, before, "PGN: " + pgn);
+  eq(r.options, 1, "d4 counted as an extra option");
+});
+t("import adds a different move of mine as an option, not a clash", () => {
+  reset();
+  line("white", "e4 e5 Nf3");
+  const r = importRepertoire("1. e4 e5 2. Bc4 *", "white");
+  eq(rep("white").pos[K(fenAfter(START, "e4 e5".split(" ")))].m, ["Nf3", "Bc4"]);
+  eq(r.options, 1);
 });
 t("PGN export / import round trip", () => {
   reset();

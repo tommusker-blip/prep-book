@@ -146,7 +146,7 @@
       <p class="help" id="storeNote"></p>
       <p class="mono help" id="repCounts"></p>
       <div class="row" style="margin:0"><button type="button" class="btn ghost" id="signOut" hidden>Sign out</button><button type="button" class="btn ghost" id="signIn" hidden>Sign in to sync across devices</button></div>
-      <p class="help">Export writes the colour selected at the top as PGN with variations. Import adds moves from a pasted PGN to that colour without overwriting your existing choices.</p>
+      <p class="help">Export writes the colour selected at the top as PGN with variations. Import adds every move in a pasted PGN to that colour, variations included. Nothing is removed: a different move of yours where you already have one becomes another option.</p>
       <textarea id="ioText" aria-label="Repertoire PGN"></textarea>
       <div class="row" style="margin:0"><button type="button" class="btn ghost" id="exportBtn">Export</button><button type="button" class="btn ghost" id="copyBtn">Copy</button><button type="button" class="btn ghost" id="importRepBtn">Import into repertoire</button></div>
     </div>
