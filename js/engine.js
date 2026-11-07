@@ -1,29 +1,49 @@
 "use strict";
 /* ---------- Stockfish ---------- */
-const SF_URL = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
+// Main engine: Stockfish 17.1 "lite single-threaded" WebAssembly build, self-hosted in engine/
+// (GPLv3, see engine/Copying.txt). About 7 MB, downloaded once and then cached by the browser.
+// It needs no cross-origin isolation headers, which GitHub Pages can't send.
+// Fallback: the old asm.js Stockfish 10 from cdnjs, if WebAssembly or the worker fails.
+// Resolved against this script's own URL (js/engine.js), so it works from any page
+const SF_WASM = new URL("../engine/stockfish-17.1-lite-single-03e3232.js", (document.currentScript && document.currentScript.src) || location.href).href;
+const SF_ASM = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
 const Engine = {
-  w: null, ready: null, queue: Promise.resolve(), handler: null, failed: false,
+  w: null, ready: null, queue: Promise.resolve(), handler: null, failed: false, which: "",
   init() {
     if (this.ready) return this.ready;
-    this.ready = new Promise((res, rej) => {
+    const wasmOk = typeof WebAssembly === "object" && location.protocol !== "file:";
+    this.ready = (wasmOk ? this.start("wasm", 90000).catch(() => this.start("asm", 25000)) : this.start("asm", 25000))
+      .catch(e => { this.failed = true; this.ready = null; throw e; }); // allow a retry later
+    return this.ready;
+  },
+  // Start one engine build and resolve once it answers "uciok"
+  start(which, timeout) {
+    return new Promise((res, rej) => {
+      if (this.w) { this.w.terminate(); this.w = null; }
+      let w;
       try {
-        const blob = new Blob([`importScripts(${JSON.stringify(SF_URL)});`], { type: "application/javascript" });
-        this.w = new Worker(URL.createObjectURL(blob));
-      } catch (e) { this.failed = true; rej(e); return; }
-      const to = setTimeout(() => { this.failed = true; rej(new Error("Engine did not start")); }, 25000);
-      this.w.onmessage = e => {
+        w = which === "wasm"
+          ? new Worker(SF_WASM)
+          : new Worker(URL.createObjectURL(new Blob([`importScripts(${JSON.stringify(SF_ASM)});`], { type: "application/javascript" })));
+      } catch (e) { rej(e); return; }
+      this.w = w;
+      const fail = msg => { clearTimeout(to); w.terminate(); if (this.w === w) this.w = null; rej(new Error(msg)); };
+      const to = setTimeout(() => fail(`Engine (${which}) did not start`), timeout);
+      w.onmessage = e => {
         const line = typeof e.data === "string" ? e.data : String(e.data);
-        if (line === "uciok") { clearTimeout(to); this.w.postMessage("setoption name Hash value 16"); res(); }
+        if (line === "uciok") { clearTimeout(to); this.which = which; w.postMessage("setoption name Hash value 16"); res(); }
         if (this.handler) this.handler(line);
       };
-      this.w.onerror = () => { clearTimeout(to); this.failed = true; rej(new Error("Engine failed to load")); };
-      this.w.postMessage("uci");
+      w.onerror = () => fail(`Engine (${which}) failed to load`);
+      w.postMessage("uci");
     });
-    return this.ready;
   },
   analyse(fen, depth = 12) {
     const key = K(fen);
-    if (EVALC[key] && EVALC[key].d >= depth) return Promise.resolve(EVALC[key]);
+    // Reuse a cached eval if it's deep enough. Evals from the old Stockfish 10 (no `e` field)
+    // are only reused when we're running that engine too.
+    const hit = EVALC[key];
+    if (hit && hit.d >= depth && (hit.e === "wasm" || this.which === "asm")) return Promise.resolve(hit);
     const job = this.queue.then(() => this.init()).then(() => new Promise(res => {
       let last = { cp: 0, best: null, pv: [] };
       this.handler = line => {
@@ -37,7 +57,7 @@ const Engine = {
           last.best = line.split(" ")[1];
           this.handler = null;
           if (new Chess(fen).game_over()) { last.cp = new Chess(fen).in_checkmate() ? -3000 : 0; }
-          const out = { cp: last.cp, mate: last.mate, best: last.best, pv: last.pv, d: depth };
+          const out = { cp: last.cp, mate: last.mate, best: last.best, pv: last.pv, d: depth, e: this.which };
           EVALC[key] = out;
           res(out);
         }

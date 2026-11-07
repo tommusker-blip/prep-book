@@ -71,6 +71,7 @@ async function analyseGamesWithEngine() {
   let done = 0;
   render();
   try {
+    if (!Engine.which) st.textContent = "Starting Stockfish (about 7 MB the first time)…";
     await Engine.init();
     for (const g of todo) {
       if (stopAnalysis) break;
@@ -227,7 +228,7 @@ function renderBuild() {
   if (!ex && S.token && !explorerBlocked) explorer(fen).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   // engine panel
   const ev = EVALC[key];
-  $("#engOut").innerHTML = ev ? `<b class="mono">${fmtEval(ev.cp, ev.mate, sideOf(key))}</b> <span class="muted">depth ${ev.d}</span> · best <b>${esc(uciToSan(fen, ev.best))}</b>` : `<span class="muted">Not analysed yet.</span>`;
+  $("#engOut").innerHTML = ev ? `<b class="mono">${fmtEval(ev.cp, ev.mate, sideOf(key))}</b> <span class="muted">depth ${ev.d}, Stockfish ${ev.e === "wasm" ? "17" : "10"}</span> · best <b>${esc(uciToSan(fen, ev.best))}</b>` : `<span class="muted">Not analysed yet.</span>`;
   renderGaps();
   renderSuggest();
 }
@@ -702,8 +703,8 @@ async function boot() {
   $("#toStart").onclick = () => { S.build[S.color] = []; renderBuild(); };
   $("#engRun").onclick = async () => {
     const fen = fenAfter(START, curPath()); const key = K(fen);
-    $("#engOut").innerHTML = `<span class="muted">Thinking…</span>`;
-    try { await Engine.analyse(fen, 16); saveEvalCache(); } catch (e) { $("#engOut").innerHTML = `<span class="muted">The engine couldn't start in this browser.</span>`; return; }
+    $("#engOut").innerHTML = `<span class="muted">${Engine.which ? "Thinking…" : "Starting Stockfish (about 7 MB the first time)…"}</span>`;
+    try { await Engine.init(); await Engine.analyse(fen, Engine.which === "wasm" ? 20 : 16); saveEvalCache(); } catch (e) { $("#engOut").innerHTML = `<span class="muted">The engine couldn't start in this browser.</span>`; return; }
     if (K(fenAfter(START, curPath())) === key) renderBuild();
   };
   $("#tStart").onclick = startTraining;

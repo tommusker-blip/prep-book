@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Prep Book engine test</title></head>
+<body>
+<!-- Engine benchmark. Must be served over HTTP (the WASM worker can't start from file://), e.g.
+     `npx serve` in the repo, then open http://localhost:3000/tests/engine.html.
+     #asm forces the old Stockfish 10 fallback for comparison. -->
+<pre id="out">running…</pre>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/engine.js"></script>
+<script>
+"use strict";
+const out = [];
+const L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
+// Under a test server that accepts POST /report, the results are sent there too (otherwise ignored)
+const report = () => fetch("/report", { method: "POST", body: "== " + (location.hash || "#wasm") + "\n" + out.join("\n") }).catch(() => {});
+const positions = [
+  START,
+  fenAfter(START, "e4 e5 Nf3 Nc6 Bb5 a6".split(" ")),
+  fenAfter(START, "d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O".split(" ")),
+  fenAfter(START, "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3".split(" ")),
+  "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", // back-rank mate in 1: Rd8#
+];
+(async () => {
+  if (location.hash === "#asm") Engine.init = function () { return this.ready || (this.ready = this.start("asm", 25000)); };
+  const t0 = performance.now();
+  try { await Engine.init(); } catch (e) { L("FAIL engine did not start: " + e.message); document.title = "FAIL"; report(); return; }
+  L(`engine: ${Engine.which}, started in ${Math.round(performance.now() - t0)} ms`);
+  for (const depth of [10, 16]) {
+    const t1 = performance.now();
+    const res = [];
+    for (const f of positions) { delete EVALC[K(f)]; res.push(await Engine.analyse(f, depth)); }
+    const ms = performance.now() - t1;
+    L(`depth ${depth}: ${positions.length} positions in ${Math.round(ms)} ms (${Math.round(ms / positions.length)} ms each)`);
+    L("  evals (side to move, cp): " + res.map(r => r.mate != null ? "#" + r.mate : r.cp).join(", ") + " | best: " + res.map((r, i) => uciToSan(positions[i], r.best)).join(", "));
+  }
+  const mate = EVALC[K(positions[4])];
+  const ok = mate && mate.mate === 1 && uciToSan(positions[4], mate.best) === "Rd8#";
+  L(ok ? "ok   finds mate in 1 (Rd8#)" : "FAIL mate in 1 not found");
+  document.title = ok ? "PASS" : "FAIL";
+  report();
+})();
+</script>
+</body>
+</html>

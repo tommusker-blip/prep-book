@@ -18,8 +18,18 @@ as it is. External scripts come from CDNs:
 
 - chess.js 0.10.3 (cdnjs, UMD global `Chess`): move legality, SAN, FEN
 - @supabase/supabase-js 2.45.4 (jsdelivr, UMD global `supabase`)
-- Stockfish: stockfish.js 10.0.2 (cdnjs). Loaded inside a Web Worker made from a
-  `blob:` URL that calls `importScripts`. UCI over postMessage.
+- Stockfish 17.1 "lite single-threaded" WASM (npm `stockfish@17.1.0`,
+  GPLv3), self-hosted in `engine/`:
+  - about 7 MB, downloaded once per device and then cached
+  - runs as a Web Worker from the `.js` file, which finds its `.wasm` next to
+    itself, and talks UCI over postMessage
+  - needs no cross-origin isolation headers, which Pages can't send
+  - fallback: stockfish.js 10.0.2 asm.js from cdnjs, in a `blob:` worker
+  - benchmark in headless Chrome: depth 10 takes 28 ms per position against
+    1,290 ms for the old build, and depth 16 takes 368 ms against 7,548 ms.
+    Run `tests/engine.html` over HTTP to repeat it.
+  - cached evals record their engine (`e: "wasm"`). Old Stockfish 10 evals
+    are recomputed.
 - Fonts: IBM Plex Sans / Sans Condensed / Mono. Pieces are Unicode glyphs drawn
   with Noto Sans Symbols 2 (Google Fonts, subset with `text=`).
 
@@ -186,9 +196,9 @@ and accuracy into their own table, with one row per game.
 
 ## Untested: verify first
 
-- [ ] Board, tap-to-move and Stockfish on Android Chrome. stockfish.js 10 is
-      the old asm.js build and is slow. Consider the WASM "lite single-thread"
-      build from the `stockfish` npm package, self-hosted in the repo.
+- [ ] Board, tap-to-move and Stockfish on Android Chrome. The WASM engine is
+      tested on desktop Chrome only. Check the first 7 MB load and the speed
+      on the phone.
 - [x] chess.com fetch and Lichess explorer from the Pages site (CORS, token),
       2026-11-07. 1,798 games imported.
 - [ ] Scan my tree and the suggestions against real Lichess data. The tests
