@@ -1,32 +1,77 @@
 <!doctype html><meta charset="utf-8"><pre id="log"></pre>
-<!-- Smoke test: loads ../index.html in an iframe and reports what is on screen. Open smoke.html#local
-     (local-only mode, also plays 1.e4) or smoke.html#hosted (should show the sign-in screen).
+<!-- Smoke test: loads ../index.html in an iframe and reports what is on screen.
+     smoke.html#hosted  should show the sign-in screen
+     smoke.html#local   local-only mode, plays 1.e4 in Build
+     smoke.html#train   local-only mode, builds 1.e4 e5 2.Nf3, then trains both cards: each is
+                        answered wrongly once, comes back later in the session, then is answered right
      Clears localStorage for the file:// origin, so run it in a throwaway browser profile. -->
 <script>
 const L = m => document.getElementById("log").textContent += m + "\n";
 window.onerror = (m, s, l) => L("ERR " + m + " @" + s + ":" + l);
 window.addEventListener("unhandledrejection", e => L("REJ " + (e.reason && e.reason.stack || e.reason)));
 const mode = location.hash.slice(1);
-localStorage.clear(); if (mode === "local") localStorage.setItem("pb_local_only", "true");
+localStorage.clear(); if (mode !== "hosted") localStorage.setItem("pb_local_only", "true");
 const f = document.createElement("iframe"); f.style.width = "400px"; f.style.height = "800px"; f.src = "../index.html"; document.body.append(f);
 f.onload = () => {
   const w = f.contentWindow, d = f.contentDocument;
+  const G = name => w.eval(name); // top-level const globals aren't window properties
   w.onerror = (m, s, l) => L("APPERR " + m + " @" + s + ":" + l);
   w.addEventListener("unhandledrejection", e => L("APPREJ " + (e.reason && e.reason.stack || e.reason)));
+  const play = (board, from, to) => { d.querySelector(`${board} [data-sq="${from}"]`).click(); d.querySelector(`${board} [data-sq="${to}"]`).click(); };
   setTimeout(() => {
     const vis = s => { const e = d.querySelector(s); return e ? (e.hidden ? "hidden" : "shown") : "missing"; };
     L("loading=" + vis("#loading") + " auth=" + vis("#authView") + " tabs=" + vis(".tabs") + " build=" + vis('[data-view="build"]'));
-    L("storeMode=" + (w.eval("S") && w.eval("S").storeMode) + " squares=" + d.querySelectorAll("#board .sq").length + " pieces=" + d.querySelectorAll("#board .pc").length);
+    L("storeMode=" + G("S").storeMode + " squares=" + d.querySelectorAll("#board .sq").length + " pieces=" + d.querySelectorAll("#board .pc").length);
     if (mode === "local") {
-      const click = sq => d.querySelector(`#board [data-sq="${sq}"]`).click();
-      click("e2"); click("e4");
-      L("after e4: path=" + w.eval("S").build.white.join(" ") + " cards=" + Object.keys(w.eval("S").rep.white.cards).length + " name=" + d.querySelector("#opName").textContent);
+      play("#board", "e2", "e4");
+      L("after e4: path=" + G("S").build.white.join(" ") + " cards=" + Object.keys(G("S").rep.white.cards).length + " name=" + d.querySelector("#opName").textContent);
       d.querySelector('[data-nav="train"]').click();
       L("train tiles: " + d.querySelector("#tStats").textContent.replace(/\s+/g, " ").trim());
       d.querySelector('[data-nav="settings"]').click();
       L("settings: " + d.querySelector("#repCounts").textContent);
+      L("DONE");
     }
-    L("DONE");
+    if (mode === "train") runTrain();
+    if (mode === "hosted") L("DONE");
   }, 6000);
+
+  function runTrain() {
+    play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
+    L("built: " + Object.keys(G("S").rep.white.cards).length + " cards");
+    d.querySelector('[data-nav="train"]').click();
+    d.querySelector("#tStart").click();
+    const T = G("T");
+    // Per card: wrong move first, right move after. Keyed by how many moves lead to the position.
+    const moves = { 0: { wrong: ["d2", "d4"], right: ["e2", "e4"] }, 2: { wrong: ["b1", "c3"], right: ["g1", "f3"] } };
+    const tried = new Set(), seen = [];
+    let sawAnim = false, skipped = false, ticks = 0;
+    const tick = () => {
+      if (++ticks > 400) { L("TIMEOUT phase=" + T.phase); return finish(); }
+      if (T.state !== "run") return finish();
+      if (T.phase === "anim") {
+        sawAnim = true;
+        // On the retry of the Nf3 card, tap the board to skip the replay
+        if (tried.has(T.key) && !skipped) { d.querySelector("#tBoard").click(); skipped = T.phase === "move"; L("tap skipped the replay: " + skipped); }
+      }
+      if (T.phase === "move") {
+        const m = moves[T.path.length];
+        const again = tried.has(T.key);
+        seen.push(T.path.length + (again ? "R" : ""));
+        tried.add(T.key);
+        play("#tBoard", ...(again ? m.right : m.wrong));
+        L(`card ${T.path.length ? "after " + T.path.join(" ") : "start"}: played ${again ? "right" : "wrong"} → ${d.querySelector("#tPrompt .lbl").textContent}; queue ${T.queue.length}`);
+      }
+      setTimeout(tick, 50);
+    };
+    const finish = () => {
+      const cards = Object.values(G("S").rep.white.cards);
+      L("order: " + seen.join(" "));
+      L("replay seen: " + sawAnim);
+      L(`first-attempt grading: done=${T.done} right=${T.right} lapses=${cards.map(c => c.lapses).join(",")} reps=${cards.map(c => c.reps).join(",")}`);
+      L("summary: " + d.querySelector("#tSummary").textContent.trim());
+      L("DONE");
+    };
+    tick();
+  }
 };
 </script>

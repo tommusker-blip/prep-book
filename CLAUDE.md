@@ -59,8 +59,10 @@ Node on the dev machine):
 - `tests/logic.html`: unit tests for `core.js`, `book.js` and `rep.js`
   (position keys, transpositions, repertoire building, PGN round trip,
   `analyseGame()`, misplay flags, key migration, scheduling)
-- `tests/smoke.html#local` / `#hosted`: loads the real app in an iframe and
-  reports what's on screen
+- `tests/smoke.html#local` / `#hosted` / `#train`: loads the real app in an
+  iframe and reports what's on screen. `#train` runs a whole training session:
+  replay, skip, wrong answer, retry, and first-attempt-only grading. Add
+  `--force-prefers-reduced-motion` to check that the replay is skipped.
 
 ```sh
 chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000 \
@@ -184,7 +186,8 @@ and accuracy into their own table, with one row per game.
   product of opponent move frequencies along the path, so unvisited branches
   rank poorly. Add a "scan my tree" job that prefetches explorer data across
   the repertoire, rate-limited.
-- Training drills single positions, not whole lines.
+- Training tests one position at a time. The line is replayed first, but I
+  only play the final move, not every move of mine along the way.
 - Promotion always makes a queen.
 - Errors are shown as toasts, and there is no offline queue beyond
   `localStorage`.
@@ -199,16 +202,15 @@ and accuracy into their own table, with one row per game.
    - Make textures with CSS or generated SVG (wood grain, marble), not
      copyrighted images.
    - Keep the Unicode pieces as a fallback.
-2. **Animate the line before each test.** Before a training position, play the
-   moves from the start position quickly (about 200–300 ms per move), with the
-   board locked until it finishes. Allow a tap to skip. Respect
-   `prefers-reduced-motion`.
-3. **Failed test behaviour.** On a wrong move:
-   - show the miss and highlight the correct move for about 1.5 seconds
-   - **move on automatically** to the next test
-   - re-insert the failed position a few cards later **in the same session**,
-     and repeat until it's answered correctly
-   - only the first attempt counts for scheduling
+2. ~~**Animate the line before each test.**~~ Done (v0.3). Each card replays
+   its line from the start at 250 ms per move, faster for long lines, with
+   about 4 s in total at most. The board is locked during the replay, and a tap
+   on the board skips it. No replay when `prefers-reduced-motion` is set.
+3. ~~**Failed test behaviour.**~~ Done (v0.3). A miss shows the wrong move in
+   red and the right one highlighted for 1.5 s, then moves on. The card is put
+   back `RETRY_GAP` (3) cards later in the same session until it's answered
+   correctly. Only the first attempt is graded (`T.graded`). A correct answer
+   also moves on by itself, after 0.9 s, so there's no Next button.
 4. **Hidden gems from Lichess peer data.** Recommend moves that are rarely
    played but score well at my rating band. A starting rule: at least about 300
    games, frequency at most 10%, and my score from that move at least 5

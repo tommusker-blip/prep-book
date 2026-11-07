@@ -301,9 +301,19 @@ function showReplace(newSan, oldSan) {
 }
 
 /* ----- train ----- */
-const T = { queue: [], i: 0, key: null, path: [], tries: 0, done: 0, right: 0, state: "idle" };
+// A session is a queue of position keys. Each card first replays its line from the start
+// (board locked, tap to skip), then waits for my move. A miss shows the right move, moves on
+// by itself and puts the card back a few places later until it's answered correctly. Only the
+// first attempt at each card in a session is graded.
+const T = { queue: [], i: 0, key: null, path: [], done: 0, right: 0, retries: 0, graded: new Set(), state: "idle", phase: "", token: 0, timer: null, frames: [] };
+const RETRY_GAP = 3; // a missed card comes back after this many other cards
+const reduceMotion = () => !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+// setTimeout that does nothing if the card changed or the session ended in the meantime
+function later(fn, ms) { const tok = T.token; clearTimeout(T.timer); T.timer = setTimeout(() => { if (tok === T.token && T.state === "run") fn(); }, ms); }
+function stopTraining() { T.token++; clearTimeout(T.timer); T.phase = ""; }
+
 function renderTrainHome() {
-  if (T.state === "run") return renderTrainCard();
+  if (T.state === "run") return;
   const R = rep();
   walk();
   const cards = Object.values(R.cards);
@@ -318,8 +328,9 @@ function renderTrainHome() {
   $("#tStart").disabled = !cards.length;
   $("#tStart").textContent = due.length ? `Train ${Math.min(due.length, 20)} position${due.length === 1 ? "" : "s"}` : cards.length ? "Nothing due: practise 10 anyway" : "Add moves in Build first";
   if (T.state === "summary") {
+    const missed = T.done - T.right;
     $("#tSummary").hidden = false;
-    $("#tSummary").innerHTML = `<p><b>${T.right} of ${T.done}</b> right first time. Missed positions come back in about 10 minutes.</p>`;
+    $("#tSummary").innerHTML = `<p><b>${T.right} of ${T.done}</b> right first time.${missed ? ` You went back over ${missed === 1 ? "the one you missed" : `the ${missed} you missed`} until you had ${missed === 1 ? "it" : "them"}, and ${missed === 1 ? "it comes" : "they come"} back for review in about 10 minutes.` : ""}</p>`;
   } else $("#tSummary").hidden = true;
 }
 function startTraining() {
@@ -328,54 +339,93 @@ function startTraining() {
     const R = rep();
     q = Object.entries(R.cards).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
   }
-  T.queue = q.slice(0, 20); T.i = 0; T.done = 0; T.right = 0; T.state = "run";
+  Object.assign(T, { queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run" });
   nextCard();
 }
+function endSession() {
+  stopTraining();
+  T.state = T.done ? "summary" : "idle";
+  Store.save(S.color);
+  renderTrainHome();
+}
 function nextCard() {
-  if (T.i >= T.queue.length) { T.state = "summary"; Store.save(S.color); renderTrainHome(); return; }
+  stopTraining();
+  if (T.i >= T.queue.length) return endSession();
   T.key = T.queue[T.i];
   const n = rep().pos[T.key];
-  if (!n || !n.m.length) { T.i++; return nextCard(); }
+  if (!n || !n.m.length || !rep().cards[T.key]) { T.i++; return nextCard(); }
   T.path = n.path ? n.path.split(" ") : [];
-  T.tries = 0;
+  // Board frames for the replay: the position after each move, with that move highlighted
+  const c = new Chess();
+  T.frames = [{ fen: c.fen(), last: null }];
+  for (const m of T.path) { const mv = c.move(m); if (!mv) break; T.frames.push({ fen: c.fen(), last: [mv.from, mv.to] }); }
   renderTrainCard();
+  playLine();
 }
 function renderTrainCard() {
   $("#trainHome").hidden = true; $("#trainRun").hidden = false;
-  const n = rep().pos[T.key];
-  const fen = fenAfter(START, T.path);
   TB.flip = S.color === "black";
-  let last = null;
-  if (T.path.length) { const c = new Chess(fenAfter(START, T.path.slice(0, -1))); const mv = c.move(T.path[T.path.length - 1]); if (mv) last = [mv.from, mv.to]; }
-  TB.locked = false;
-  TB.set(fen, { last });
-  const card = rep().cards[T.key];
   $("#tLine").innerHTML = lineHtml(T.path, false);
   const op = openingFor(T.path);
   $("#tOpening").textContent = op ? `${op.eco} ${op.name}` : "";
-  $("#tProgress").textContent = `${T.i + 1} / ${T.queue.length}`;
-  $("#tPrompt").innerHTML = `<p class="lbl">${card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : ""}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">Play the move from your repertoire.</p>`;
-  $("#tNext").hidden = true;
+  const left = T.queue.length - T.i;
+  $("#tProgress").textContent = `${T.i + 1} / ${T.queue.length}${T.graded.has(T.key) ? " · again" : ""}`;
+  $("#tProgress").title = `${left} left in this session`;
 }
+function cardPrompt() {
+  const card = rep().cards[T.key];
+  const again = T.graded.has(T.key);
+  const tag = again ? '<span class="pill gap">Try again</span> ' : card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : "";
+  return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">Play the move from your repertoire.</p>`;
+}
+// Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
+function playLine() {
+  const frames = T.frames;
+  if (frames.length <= 1 || reduceMotion()) return showPosition();
+  T.phase = "anim";
+  TB.locked = true;
+  $("#tPrompt").innerHTML = `<p class="lbl">Playing the line</p><p class="muted">Tap the board to skip.</p>`;
+  const ms = Math.round(Math.max(120, Math.min(250, 4000 / (frames.length - 1))));
+  let i = 0;
+  const step = () => {
+    TB.set(frames[i].fen, { last: frames[i].last });
+    i++;
+    if (i < frames.length) later(step, ms); else later(showPosition, ms);
+  };
+  step();
+}
+function showPosition() {
+  clearTimeout(T.timer);
+  const f = T.frames[T.frames.length - 1];
+  T.phase = "move";
+  TB.locked = false;
+  TB.set(f.fen, { last: f.last });
+  $("#tPrompt").innerHTML = cardPrompt();
+}
+function skipLine() { if (T.phase === "anim") showPosition(); }
 function onTrainMove(mv) {
+  if (T.phase !== "move") return;
   const n = rep().pos[T.key];
   const want = n.m[0];
   const card = rep().cards[T.key];
-  const fenBefore = fenAfter(START, T.path);
+  const fenBefore = T.frames[T.frames.length - 1].fen;
+  const first = !T.graded.has(T.key);
+  T.phase = "feedback";
+  TB.locked = true;
+  if (first) { T.graded.add(T.key); T.done++; }
+  const c = new Chess(fenBefore); const good = c.move(want);
   if (mv.san === want) {
-    if (T.tries === 0) { T.right++; grade(card, true); }
-    T.done += T.tries === 0 ? 1 : 0;
-    TB.locked = true;
-    const c = new Chess(fenBefore); c.move(want);
+    if (first) { T.right++; grade(card, true); Store.save(S.color); }
     TB.set(c.fen(), { last: [mv.from, mv.to] });
-    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, want))}</p>${T.tries ? '<p class="muted">Logged as a miss. It comes back soon.</p>' : `<p class="muted">Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.</p>`}`;
-    $("#tNext").hidden = false; $("#tNext").focus();
+    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, want))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}</p>`;
+    later(() => { T.i++; nextCard(); }, 900);
   } else {
-    if (T.tries === 0) { grade(card, false); T.done++; }
-    T.tries++;
-    const c = new Chess(fenBefore); const good = c.move(want);
-    TB.set(fenBefore, { bad: [mv.from, mv.to], hint: T.tries >= 1 && good ? [good.from, good.to] : null });
-    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. The highlighted squares show your prepared move. Play it to continue.</p>`;
+    if (first) { grade(card, false); Store.save(S.color); }
+    TB.set(fenBefore, { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null });
+    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. Your move is <b>${esc(moveLabel(T.path, want))}</b>. This position comes back in a few cards.</p>`;
+    T.queue.splice(Math.min(T.queue.length, T.i + 1 + RETRY_GAP), 0, T.key);
+    T.retries++;
+    later(() => { T.i++; nextCard(); }, 1500);
   }
 }
 
@@ -487,8 +537,8 @@ async function boot() {
     const t = e.target.closest("button");
     if (!t) return;
     const d = t.dataset;
-    if (d.nav) { if (S.view === "train" && T.state === "run" && d.nav !== "train") T.state = "idle"; setView(d.nav); }
-    else if (d.color) { S.color = d.color; T.state = "idle"; render(); }
+    if (d.nav) { if (S.view === "train" && T.state === "run" && d.nav !== "train") { stopTraining(); T.state = "idle"; } setView(d.nav); }
+    else if (d.color) { stopTraining(); S.color = d.color; T.state = "idle"; render(); }
     else if (d.jump) { S.build[S.color] = curPath().slice(0, +d.jump); renderBuild(); }
     else if (d.go) goMove(d.go);
     else if (d.remove) { removeMove(curPath(), d.remove); Store.save(S.color); renderBuild(); toast("Removed " + d.remove + " and the line after it."); }
@@ -518,8 +568,8 @@ async function boot() {
     if (K(fenAfter(START, curPath())) === key) renderBuild();
   };
   $("#tStart").onclick = startTraining;
-  $("#tNext").onclick = () => { T.i++; nextCard(); };
-  $("#tStop").onclick = () => { T.state = T.done ? "summary" : "idle"; Store.save(S.color); renderTrainHome(); };
+  $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
+  $("#tStop").onclick = endSession;
   $("#fetchBtn").onclick = fetchChessCom;
   $("#pasteBtn").onclick = importPasted;
   $("#pgnFile").onchange = async e => { const f = e.target.files[0]; if (f) { $("#pgnIn").value = await f.text(); importPasted(); } e.target.value = ""; };
