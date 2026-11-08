@@ -127,6 +127,15 @@ chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000
     correct, since choosing between them is up to me. Each line is still
     drilled through its later positions. `m[0]` is the main line, which the
     Next button and the training hint follow.
+  - Build has two modes (`S.buildMode`, per session):
+    - **Commit:** every move is saved, as above.
+    - **Explore:** nothing is saved. Moves for either side extend
+      `S.explore[color]`, and Next follows the explored line. The board has
+      an orange edge.
+    - Leaving Explore: "Save this whole line" or "Save up to here and keep
+      building" (`saveLine()`). Moves of mine that clash with the repertoire
+      are listed first, with the choice to add them as options or replace
+      mine.
   - On the opponent's turn, `m` lists the replies I've prepared for.
   - `path` is the shortest move sequence from the start, recomputed by `walk()`.
     `walk()` also prunes positions that can no longer be reached.

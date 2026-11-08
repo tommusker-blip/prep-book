@@ -325,6 +325,8 @@ function renderBuild() {
   if (path.length) { const c = new Chess(fenAfter(START, path.slice(0, -1))); const mv = c.move(path[path.length - 1]); if (mv) last = [mv.from, mv.to]; }
   const n = rep().pos[key];
   BB.set(fen, { last, arrows: buildArrows(fen, key, n) });
+  BB.el.classList.toggle("exploring", exploring());
+  document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.bmode === (exploring() ? "explore" : "commit"))));
   // line strip
   $("#line").innerHTML = lineHtml(path, true);
   // "Practise from here" (item 3): for a position in the tree with my moves below it
@@ -341,15 +343,16 @@ function renderBuild() {
     if (n && n.m.length) {
       const many = n.m.length > 1;
       pr.innerHTML = `<p class="lbl">${many ? `Your moves (${n.m.length} options)` : "Your move"}</p>
-      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button><button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button></li>`).join("")}</ul>
-      <p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`;
+      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button>`}</li>`).join("")}</ul>
+      ${exploring() ? "" : `<p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`}`;
     } else {
-      pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the moves below.</p>`;
+      pr.innerHTML = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the moves below.</p>`;
     }
     pr.innerHTML += candRows(fen, key, n, path) + ideasPanel(fen, key, n, path);
   } else {
     pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
+  if (exploring()) pr.innerHTML = exploreBar() + pr.innerHTML;
   if (!ex && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   renderGaps();
   renderSuggest();
@@ -541,8 +544,73 @@ function goMove(san) {
   if (!mv) return;
   onBuildMove(mv);
 }
+/* ----- Explore and Commit modes (NOTES item 6) -----
+   Commit: every move played in Build goes into the repertoire (as before).
+   Explore: nothing is saved. Moves for either side just extend the explored line
+   (S.explore[color]), Back and Next step through it, and all the statistics and the engine
+   follow along. The explored line can then be saved whole, or up to the current position
+   (switching to Commit there). Where the line plays a different move of mine than the
+   repertoire has, the user chooses: add it as another option, or replace mine. */
+const exploring = () => S.buildMode === "explore";
+function setBuildMode(mode) {
+  S.buildMode = mode;
+  if (mode === "explore") S.explore = { ...(S.explore || {}), [S.color]: curPath().slice() };
+  renderBuild();
+}
+// Moves of mine in `moves` that differ from what the repertoire already plays there
+function lineConflicts(moves, color = S.color) {
+  const out = [];
+  for (let i = 0; i < moves.length; i++) {
+    const fen = fenAfter(START, moves.slice(0, i)), key = fen && K(fen), n = key && rep(color).pos[key];
+    if (key && isMine(key, color) && n && n.m.length && !n.m.includes(moves[i])) out.push({ i, san: moves[i], have: n.m.slice(), path: moves.slice(0, i) });
+  }
+  return out;
+}
+// Save an explored line into the repertoire. how: "add" (extra options) or "replace"
+function saveLine(moves, how = "add") {
+  const color = S.color, conflicts = new Map(lineConflicts(moves, color).map(c => [c.i, c]));
+  for (let i = 0; i < moves.length; i++) {
+    const c = conflicts.get(i);
+    addMove(moves.slice(0, i), moves[i], color, c && how === "replace" ? c.have[0] : null);
+  }
+  walk(color);
+  Store.save(repDoc(color));
+}
+function exploreSave(whole) {
+  const line = whole ? (S.explore[S.color] || curPath()) : curPath();
+  const moves = line.slice(), conflicts = lineConflicts(moves);
+  const done = how => {
+    saveLine(moves, how);
+    if (!whole) S.buildMode = "commit";
+    toast(whole ? `Saved the line (${moves.length} moves) to your repertoire.` : "Saved up to here. You're building again: moves are saved.");
+    renderBuild();
+  };
+  if (!conflicts.length) return done("add");
+  const list = conflicts.map(c => `${esc(moveLabel(c.path, c.san))} where you play ${c.have.map(esc).join(" / ")}`).join("; ");
+  $("#prompt").innerHTML = `<p class="lbl warn">This line changes your repertoire</p><p>It plays ${list}. Add ${conflicts.length === 1 ? "it" : "them"} as another option, or replace yours (the old line after it is removed)?</p>
+    <div class="row"><button type="button" class="btn" data-exsave="add" data-whole="${whole ? 1 : 0}">Add as another option</button>
+    <button type="button" class="btn ghost" data-exsave="replace" data-whole="${whole ? 1 : 0}">Replace mine</button><button type="button" class="btn ghost" data-cancel>Cancel</button></div>`;
+  $("#prompt")._exsave = done;
+}
+function exploreBar() {
+  if (!exploring()) return "";
+  const line = S.explore[S.color] || [], path = curPath(), beyond = line.length > path.length;
+  return `<div class="explorebar"><p class="lbl warn">Exploring: nothing is saved</p>
+    <p class="help">Play moves for either side, and use Back and Next to step through the line. Every statistic and the engine follow along.</p>
+    <div class="row" style="margin:6px 0 0">${line.length ? `<button type="button" class="btn ghost" data-exwhole>Save this whole line${beyond ? ` (${line.length} moves)` : ""}</button>` : ""}
+      ${path.length ? `<button type="button" class="btn ghost" data-exhere>Save up to here and keep building</button>` : ""}</div></div>`;
+}
+
 function onBuildMove(mv) {
   const path = curPath();
+  if (exploring()) { // just extend the explored line
+    const line = S.explore[S.color] || [];
+    path.push(mv.san);
+    // keep the rest of the explored line if this is the move it already had
+    S.explore[S.color] = line.length >= path.length && line[path.length - 1] === mv.san && line.slice(0, path.length).join(" ") === path.join(" ") ? line : path.slice();
+    renderBuild();
+    return;
+  }
   const fen = fenAfter(START, path);
   const key = K(fen);
   const n = rep().pos[key];
@@ -1054,6 +1122,10 @@ async function boot() {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    else if (d.bmode) setBuildMode(d.bmode);
+    else if ("exwhole" in d) exploreSave(true);
+    else if ("exhere" in d) exploreSave(false);
+    else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
     else if ("practicehere" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: curPath().slice() }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.nextgap) jumpToGap(d.nextgap);
     else if (d.gapmode) { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); }
@@ -1068,6 +1140,7 @@ async function boot() {
   });
   $("#back").onclick = () => { curPath().pop(); renderBuild(); };
   $("#fwd").onclick = () => {
+    if (exploring()) { const line = S.explore[S.color] || [], path = curPath(); if (line.length > path.length && line.slice(0, path.length).join(" ") === path.join(" ")) { path.push(line[path.length]); renderBuild(); return; } }
     const path = curPath(); const key = K(fenAfter(START, path)); const n = rep().pos[key];
     if (n && n.m.length) { path.push(n.m[0]); renderBuild(); }
   };

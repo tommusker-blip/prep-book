@@ -250,3 +250,9 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .seg.small button{padding:4px 10px;font-size:.82rem}
 .btn.nextgap{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left}
 .btn.nextgap span{font-weight:500;font-size:.85rem;opacity:.9}
+/* Build: Explore and Commit modes */
+.modebar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.exbadge{display:none;font-size:.75rem;font-weight:600;color:var(--warn);text-transform:uppercase;letter-spacing:.06em}
+.board.exploring{box-shadow:0 0 0 3px var(--warn)}
+.boardcol:has(.board.exploring) .exbadge{display:inline}
+.explorebar{border-left:3px solid var(--warn);padding:2px 0 8px 10px;margin-bottom:10px}

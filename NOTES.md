@@ -122,7 +122,7 @@ they're done.
     "Peers 1600–1999: 4,210 games, W 46% · D 8% · L 46%".
   - Add a one-line summary for the current position, for example "You score 36%
     here against 54% for peers. Below par, worth reviewing."
-- [ ] **6. Explore and Commit modes in Build.** Add a clear toggle at the top
+- [x] **6. Explore and Commit modes in Build.** (Done 2026-11-08.) Add a clear toggle at the top
   of Build.
   - **Explore:** nothing is saved. The user can play moves for either side,
     step back and forward through the line, and try different branches. All

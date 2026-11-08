@@ -37,8 +37,35 @@ f.onload = () => {
     if (mode === "books") runBooks();
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
+    if (mode === "explore-mode") runExploreMode();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Explore and Commit modes (item 6)
+  function runExploreMode() {
+    const R = () => G("S").rep.white, count = () => Object.keys(R().pos).length;
+    const at = s => R().pos[G("K")(G("fenAfter")(G("START"), s ? s.split(" ") : []))];
+    play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
+    const before = count();
+    d.querySelector('[data-bmode="explore"]').click();
+    L("explore on: board edge=" + d.querySelector("#board").classList.contains("exploring") + " | bar: " + (d.querySelector(".explorebar .lbl") || {}).textContent);
+    play("#board", "b8", "c6"); play("#board", "f1", "c4");
+    L("after exploring Nc6 Bc4: path=" + G("S").build.white.join(" ") + " | repertoire unchanged=" + (count() === before));
+    d.querySelector("#back").click(); d.querySelector("#back").click(); d.querySelector("#fwd").click(); d.querySelector("#fwd").click();
+    L("back, back, next, next: path=" + G("S").build.white.join(" "));
+    d.querySelector("[data-exwhole]").click();
+    L("saved whole line: Nc6 prepared=" + (at("e4 e5 Nf3").m.includes("Nc6")) + ", Bc4 mine=" + (at("e4 e5 Nf3 Nc6").m.join(",")) + " | still exploring=" + G("exploring")());
+    // a conflicting line: 2.Bc4 where the repertoire plays 2.Nf3
+    w.eval('S.build.white = ["e4","e5"]; S.explore.white = ["e4","e5"]; renderBuild()');
+    play("#board", "f1", "c4");
+    d.querySelector("[data-exhere]").click();
+    L("conflict prompt: " + (d.querySelector("#prompt .lbl") || {}).textContent + " | buttons: " + [...d.querySelectorAll("#prompt [data-exsave]")].map(b => b.textContent).join(" / "));
+    d.querySelector('#prompt [data-exsave="add"]').click();
+    L("after Add: 2nd move options=" + at("e4 e5").m.join(",") + " | mode=" + G("S").buildMode + " | edge=" + d.querySelector("#board").classList.contains("exploring"));
+    play("#board", "g8", "f6");
+    L("commit mode saves again: Nf6 prepared after Bc4=" + at("e4 e5 Bc4").m.includes("Nf6"));
+    L("DONE");
+  }
 
   // Practise lines (items 2 and 3): three branches after 1.e4; play 6 lines, getting the first
   // position wrong once; then "Practise from here" in Build starts lines from 1.e4 e5
