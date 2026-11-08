@@ -329,10 +329,11 @@ function renderBuild() {
   document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(exploring())));
   showPane();
   // line strip
-  $("#line").innerHTML = lineHtml(path, true);
+  const lineEl = $("#line"); lineEl.innerHTML = lineHtml(path, true); lineEl.scrollLeft = lineEl.scrollWidth; // one line, latest move in view
   // "Practise from here" (item 3): for a position in the tree with my moves below it
-  const branch = path.length ? branchInfo(S.color)[key] : null;
-  $("#buildActions").innerHTML = branch && branch.cards ? `<button type="button" class="btn ghost" data-practicehere>Practise from here (${branch.cards} move${branch.cards === 1 ? "" : "s"})</button>` : "";
+  const branch = branchInfo(S.color)[key];
+  const pb = $("#practiseHere"); pb.disabled = !(branch && branch.cards);
+  pb.setAttribute("aria-label", branch && branch.cards ? `Practise the lines from this position (${branch.cards} of your moves)` : "Practise: open a position in your repertoire first");
   const op = openingFor(path);
   const ex = cachedExplorer(fen);
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
@@ -343,8 +344,8 @@ function renderBuild() {
   if (mine) {
     if (n && n.m.length) {
       const many = n.m.length > 1;
-      pr.innerHTML = `<p class="lbl">${many ? `Your moves (${n.m.length} options)` : "Your move"} ${exploring() ? "" : info(`Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Remove takes the move out with the line after it.`, "About your moves")}</p>
-      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button>`}</li>`).join("")}</ul>`;
+      pr.innerHTML = `<div class="myrow"><span class="lbl">${many ? "Your moves" : "Your move"} ${exploring() ? "" : info(`Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Remove takes the move out with the line after it.`, "About your moves")}</span>
+      <div class="mymoves">${n.m.map(m => `<span class="mymove"><button type="button" class="chip" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="xbtn" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">✕</button>`}</span>`).join("")}</div></div>`;
     } else {
       pr.innerHTML = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet: play your move on the board</p>`;
     }
@@ -378,9 +379,10 @@ function pickOpp(fen, key, n, mode) {
 function quickOppButtons(fen, key, n) {
   const common = pickOpp(fen, key, n, "common"), weak = pickOpp(fen, key, n, "weak");
   if (!common) return "";
-  const btn = (p, label) => `<button type="button" class="btn ghost quick" data-go="${esc(p.san)}"><b>${label}: ${esc(p.san)}</b><span>${esc(p.why)}</span></button>`;
+  // one short line each; the reason is in the tip
+  const btn = (p, label) => `<button type="button" class="btn ghost quick" data-go="${esc(p.san)}" aria-label="${esc(label)}: ${esc(p.san)}, ${esc(p.why)}">${label} <b>${esc(p.san)}</b></button>`;
   const same = weak && weak.san === common.san;
-  return `<div class="row quickrow">${btn(same ? weak : common, same ? "Most common · weakest spot" : "Most common")}${weak && !same ? btn(weak, "Weakest spot") : ""}</div>`;
+  return `<div class="row quickrow">${btn(same ? weak : common, same ? "Common · weakest" : "Common")}${weak && !same ? btn(weak, "Weakest") : ""}${info(`Common: the reply played most at your level (${common.why}).${weak ? ` Weakest: your weakest spot here, the most common reply you haven't prepared, or the one you score worst against (${weak.why}).` : ""} Tap one to play it.`, "About these buttons")}</div>`;
 }
 // Settings > "After my move": play the opponent's reply automatically ("common" | "weak" | off)
 async function autoOpponent(path) {
@@ -453,7 +455,7 @@ async function findIdeasHere() {
 }
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 function lineHtml(path, clickable) {
-  if (!path.length) return `<span class="muted">Start position. ${S.color === "white" ? "Choose your first move." : "Add the first moves you face as Black."}</span>`;
+  if (!path.length) return `<span class="muted">Start position</span>`;
   return path.map((m, i) => {
     const num = i % 2 === 0 ? `<span class="mn">${i / 2 + 1}.</span>` : "";
     return `${num}<button type="button" class="mv${i === path.length - 1 ? " cur" : ""}" ${clickable ? `data-jump="${i + 1}"` : "disabled"}>${esc(m)}</button>`;
@@ -1157,7 +1159,8 @@ async function boot() {
   // Build rows (rows.js): tap a row to expand it; the move button inside plays the move
   Tip.init();
   // Keep --hdr at the header's height, so the pinned Build board sits just under it
-  const hdr = document.querySelector(".top"), setHdr = () => document.documentElement.style.setProperty("--hdr", hdr.offsetHeight + "px");
+  // header height plus its bottom gap: the board's natural position, so it locks without moving first
+  const hdr = document.querySelector(".top"), setHdr = () => document.documentElement.style.setProperty("--hdr", hdr.offsetHeight + parseFloat(getComputedStyle(hdr).marginBottom) + "px");
   setHdr(); if (window.ResizeObserver) new ResizeObserver(setHdr).observe(hdr);
   const toggleCand = san => { const id = K(fenAfter(START, curPath()) || START) + "|" + san; if (candOpen.has(id)) candOpen.delete(id); else candOpen.add(id); renderBuild(); };
   $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });

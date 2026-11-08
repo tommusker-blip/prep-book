@@ -46,21 +46,21 @@
   <div class="layout">
     <!-- On phones the board column stays pinned under the header; the panel scrolls beneath it -->
     <div class="boardcol" id="buildBoardCol">
+      <div class="bhead">
+        <div class="opline"><span class="opname" id="opName">Starting position</span><span class="info" id="opInfo" role="button" tabindex="0" aria-label="About this opening" hidden>i</span></div>
+        <div class="line oneline" id="line"></div>
+      </div>
       <div id="board" class="board" aria-label="Chess board"></div>
       <div class="navrow icons">
         <button type="button" class="btn ghost" id="toStart" aria-label="Back to the start">⏮</button>
         <button type="button" class="btn ghost" id="back" aria-label="Back one move">◀</button>
         <button type="button" class="btn ghost" id="fwd" aria-label="Forward along the line">▶</button>
         <button type="button" class="btn ghost modebtn" data-bmode="toggle" aria-pressed="false" aria-label="Explore without saving">Explore</button>
-        <button type="button" class="btn ghost" id="quickGap" aria-label="Next gap">Gap ›</button>
+        <button type="button" class="btn ghost" id="quickGap" aria-label="Go to the next gap in your repertoire">Gap ›</button>
+        <button type="button" class="btn ghost" id="practiseHere" data-practicehere aria-label="Practise the lines from this position">Practise</button>
       </div>
     </div>
     <div class="panel">
-      <div class="bhead">
-        <h2 class="opname"><span id="opName">Starting position</span> <span class="info" id="opInfo" role="button" tabindex="0" aria-label="About this opening" hidden>i</span></h2>
-        <div class="line" id="line"></div>
-        <div id="buildActions" class="row" style="margin-top:6px"></div>
-      </div>
       <div class="ptabs" role="tablist" aria-label="Build sections">
         <button type="button" role="tab" data-ptab="moves" aria-selected="true">Moves</button>
         <button type="button" role="tab" data-ptab="gaps" aria-selected="false">Gaps</button>

@@ -193,18 +193,20 @@ function candRow(fen, key, c, ex, path) {
 // The summary line for the position (item 5): my result here against the peers', and the engine
 function positionSummary(fen, key, ex) {
   const me = myPosStats(key), peer = ex && ex.total ? posAverage(ex, S.color) : null, pe = evalAt(fen);
-  const parts = [];
+  // One short line: "You 33% (3) · peers 53% · engine +0.4, best Nf3 · below par"; detail in the ⓘ
+  const parts = [], tip = [];
   if (me && me.n) {
-    const mine = wdlScore(me);
-    parts.push(`You score <b>${pctOf(mine)}</b> here (${me.n} game${me.n === 1 ? "" : "s"})${peer != null ? ` against ${pctOf(peer)} for peers (${nOf(ex.total)})` : ""}.`);
-    if (peer != null && me.n >= 3) {
-      const b = blended(me, peer);
-      if (b.score < peer - 0.05) parts.push(`<span class="bad">Below par, worth reviewing.</span>`);
-      else if (b.score > peer + 0.05) parts.push(`<span class="ok">Above par.</span>`);
-    }
-  } else if (peer != null) parts.push(`Peers score ${pctOf(peer)} here from your side (${nOf(ex.total)} games). You haven't had this position yet.`);
-  if (pe) { const mine = sideOf(key) === myChar(S.color) ? pe.cp : -pe.cp; parts.push(`Engine ${pawns(mine)}${pe.best ? `, best ${esc(uciToSan(fen, pe.best))}` : ""}.`); }
-  return parts.length ? `<p class="possum">${parts.join(" ")}</p>` : "";
+    parts.push(`You <b>${pctOf(wdlScore(me))}</b> (${me.n})`);
+    tip.push(`You score ${pctOf(wdlScore(me))} from here in ${me.n} game${me.n === 1 ? "" : "s"}: ${wdlLine(me)}.`);
+  }
+  if (peer != null) { parts.push(`peers ${pctOf(peer)}`); tip.push(`Peers at your rating score ${pctOf(peer)} from your side (${nOf(ex.total)} games).`); }
+  if (pe) { const mine = sideOf(key) === myChar(S.color) ? pe.cp : -pe.cp; parts.push(`engine ${pawns(mine)}${pe.best ? `, best ${esc(uciToSan(fen, pe.best))}` : ""}`); }
+  if (me && me.n >= 3 && peer != null) {
+    const b = blended(me, peer);
+    if (b.score < peer - 0.05) { parts.push(`<span class="bad">below par</span>`); tip.push(`Below par: your expected score here (${pctOf(b.score)}, ${b.basis}) is more than 5 points under the peers'. Worth reviewing.`); }
+    else if (b.score > peer + 0.05) parts.push(`<span class="ok">above par</span>`);
+  }
+  return parts.length ? `<p class="possum">${parts.join(" · ")}${tip.length ? " " + info(tip.join(" "), "About this position") : ""}</p>` : "";
 }
 function candRows(fen, key, n, path) {
   const ex = cachedExplorer(fen), list = candidates(fen, key, n);

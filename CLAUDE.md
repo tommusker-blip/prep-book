@@ -100,9 +100,10 @@ when it loads; the others just define things.
     with half the replies listed). `isWeapon()` marks a move a "Practical
     weapon" when it costs me no more than the margin, leaves 1–2 good
     replies, and peers find one 50% of the time or less.
-- Build layout: on phones the board column is pinned under the header
-  (`--hdr`), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
-  control row has Start, Back, Next, Explore and Gap.
+- Build layout: the opening name (with its ⓘ) and the moves sit above the board,
+  one line each; the moves line scrolls sideways. On phones the board column is pinned under the header
+  (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
+  control row has Start, Back, Next, Explore, Gap and Practise (lines from this position).
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
   four views (Build, Train, Games, Settings), `renderBg()` for the header's
   background-job marker, and `boot()`
