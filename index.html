@@ -59,10 +59,11 @@
         <div class="line" id="line"></div>
       </div>
       <div class="card" id="prompt"></div>
-      <div class="card">
-        <h3>Biggest gaps</h3>
-        <p class="help">Positions in your tree that still need an answer, most likely first. Tap one to go there.</p>
-        <ol class="gaplist" id="gaps"></ol>
+      <div class="card" id="gapCard">
+        <div class="gaphead"><h3>Gaps</h3>
+          <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="freq" aria-pressed="true">Frequency</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
+        </div>
+        <div id="gapNext" style="margin-top:10px"></div>
       </div>
       <div class="card" id="suggest">
         <h3>Suggestions from Lichess</h3>
@@ -234,6 +235,7 @@
 <script src="js/explore.js"></script>
 <script src="js/ideas.js"></script>
 <script src="js/rows.js"></script>
+<script src="js/gaps.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

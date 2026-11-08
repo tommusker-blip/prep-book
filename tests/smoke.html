@@ -115,6 +115,14 @@ f.onload = () => {
       d.querySelector("#back").click();
       L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
       L("opponent rows after 1.e4: " + rowText());
+      // Next gap: the button names its target; tapping it jumps there with the reply's row open
+      const nb = () => d.querySelector("#gapNext [data-nextgap]");
+      L("next gap button: " + (nb() ? nb().textContent.replace(/\s+/g, " ").trim() : "none"));
+      nb().click();
+      L("after tap: at " + (G("S").build.white.join(" ") || "start") + " | open rows: " + [...d.querySelectorAll("#prompt .cand.open")].map(r => r.dataset.cand).join(",") + " | button now: " + nb().textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('[data-gapmode="impact"]').click();
+      L("rating impact mode: " + nb().textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('[data-gapmode="freq"]').click();
       // My own games from 1.e4 e5 (G1 stats need the game keys worked out first)
       w.eval(`S.games = [["e4 e5 Nf3 Nc6","1-0"],["e4 e5 Nf3 d6","0-1"],["e4 e5 Bc4 Nf6","1-0"]].map(([m, r], i) => ({ id: "y" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" })); S.games.forEach(gameKeys)`);
       w.eval('S.build.white = ["e4","e5"]; renderBuild()');

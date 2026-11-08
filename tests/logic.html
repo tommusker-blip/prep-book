@@ -19,6 +19,7 @@
 <script src="../js/engine.js"></script>
 <script src="../js/ideas.js"></script>
 <script src="../js/rows.js"></script>
+<script src="../js/gaps.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -380,6 +381,46 @@ async function jobTests() {
     eq(ran, true);
   });
 }
+
+/* ----- gaps: frequency vs rating impact (item 4) ----- */
+t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
+  line("white", "e4 e5 Nf3");
+  // After 1.e4, Black plays c5 (40%) or the rare d5 (5%); neither is prepared.
+  setEx("e4", 10000, 4000, 1000, 5000, [mv("c5", 4000, 1800, 400, 1800), mv("e5", 2500, 1000, 250, 1250), mv("d5", 500, 150, 30, 320)]);
+  // Peers score 50% after c5 but only ~33% after d5; and I've lost all 6 of my games after d5.
+  S.games = Array.from({ length: 6 }, (_, i) => ({ id: "d" + i, my: "white", result: "0-1", moves: "e4 d5 exd5 Qxd5" }));
+  S.games.forEach(gameKeys);
+  S.settings.gapMode = "freq";
+  const byFreq = rankedGaps("white").filter(g => g.opp).map(g => g.opp);
+  S.settings.gapMode = "impact";
+  const byImpact = rankedGaps("white").filter(g => g.opp).map(g => g.opp);
+  eq(byFreq.slice(0, 2), ["c5", "d5"], "frequency: c5 first");
+  eq(byImpact[0], "d5", "rating impact: d5 first");
+  const d5 = rankedGaps("white").find(g => g.opp === "d5");
+  eq([d5.basis, Math.round(d5.expected * 100)], ["your 6 games + peer data", 21]); // (6×0 + 10×0.33)/16 ≈ 0.21
+  S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
+});
+t("gaps: a prepared position I keep losing is a weak spot, in rating-impact mode only", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
+  line("white", "e4 e5 Nf3 Nc6 Bc4");
+  S.games = Array.from({ length: 5 }, (_, i) => ({ id: "w" + i, my: "white", result: i ? "0-1" : "1/2-1/2", moves: "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5" }));
+  S.games.forEach(gameKeys);
+  S.settings.gapMode = "impact";
+  const weak = rankedGaps("white").filter(g => g.weak).map(g => g.text);
+  eq(weak.includes("Weak spot: you score 10% here"), true, JSON.stringify(weak));
+  S.settings.gapMode = "freq";
+  eq(rankedGaps("white").some(g => g.weak), false, "not in frequency mode");
+  S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
+});
+t("gaps: Next gap steps through the list and wraps round", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  gapLast = null; eq(nextGapTarget(list).id, "a");
+  gapLast = "a"; eq(nextGapTarget(list).id, "b");
+  gapLast = "c"; eq(nextGapTarget(list).id, "a");
+  gapLast = "gone"; eq(nextGapTarget(list).id, "a", "a gap that was filled starts again from the top");
+  gapLast = null;
+});
 
 jobTests().then(() => {
   const fails = results.filter(r => r.startsWith("FAIL")).length;

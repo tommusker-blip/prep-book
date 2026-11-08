@@ -445,45 +445,12 @@ async function findIdeasHere() {
   if (S.view === "build") renderBuild();
 }
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
-function moveLabel(path, san) {
-  const n = Math.floor(path.length / 2) + 1;
-  return path.length % 2 === 0 ? `${n}. ${san}` : `${n}… ${san}`;
-}
 function lineHtml(path, clickable) {
   if (!path.length) return `<span class="muted">Start position. ${S.color === "white" ? "Choose your first move." : "Add the first moves you face as Black."}</span>`;
   return path.map((m, i) => {
     const num = i % 2 === 0 ? `<span class="mn">${i / 2 + 1}.</span>` : "";
     return `${num}<button type="button" class="mv${i === path.length - 1 ? " cur" : ""}" ${clickable ? `data-jump="${i + 1}"` : "disabled"}>${esc(m)}</button>`;
   }).join("");
-}
-function renderGaps() {
-  const color = S.color, R = rep(color);
-  walk(color);
-  const games = oppSeen(color);
-  const gaps = [];
-  // reach: estimated share of games that get here, from explorer frequencies along the path
-  for (const [key, { path, fen, reach }] of Object.entries(indexTree(color))) {
-    const n = R.pos[key];
-    if (isMine(key, color)) {
-      if (!n || !n.m.length) gaps.push({ path, score: reach, text: "Your move is missing", detail: path.length ? "after " + path.slice(-1)[0] : "first move" });
-    } else {
-      const ex = cachedExplorer(fen); const prepared = n ? n.m : [];
-      const cand = {};
-      if (ex) for (const m of ex.moves) if (ex.total && m.n / ex.total >= 0.03) cand[m.san] = { f: m.n / ex.total };
-      for (const [s, c] of Object.entries(games[key] || {})) (cand[s] = cand[s] || {}).g = c;
-      for (const [s, v] of Object.entries(cand)) {
-        if (prepared.includes(s)) continue;
-        const score = v.f != null ? reach * v.f : (v.g || 0) * 0.02;
-        gaps.push({ path, opp: s, score, text: `No answer to ${moveLabel(path, s)}`, detail: [v.f != null ? Math.round(v.f * 100) + "% of games" : "", v.g ? `faced ${v.g}× in your games` : ""].filter(Boolean).join(" · ") });
-      }
-      if (!prepared.length && !Object.keys(cand).length) gaps.push({ path, score: reach * 0.5, text: path.length ? "Line ends here" : "No opponent first moves yet", detail: path.length ? "add the replies you expect" : "start with 1.e4 and 1.d4" });
-    }
-  }
-  gaps.sort((a, b) => b.score - a.score);
-  const el = $("#gaps");
-  if (!gaps.length) { el.innerHTML = `<p class="muted">No gaps found in the positions checked so far.</p>`; return; }
-  el.innerHTML = gaps.slice(0, 12).map((g, i) => `<li><button type="button" class="gap-row" data-gap="${i}"><span class="gt">${esc(g.text)}</span><span class="gl mono">${esc(g.path.join(" ") || "start")}</span><span class="gd">${esc(g.detail)}</span></button></li>`).join("");
-  el._gaps = gaps;
 }
 
 /* ----- suggestions from Lichess (scan, hidden gems, transpositions, structures, alternatives) ----- */
@@ -1001,7 +968,8 @@ async function boot() {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
-    else if (d.gap) { const g = $("#gaps")._gaps[+d.gap]; S.build[S.color] = g.path.slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    else if (d.nextgap) jumpToGap(d.nextgap);
+    else if (d.gapmode) { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); }
     else if ("open" in d) { S.build[S.color] = d.open ? d.open.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
     else if ("bandauto" in d) { S.settings.bandAuto = true; Store.save("settings"); if (S.settings.ccRating) { S.settings.band = bandsFor(S.settings.ccRating.r); } fetchRating(true); renderSettings(); }
     else if (d.band) {

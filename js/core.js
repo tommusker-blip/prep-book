@@ -47,3 +47,8 @@ const S = {
 S.rep = S.books.main;
 let EXPL = lsGet("pb_expl", {}); // key|band -> explorer data
 let EVALC = lsGet("pb_eval", {}); // key -> {cp, best}
+// "5. Nf3" or "5… Nc6" for a move played after `path`
+function moveLabel(path, san) {
+  const n = Math.floor(path.length / 2) + 1;
+  return path.length % 2 === 0 ? `${n}. ${san}` : `${n}… ${san}`;
+}
