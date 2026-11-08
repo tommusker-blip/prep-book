@@ -165,13 +165,19 @@ function candRow(fen, key, c, ex, path) {
   // Item 7: how many good replies, and how often peers find one
   const fu = myTurn ? followups(fen, c.san) : null, weapon = isWeapon(fu, e);
   if (weapon && !flag) { flag = "gem"; flagText = `A practical weapon: only ${fu.good.join(" or ")} keep${fu.count === 1 ? "s" : ""} your opponent level, and players at your level find ${fu.count === 1 ? "it" : "one"} ${pctOf(fu.find)} of the time`; }
-  const mark = (c.prep ? `<span class="pill ok">${myTurn ? "Yours" : "Prepared"}</span>` : (!myTurn ? `<span class="pill gap">Gap</span>` : ""))
-    + (fu && fu.label ? `<span class="pill${weapon ? " gem" : ""}">${weapon ? "Practical weapon" : fu.label}${fu.find != null ? ` · ${pctOf(fu.find)} find` : ""}</span>` : (myTurn && fu && !Engine.failed && c.rank < FOLLOW_MAX ? `<span class="pill muted">analysing…</span>` : ""));
-  const head = `<div class="crow">
-      <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}">${esc(c.san)}</button>${mark}</span>
+  // One line per row: Prepared / Yours / Gap is the chip's colour, and on my turn the number of
+  // good replies has its own narrow column (purple for a practical weapon)
+  const state = c.prep ? "prep" : !myTurn ? "gapmv" : "";
+  const stateText = c.prep ? (myTurn ? "in your repertoire" : "prepared") : !myTurn ? "not prepared (a gap)" : "";
+  const rep = !myTurn ? "" : fu && fu.label
+    ? `<span class="crep${weapon ? " weapon" : ""}" aria-label="${esc(fu.label)}: ${fu.count} good repl${fu.count === 1 ? "y" : "ies"}">${fu.count >= MPV_N ? MPV_N + "+" : fu.count}</span>`
+    : `<span class="crep muted">${!Engine.failed && c.rank < FOLLOW_MAX ? "…" : "–"}</span>`;
+  const head = `<div class="crow${myTurn ? " c5" : ""}">
+      <span class="cmove"><button type="button" class="chip ${state}" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${stateText ? ", " + stateText : ""}">${esc(c.san)}</button></span>
       <span class="ceng">${engineCell(e, myTurn)}</span>
       <span class="cpeer">${c.peer && f != null ? `${pctOf(f)} · ${pctOf(peerScore)}` : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n} · ${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
+      ${rep}
     </div>`;
   let detail = "";
   if (open) {
@@ -214,8 +220,9 @@ function candRows(fen, key, n, path) {
   list.forEach((c, i) => (c.rank = i));
   queueFollowups(fen, key, list);
   if (!list.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
+  const myTurn = isMine(key, S.color);
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead"><span>Move ${info(`Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score. Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span></div>
+      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a green outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep: how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>`;
 }

@@ -433,6 +433,14 @@ Stockfish's choice:
 
 - Git: commit through GitHub Desktop or the terminal. Pushing to `main` updates
   the Pages site within a minute or two.
+- **Updates page:** when something user-visible ships, add an entry at the top
+  of `UPDATES` in `js/updates.js`. Give it a new `id`, a date, a title and a few
+  plain-language lines. The header shows "New" until the page has been opened
+  (`pb_seen_update`).
+- **Installable app:** `manifest.webmanifest` (`display: standalone`) and
+  `icons/icon-192.png` / `icon-512.png` let Android Chrome install Prep Book
+  as an app, which opens without the address bar. The icons are the cburnett
+  knight on the app's green, rendered with headless Chrome.
 - Local testing: serve the folder (for example the VS Code "Live Server"
   extension, or `npx serve`), then add that localhost URL to Supabase's
   Redirect URLs.

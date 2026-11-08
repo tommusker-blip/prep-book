@@ -38,6 +38,16 @@ f.onload = () => {
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
     if (mode === "explore-mode") runExploreMode();
+    if (mode === "updates") {
+      const nm = d.querySelector("#newMark");
+      L("New marker at first: " + (nm.hidden ? "hidden" : "shown"));
+      nm.click();
+      L("updates page: " + (d.querySelector('[data-view="updates"]').hidden ? "hidden" : "shown") + " | entries: " + d.querySelectorAll("#updatesList .upd").length + " | first: " + d.querySelector("#updatesList .upd h3").textContent);
+      L("New marker after reading: " + (nm.hidden ? "hidden" : "shown"));
+      d.querySelector('[data-nav="settings"]').click();
+      L("Settings has What's new: " + !!d.querySelector('[data-view="settings"] [data-nav="updates"]'));
+      L("DONE");
+    }
     if (mode === "hosted") L("DONE");
   }, 6000);
 

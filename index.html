@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#EEF1EC" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#111613" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Installable app: opens in its own window without the browser's address bar (Android "Install app") -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Prep Book</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +23,8 @@
   <div class="brand"><h1>Prep Book</h1>
     <div class="sub"><button type="button" class="bookbtn" id="bookName" aria-label="Prep book: open the book list">My prep</button>
       <button type="button" class="savestate" id="saveState" data-state="idle" aria-live="polite"><i></i><span></span></button>
-      <button type="button" class="bgstate" id="bgState" hidden><i></i><span></span></button></div></div>
+      <button type="button" class="bgstate" id="bgState" hidden><i></i><span></span></button>
+      <button type="button" class="newmark" id="newMark" data-nav="updates" hidden aria-label="See what's new">New</button></div></div>
   <div class="seg" role="group" aria-label="Repertoire colour">
     <button type="button" data-color="white" aria-pressed="true"><i class="sw"></i>White</button>
     <button type="button" data-color="black" aria-pressed="false"><i class="sw"></i>Black</button>
@@ -156,9 +161,16 @@
   </div>
 </section>
 
+<section data-view="updates" hidden>
+  <div class="stack">
+    <div class="settingshead"><h2>What's new</h2><button type="button" class="btn ghost" data-nav="settings">Back to Settings</button></div>
+    <div id="updatesList" class="stack" style="gap:10px"></div>
+  </div>
+</section>
+
 <section data-view="settings" hidden>
   <div class="stack">
-    <h2>Settings</h2>
+    <div class="settingshead"><h2>Settings</h2><button type="button" class="btn ghost" data-nav="updates">What's new</button></div>
     <div class="card" id="booksCard" style="display:flex;flex-direction:column;gap:12px">
       <h3>Prep books</h3>
       <p class="help">Each book has its own White and Black repertoire and its own training history. Your games and settings are shared between books.</p>
@@ -256,6 +268,7 @@
 <script src="js/rows.js"></script>
 <script src="js/gaps.js"></script>
 <script src="js/practice.js"></script>
+<script src="js/updates.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

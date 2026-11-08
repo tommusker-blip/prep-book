@@ -310,6 +310,7 @@ function render() {
   if (S.view === "train") renderTrainHome();
   if (S.view === "games") renderGames();
   if (S.view === "settings") renderSettings();
+  if (S.view === "updates") renderUpdates();
 }
 
 /* ----- build ----- */
@@ -1095,7 +1096,7 @@ async function boot() {
   Store.onStatus = renderSaveState;
   const state = await Store.init();
   if (state === "auth") await new Promise(res => showAuth(res));
-  applyLook(); syncToken(); renderHeader();
+  applyLook(); syncToken(); renderHeader(); renderNewMark();
   fetchRating(); // G4, at most once a day, in the background
   walk("white"); walk("black");
   warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
