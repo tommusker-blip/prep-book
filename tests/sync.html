@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Prep Book sync tests</title></head>
+<body>
+<!-- Tests the Supabase sync of games (G1) and engine results (G2) against an in-memory stand-in
+     for the Supabase client that behaves like the real tables (RLS aside): select with
+     order/range/gt/in, upsert ... select, delete with in/not, server-set updated_at.
+     Open in a browser (file:// is fine). -->
+<pre id="out">running…</pre>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/openings.js"></script>
+<script src="../js/book.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/games.js"></script>
+<script src="../js/evals.js"></script>
+<script src="../js/rep.js"></script>
+<script src="../js/jobs.js"></script>
+<script src="../js/engine.js"></script>
+<script>
+"use strict";
+const results = [], eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error((m || "") + " got " + JSON.stringify(a) + " want " + JSON.stringify(b)); };
+async function at(name, fn) { try { await fn(); results.push("ok   " + name); } catch (e) { results.push("FAIL " + name + " — " + e.message); } }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ----- a small in-memory Supabase stand-in ----- */
+let clock = Date.parse("2026-11-08T10:00:00Z");
+const tick = () => new Date(clock += 1000).toISOString();
+function fakeSupabase(db, uid) {
+  const keyCols = { prep_data: ["doc"], games: ["id"], evals: ["key"] };
+  const from = t => {
+    const q = { t, op: "select", f: [], cols: "*", returning: false, isSingle: false, from: 0, to: 1e9 };
+    const api = {
+      select(cols) { if (q.op === "upsert") q.returning = true; else q.cols = cols; return api; },
+      order() { return api; }, range(a, b) { q.from = a; q.to = b; return api; },
+      gt(c, v) { q.f.push(r => r[c] > v); return api; }, in(c, vs) { q.f.push(r => vs.includes(r[c])); return api; },
+      not(c, op, v) { q.f.push(r => r[c] != null); return api; },
+      upsert(rows) { q.op = "upsert"; q.rows = Array.isArray(rows) ? rows : [rows]; return api; },
+      delete() { q.op = "delete"; return api; }, single() { q.isSingle = true; return api; },
+      then(res, rej) { return Promise.resolve(run()).then(res, rej); },
+    };
+    const run = () => {
+      const T = db[t];
+      if (!T) return { data: null, error: { code: "PGRST205", message: `Could not find the table 'public.${t}'` } };
+      const mine = r => r.user_id === uid && q.f.every(f => f(r));
+      if (q.op === "select") { const data = T.filter(mine).slice(q.from, q.to + 1).map(r => ({ ...r })); return { data: q.isSingle ? data[0] : data, error: null }; }
+      if (q.op === "delete") { db[t] = T.filter(r => !mine(r)); return { data: null, error: null }; }
+      const out = q.rows.map(r => {
+        const row = { ...r, user_id: uid, updated_at: tick() };
+        const i = T.findIndex(x => x.user_id === uid && keyCols[t].every(k => x[k] === row[k]));
+        if (i >= 0) T[i] = row; else T.push(row);
+        return row;
+      });
+      return { data: q.isSingle ? out[0] : out, error: null };
+    };
+    return api;
+  };
+  return { from };
+}
+// A fresh "device": empty app state, signed in to the same fake database
+async function device(db, uid = "u1") {
+  localStorage.removeItem("pb_data"); localStorage.removeItem("pb_dirty"); localStorage.removeItem("pb_dirty_games");
+  await IDB.del("games:" + uid); await IDB.del("acc:" + uid);
+  S.books = { main: { white: emptyRep(), black: emptyRep() } }; S.book = "main"; S.rep = S.books.main;
+  S.settings = { user: "me", band: [1600, 1800], months: 3 }; S.games = []; S.acc = {};
+  Object.assign(Store, { sb: fakeSupabase(db, uid), user: { id: uid }, seen: {}, timers: {}, inflight: {}, pending: {} });
+  Object.assign(Games, { table: false, failed: false, inflight: false, timer: null, seenAt: 0, epoch: 0, dirty: new Set() });
+  Object.assign(Evals, { table: null, missed: new Set(), ask: new Map(), out: new Map() });
+  return Store.loadRemote({ id: uid });
+}
+const game = (id, date, moves = "e4 e5 Nf3") => ({ id, my: "white", tc: "rapid", date, white: "me", black: "x", result: "1-0", moves, clk: [598, 597, 590] });
+
+(async () => {
+  const db = {
+    prep_data: [
+      { user_id: "u1", doc: "settings", data: { user: "me", band: [1600, 1800], months: 3 }, updated_at: tick() },
+      { user_id: "u1", doc: "games", data: { list: [game("g1", "2026-11-01"), game("g2", "2026-11-02"), game("g3", "2026-10-30")] }, updated_at: tick() },
+      { user_id: "u1", doc: "acc", data: { map: { g1: { inb: [90], post: [], exitCp: 20 } } }, updated_at: tick() },
+    ],
+    games: [], evals: [],
+  };
+
+  await at("without the games table: the old documents keep working", async () => {
+    const noTables = { prep_data: db.prep_data };
+    eq(await device(noTables), true);
+    eq([Games.table, S.games.length], [false, 3]);
+  });
+
+  await at("first sign-in with the table: games are copied from the old documents, once", async () => {
+    await device(db);
+    eq([Games.table, S.games.length, S.settings.gamesInTable], [true, 3, true]);
+    await sleep(1200); // push is debounced
+    eq(db.games.map(r => r.id).sort(), ["g1", "g2", "g3"]);
+    const g1 = db.games.find(r => r.id === "g1");
+    eq([g1.played_on, g1.color, g1.analysis.exitCp, g1.game.clk.length], ["2026-11-01", "white", 20, 3]);
+    eq(db.prep_data.find(r => r.doc === "games").data.list.length, 3, "old document kept as a backup");
+    await sleep(900); // settings save (gamesInTable) reaches prep_data
+    eq(db.prep_data.find(r => r.doc === "settings").data.gamesInTable, true);
+  });
+
+  await at("a second device loads games from the table, sorted newest first", async () => {
+    await device(db);
+    eq(S.games.map(g => g.id), ["g2", "g1", "g3"]);
+    eq(S.acc.g1.exitCp, 20);
+  });
+
+  await at("only changed games are sent", async () => {
+    const before = db.games.map(r => r.updated_at).join();
+    S.acc.g2 = { v: 2, ev: [20, 30], bm: ["e2e4", "e7e5"], inb: [], post: [], exitCp: 30 };
+    Games.mark(["g2"]);
+    await sleep(1200);
+    const after = Object.fromEntries(db.games.map(r => [r.id, r.updated_at]));
+    eq([db.games.find(r => r.id === "g2").analysis.v, after.g1 === before.split(",")[db.games.findIndex(r => r.id === "g1")]], [2, true]);
+  });
+
+  await at("refresh pulls games changed on another device", async () => {
+    db.games.push({ user_id: "u1", id: "g4", played_on: "2026-11-05", color: "white", game: game("g4", "2026-11-05"), analysis: null, updated_at: tick() });
+    eq(await Games.refresh(), true);
+    eq(S.games[0].id, "g4");
+    eq(await Games.refresh(), false, "nothing new the second time");
+  });
+
+  await at("an unsent change on this device isn't overwritten by a refresh", async () => {
+    S.acc.g1 = { v: 2, ev: [1], bm: [""], inb: [], post: [], exitCp: 99 };
+    Games.dirty.add("g1"); // as if the push hadn't happened yet
+    const row = db.games.find(r => r.id === "g1"); row.analysis = { exitCp: -5 }; row.updated_at = tick();
+    await Games.refresh();
+    eq(S.acc.g1.exitCp, 99);
+    Games.dirty.delete("g1");
+  });
+
+  await at("clearing games empties the table and tells other devices", async () => {
+    await Games.clearAll();
+    eq([db.games.length, S.games.length, S.settings.gamesEpoch], [0, 0, 1]);
+    // another device that still has games sees the new epoch and reloads (now empty)
+    S.games = [game("old", "2026-01-01")]; Games.epoch = 0;
+    eq(await Games.refresh(), true);
+    eq(S.games.length, 0);
+  });
+
+  await at("after clearing, a new sign-in doesn't copy the old documents back", async () => {
+    db.prep_data.find(r => r.doc === "settings").data = { ...S.settings };
+    await device(db);
+    eq([S.games.length, db.games.length], [0, 0]);
+  });
+
+  await at("engine results: saved (depth 14+ only) and found again in one batched query", async () => {
+    await device(db);
+    const f1 = START, f2 = fenAfter(START, ["e4"]), f3 = fenAfter(START, ["d4"]);
+    Evals.put(f1, { cp: 30, best: "e2e4", d: 16, e: "wasm" });
+    Evals.put(f2, { cp: -25, best: "c7c5", d: 10, e: "wasm" }); // too shallow: not saved
+    await Evals.flush();
+    eq(db.evals.map(r => [r.key, r.depth]), [[K(f1), 16]]);
+    // another device: an empty local cache, the result comes from the database
+    for (const k of Object.keys(EVALC)) delete EVALC[k];
+    Evals.missed.clear();
+    let queries = 0; const real = Store.sb.from; Store.sb.from = t => { if (t === "evals") queries++; return real(t); };
+    const [a, b, c] = await Promise.all([Evals.lookup(f1, 14), Evals.lookup(f3, 14), Evals.lookup(f1, 20)]);
+    eq([a && a.cp, b, c, queries], [30, null, null, 1], "depth 16 is enough for 14 but not 20; one query");
+    eq(EVALC[K(f1)].d, 16, "kept in the local cache");
+    eq(await Evals.lookup(f3, 14), null); eq(queries, 1, "a known miss isn't asked again");
+  });
+
+  const fails = results.filter(r => r.startsWith("FAIL")).length;
+  document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
+  document.title = fails ? "FAIL" : "PASS";
+})();
+</script>
+</body>
+</html>

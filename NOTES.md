@@ -27,8 +27,8 @@ they're done.
 
 ## Groundwork (do first)
 
-- [ ] **G1. Store more per game.** Needed for the items marked below.
-  (Code done 2026-11-08. Waiting on migration `0003_games_table.sql`.)
+- [x] **G1. Store more per game.** Needed for the items marked below.
+  (Done 2026-11-08. Migration `0003_games_table.sql` applied the same day.)
   - [x] Keep clock times. chess.com PGNs have `{[%clk 0:04:12.3]}` after each
     move, but the current parser strips comments, so change it to read them.
     *Done:* `mainlineWithClocks()` gives `game.clk`, seconds left after each
@@ -40,18 +40,18 @@ they're done.
   - [x] Build per-position statistics from the user's own games: games, wins,
     draws, losses. *Done:* `myPosStats(key)` and `myMoveStats(key, san)`,
     matched by position, so transpositions count.
-  - [ ] Move games and their analysis into their own Supabase table, with one
+  - [x] Move games and their analysis into their own Supabase table, with one
     row per game, instead of one large JSON document. *Code done* (`js/games.js`).
     It switches over by itself once migration 0003 is applied, and copies the
     games across the first time. Locally, games are now in IndexedDB instead
     of localStorage.
-- [ ] **G2. Save engine results to the database.** Store Stockfish results by
+- [x] **G2. Save engine results to the database.** Store Stockfish results by
   position key in Supabase, so analysis run on the PC is instantly available on
   the phone. Use them alongside the local cache. Also switch to the faster
   WASM Stockfish build (see `CLAUDE.md`).
-  (WASM build done in v0.5. Database code done in `js/evals.js`: lookups are
-  batched, and results of depth 14 and up are saved. Waiting on migration
-  `0004_evals_table.sql`.)
+  (Done. WASM build in v0.5. Database code in `js/evals.js`: lookups are
+  batched, and results of depth 14 and up are saved. Migration
+  `0004_evals_table.sql`, applied 2026-11-08.)
 - [x] **G3. One background job queue.** All slow work goes through one queue,
   with the current screen's requests first. That covers engine analysis, MultiPV
   follow-up counts, Lichess lookups, game analysis and puzzle extraction.

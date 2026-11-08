@@ -211,14 +211,14 @@ stay in `localStorage` and never go to the database.
   - `0001_prep_data.sql`: table, RLS policies, grants
   - `0002_server_updated_at.sql`: trigger that sets `updated_at = now()` on
     every write
-  - `0003_games_table.sql` (G1): `games`, one row per game (`game` and
-    `analysis` jsonb), with RLS and the same trigger. **Not applied yet** (as
-    of 2026-11-08). The app falls back to the old `games`/`acc` documents
-    until it is. Once applied, the app copies games in by itself the first
+  - `0003_games_table.sql` (G1, applied 2026-11-08): `games`, one row per game (`game` and
+    `analysis` jsonb), with RLS and the same trigger. Before it was applied
+    the app fell back to the old `games`/`acc` documents, and still does
+    if the table is unreachable. The app copies games in by itself the first
     time (`settings.gamesInTable`). It leaves the old documents as a backup,
     and `settings.gamesEpoch` tells other devices when games were cleared.
-  - `0004_evals_table.sql` (G2): `evals`, Stockfish results by position key.
-    **Not applied yet.** Without it, `Evals` does nothing.
+  - `0004_evals_table.sql` (G2, applied 2026-11-08): `evals`, Stockfish results by position key.
+    Without it, `Evals` does nothing. Sync logic is tested in `tests/sync.html` (fake client).
 - Claude Code reaches the database through the claude.ai Supabase connector,
   which has **write** access. Ask before running anything other than reads.
   Claude Code's permission check blocks `apply_migration` unless the user
