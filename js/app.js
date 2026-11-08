@@ -327,6 +327,9 @@ function renderBuild() {
   BB.set(fen, { last, arrows: buildArrows(fen, key, n) });
   // line strip
   $("#line").innerHTML = lineHtml(path, true);
+  // "Practise from here" (item 3): for a position in the tree with my moves below it
+  const branch = path.length ? branchInfo(S.color)[key] : null;
+  $("#buildActions").innerHTML = branch && branch.cards ? `<button type="button" class="btn ghost" data-practicehere>Practise from here (${branch.cards} of your move${branch.cards === 1 ? "" : "s"} below)</button>` : "";
   const op = openingFor(path);
   const ex = cachedExplorer(fen);
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
@@ -602,8 +605,17 @@ function renderTrainHome() {
   if (T.state === "summary") {
     const missed = T.done - T.right;
     $("#tSummary").hidden = false;
-    $("#tSummary").innerHTML = `<p><b>${T.right} of ${T.done}</b> right first time.${missed ? ` You went back over ${missed === 1 ? "the one you missed" : `the ${missed} you missed`} until you had ${missed === 1 ? "it" : "them"}, and ${missed === 1 ? "it comes" : "they come"} back for review in about 10 minutes.` : ""}</p>`;
+    $("#tSummary").innerHTML = T.mode === "lines"
+      ? `<p>Practised <b>${Math.min(T.lineNo, T.lines)} line${T.lineNo === 1 ? "" : "s"}</b>: <b>${T.right} of ${T.done}</b> of your moves right first time.${missed ? ` The ${missed === 1 ? "position you missed comes" : `${missed} positions you missed come`} back for review in about 10 minutes.` : ""}</p>`
+      : `<p><b>${T.right} of ${T.done}</b> right first time.${missed ? ` You went back over ${missed === 1 ? "the one you missed" : `the ${missed} you missed`} until you had ${missed === 1 ? "it" : "them"}, and ${missed === 1 ? "it comes" : "they come"} back for review in about 10 minutes.` : ""}</p>`;
   } else $("#tSummary").hidden = true;
+  // Practise lines: from the start, or from the position picked in Build (item 3)
+  const root = practiceRoot(), here = root.length ? openingFor(root) : null;
+  $("#tRoot").innerHTML = root.length
+    ? `Starting from <b class="mono">${esc(root.map((m, i) => (i % 2 ? "" : i / 2 + 1 + ". ") + m).join(" "))}</b>${here ? ` (${esc(here.name)})` : ""}.`
+    : `Starting from the beginning. To practise one part of your repertoire, open a position in Build and choose "Practise from here".`;
+  $("#tRootReset").hidden = !root.length;
+  $("#tLines").disabled = !cards.length;
 }
 function startTraining() {
   let q = dueCards();
@@ -611,7 +623,7 @@ function startTraining() {
     const R = rep();
     q = Object.entries(R.cards).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
   }
-  Object.assign(T, { queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run" });
+  Object.assign(T, { mode: "cards", queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run" });
   nextCard();
 }
 function endSession() {
@@ -640,6 +652,11 @@ function renderTrainCard() {
   $("#tLine").innerHTML = lineHtml(T.path, false);
   const op = openingFor(T.path);
   $("#tOpening").textContent = op ? `${op.eco} ${op.name}` : "";
+  if (T.mode === "lines") {
+    $("#tProgress").textContent = `Line ${Math.min(T.lineNo + 1, T.lines)} / ${T.lines}${T.retryLine ? " · retry" : ""}`;
+    $("#tProgress").dataset.tip = `${T.done} moves so far, ${T.right} right first time${T.retry.length ? `; ${T.retry.length} to retry` : ""}`;
+    return;
+  }
   const left = T.queue.length - T.i;
   $("#tProgress").textContent = `${T.i + 1} / ${T.queue.length}${T.graded.has(T.key) ? " · again" : ""}`;
   $("#tProgress").dataset.tip = `${left} left in this session`;
@@ -653,8 +670,8 @@ function cardPrompt() {
 // Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
 function playLine() {
   const frames = T.frames;
-  if (frames.length <= 1 || reduceMotion()) return showPosition();
-  T.phase = "anim";
+  if (frames.length <= 1 || reduceMotion()) return T.mode === "lines" ? stepLine() : showPosition();
+  T.phase = "anim"; T.runup = true;
   TB.locked = true;
   $("#tPrompt").innerHTML = `<p class="lbl">Playing the line</p><p class="muted">Tap the board to skip.</p>`;
   const ms = Math.round(Math.max(120, Math.min(250, 4000 / (frames.length - 1))));
@@ -662,7 +679,7 @@ function playLine() {
   const step = () => {
     TB.set(frames[i].fen, { last: frames[i].last });
     i++;
-    if (i < frames.length) later(step, ms); else later(showPosition, ms);
+    if (i < frames.length) later(step, ms); else later(() => { T.runup = false; if (T.mode === "lines") stepLine(); else showPosition(); }, ms);
   };
   step();
 }
@@ -674,9 +691,57 @@ function showPosition() {
   TB.set(f.fen, { last: f.last });
   $("#tPrompt").innerHTML = cardPrompt();
 }
-function skipLine() { if (T.phase === "anim") showPosition(); }
+function skipLine() { if (T.phase === "anim" && T.runup) { T.runup = false; if (T.mode === "lines") stepLine(); else showPosition(); } }
+
+/* ----- practise lines (NOTES items 2 and 3) -----
+   Whole lines from a starting position (the start, or one picked in Build): I play my moves,
+   the app plays the opponent's, chosen by pickReply() (practice.js) so every branch comes up.
+   Grading is the same as for single positions: the first attempt at each position this
+   session counts. A miss shows the right move, the line carries on with it, and that position
+   is the start of a line two lines later. */
+const LINES_PER_SESSION = 10, LINE_RETRY_AFTER = 2;
+const framesTo = path => { const c = new Chess(), fr = [{ fen: c.fen(), last: null }]; for (const m of path) { const mv = c.move(m); if (!mv) break; fr.push({ fen: c.fen(), last: [mv.from, mv.to] }); } return fr; };
+function startLines() {
+  stopTraining();
+  Object.assign(T, { mode: "lines", state: "run", done: 0, right: 0, retries: 0, graded: new Set(), lineNo: 0, lines: LINES_PER_SESSION,
+    root: practiceRoot(), retry: [], session: { visited: new Set(), recent: {} }, info: branchInfo(S.color), key: null });
+  nextLine();
+}
+function nextLine() {
+  stopTraining();
+  const i = T.retry.findIndex(r => r.at <= T.lineNo || T.lineNo >= T.lines); // after the last line, finish the retries
+  if (T.lineNo >= T.lines && i < 0) return endSession();
+  T.retryLine = i >= 0;
+  T.path = (i >= 0 ? T.retry.splice(i, 1)[0].path : T.root).slice();
+  T.key = null;
+  T.frames = framesTo(T.path);
+  renderTrainCard();
+  if (T.frames.length <= 1) return stepLine();
+  playLine();
+}
+// Advance the line: end it, wait for my move, or play the opponent's reply
+function stepLine() {
+  clearTimeout(T.timer);
+  const fen = fenAfter(START, T.path), key = K(fen), n = rep().pos[key], f = framesTo(T.path).pop();
+  T.frames = [f];
+  TB.set(fen, { last: f.last });
+  renderTrainCard();
+  if (!n || !n.m.length) { // the end of this line
+    T.session.visited.add(key); T.lineNo++;
+    T.phase = "feedback"; TB.locked = true;
+    $("#tPrompt").innerHTML = `<p class="lbl ok">End of the line</p><p class="muted">${T.lineNo < T.lines || T.retry.length ? "Next line…" : "That was the last one."}</p>`;
+    return later(nextLine, 1100);
+  }
+  if (isMine(key, S.color)) { T.key = key; T.phase = "move"; TB.locked = false; $("#tPrompt").innerHTML = cardPrompt(); return; }
+  const san = pickReply(fen, key, S.color, T.session, T.info);
+  notePick(T.session, key, san);
+  T.phase = "opp"; TB.locked = true;
+  $("#tPrompt").innerHTML = `<p class="lbl">Your opponent plays ${esc(moveLabel(T.path, san))}</p>`;
+  later(() => { T.path.push(san); stepLine(); }, 550);
+}
 function onTrainMove(mv) {
   if (T.phase !== "move") return;
+  if (T.mode === "lines") return onLineMove(mv);
   const n = rep().pos[T.key];
   const card = rep().cards[T.key];
   const fenBefore = T.frames[T.frames.length - 1].fen;
@@ -702,6 +767,27 @@ function onTrainMove(mv) {
     T.retries++;
     later(() => { T.i++; nextCard(); }, 1500);
   }
+}
+// My move while practising a line: graded like a single position, then the line goes on
+function onLineMove(mv) {
+  const n = rep().pos[T.key], card = rep().cards[T.key], fenBefore = T.frames[T.frames.length - 1].fen;
+  const first = !T.graded.has(T.key);
+  T.phase = "feedback"; TB.locked = true;
+  if (first) { T.graded.add(T.key); T.done++; }
+  if (n.m.includes(mv.san)) {
+    if (first) { T.right++; grade(card, true); Store.save(repDoc(S.color)); }
+    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, mv.san))}</p>`;
+    T.path.push(mv.san);
+    return later(stepLine, 350);
+  }
+  if (first) { grade(card, false); Store.save(repDoc(S.color)); }
+  const c = new Chess(fenBefore), good = c.move(n.m[0]);
+  TB.set(fenBefore, { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null, animate: false });
+  const labels = n.m.map(m => `<b>${esc(moveLabel(T.path, m))}</b>`);
+  $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")}.` : `Your move is ${labels[0]}.`} The line carries on with it, and this position comes back in a later line.</p>`;
+  T.retry.push({ path: T.path.slice(), at: T.lineNo + LINE_RETRY_AFTER });
+  T.retries++;
+  later(() => { T.path.push(n.m[0]); stepLine(); }, 1500);
 }
 
 /* ----- games ----- */
@@ -968,6 +1054,7 @@ async function boot() {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
+    else if ("practicehere" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: curPath().slice() }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.nextgap) jumpToGap(d.nextgap);
     else if (d.gapmode) { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); }
     else if ("open" in d) { S.build[S.color] = d.open ? d.open.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
@@ -991,6 +1078,8 @@ async function boot() {
   $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });
   $("#prompt").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("cand")) { e.preventDefault(); toggleCand(e.target.dataset.cand); } });
   $("#tStart").onclick = startTraining;
+  $("#tLines").onclick = startLines;
+  $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;
   $("#fetchBtn").onclick = fetchChessCom;

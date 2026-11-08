@@ -75,7 +75,8 @@ they're done.
     "Where your prep ends", and "Conversion out of the opening" in Games.
   - Keep the bars as the default view. Show the numbers on hover (PC) and on
     tap (Android), for example "W 48% · D 12% · L 40% (n = 312)".
-- [ ] **2. Smarter choice of opponent replies when practising lines.** Always
+- [x] **2. Smarter choice of opponent replies when practising lines.** (Done
+  2026-11-08: Train > Practise lines, weighting in `js/practice.js`.) Always
   picking the most popular reply sends the user down the same line every time.
   Instead, weight each reply by:
   - how often it's played at the user's rating band, so practice stays
@@ -85,8 +86,8 @@ they're done.
   - how recently it was seen, so the same branch doesn't repeat back to back
 
   Over a session, every prepared branch should come up.
-- [ ] **3. Start practice from a chosen position.** Pick any position in the
-  tree (for example after 1.e4 c5 2.Nf3) and practise only the branches that
+- [x] **3. Start practice from a chosen position.** (Done 2026-11-08: Build >
+  Practise from here.) Pick any position in the tree (for example after 1.e4 c5 2.Nf3) and practise only the branches that
   grow from there.
 - [x] **4. Replace the gaps list with a single "Next biggest gap" button.** (Done
   2026-11-08 in `js/gaps.js`. Rating-impact mode also lists weak spots: prepared positions

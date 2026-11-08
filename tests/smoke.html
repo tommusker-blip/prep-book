@@ -36,8 +36,51 @@ f.onload = () => {
     if (mode === "explore") runExplore();
     if (mode === "books") runBooks();
     if (mode === "anim") runAnim();
+    if (mode === "lines") runLines();
     if (mode === "hosted") L("DONE");
   }, 6000);
+
+  // Practise lines (items 2 and 3): three branches after 1.e4; play 6 lines, getting the first
+  // position wrong once; then "Practise from here" in Build starts lines from 1.e4 e5
+  async function runLines() {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const build = moves => { d.querySelector("#toStart").click(); for (const [a, b] of moves) play("#board", a, b); };
+    build([["e2", "e4"], ["c7", "c5"], ["g1", "f3"]]);
+    build([["e2", "e4"], ["e7", "e5"], ["g1", "f3"], ["b8", "c6"], ["f1", "b5"]]);
+    build([["e2", "e4"], ["e7", "e6"], ["d2", "d4"]]);
+    L("cards: " + Object.keys(G("S").rep.white.cards).length);
+
+    d.querySelector('[data-nav="train"]').click();
+    d.querySelector("#tLines").click();
+    w.eval("T.lines = 6");
+    const T = G("T"), lines = [], answers = { };
+    let wrongOnce = false, cur = [];
+    for (let guard = 0; guard < 400 && T.state === "run"; guard++) {
+      if (T.phase === "move") {
+        const n = G("S").rep.white.pos[T.key], fen = G("fenAfter")(G("START"), T.path);
+        const c = new (w.Chess)(fen);
+        let san = n.m[0];
+        if (!wrongOnce && T.path.length === 0) { san = "d4"; wrongOnce = true; } // miss 1.e4 once
+        const mv = c.move(san);
+        play("#tBoard", mv.from, mv.to);
+      }
+      if (T.phase === "feedback" && /End of the line/.test(d.querySelector("#tPrompt").textContent)) { lines.push(T.path.join(" ")); while (T.phase === "feedback" && T.state === "run") await sleep(50); }
+      await sleep(60);
+    }
+    L("lines played: " + lines.join(" | "));
+    L("branches covered: " + ["e4 c5", "e4 e5", "e4 e6"].filter(b => lines.some(l => l.startsWith(b))).join(", "));
+    L("summary: " + d.querySelector("#tSummary").textContent.trim());
+    // Practise from here
+    d.querySelector('[data-nav="build"]').click();
+    w.eval('S.build.white = ["e4","e5"]; renderBuild()');
+    const ph = d.querySelector("[data-practicehere]");
+    L("build button: " + (ph ? ph.textContent : "none"));
+    ph.click();
+    for (let g = 0; g < 100 && T.phase !== "move"; g++) await sleep(50);
+    L("practice from here starts at: " + T.path.join(" ") + " | root shown: " + (G("practiceRoot")("white").join(" ")));
+    d.querySelector("#tStop").click();
+    L("DONE");
+  }
 
   // Piece animation: a move slides, castling slides the rook too, Back slides the piece home.
   // Run with --force-prefers-reduced-motion to check that nothing slides.

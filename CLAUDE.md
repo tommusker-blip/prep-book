@@ -286,8 +286,13 @@ and accuracy into their own table, with one row per game.
 - The explorer cache is in `localStorage`, alongside `pb_data` (games are
   about 850 KB). If storage runs out, `lsSet` fails silently. Consider
   IndexedDB for the caches.
-- Training tests one position at a time. The line is replayed first, but I
-  only play the final move, not every move of mine along the way.
+- Train has two modes:
+  - **Review positions** tests one position at a time, with the line
+    replayed first.
+  - **Practise lines** (v0.7) plays whole lines from the start or from a
+    chosen position (`S.settings.practiceRoot[color]`). The opponent's replies
+    are chosen by `pickReply()` in `js/practice.js`: frequency × need ×
+    coverage × recency.
 - Promotion always makes a queen.
 - Errors are shown as toasts, and there is no offline queue beyond
   `localStorage`.
