@@ -35,6 +35,10 @@ function barFor(o, who) {
   return `<span class="wdl" data-tip="${esc(who + ": " + wdlLine(o))}" tabindex="0"><i class="w" style="width:${pct(o.w, t)}%"></i><i class="d" style="width:${pct(o.d, t)}%"></i><i class="l" style="width:${pct(o.l, t)}%"></i></span>`;
 }
 
+// An ⓘ button whose explanation shows on hover (PC) or tap (Android), so explanations don't
+// take up room on screen all the time
+const info = (text, label = "More about this") => `<span class="info" role="button" tabindex="0" aria-label="${esc(label)}" data-tip="${esc(text)}">i</span>`;
+
 /* ----- tips: hover on PC, tap on Android (no browser title tooltips) ----- */
 const Tip = {
   el: null, target: null,
@@ -167,8 +171,7 @@ function candRows(fen, key, n, path) {
   queueRowEvals(fen, key, list.map(c => c.san));
   if (!list.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead" aria-hidden="true"><span>Move</span><span>Engine</span><span>Peers</span><span>You</span></div>
+      <div class="crow chead"><span>Move ${info(`Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score. Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
-    </div>
-    <p class="src">Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${esc(srcLine(ex))})` : ""}. You: your games · your score. Tap a row for details, or a move to play it.</p>`;
+    </div>`;
 }

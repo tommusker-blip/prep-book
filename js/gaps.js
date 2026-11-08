@@ -77,7 +77,7 @@ function renderGaps() {
   if (!t) { box.innerHTML = `<p class="help">No gaps found in the positions checked so far.</p>`; return; }
   const { where, line } = gapLabel(t), pos = list.indexOf(t) + 1;
   box.innerHTML = `<button type="button" class="btn nextgap" data-nextgap="${esc(t.id)}"><b>Next gap: ${esc(t.opp ? where : t.text + (t.path.length ? " " + where : ""))}</b><span>${esc(line)}</span></button>
-    <p class="help">${pos} of ${list.length} gap${list.length === 1 ? "" : "s"}, ranked by ${gapMode() === "impact" ? "rating impact (how often × how far below 50% you'd score)" : "how often you'll reach them"}. ${t.opp ? "The jump shows the position before the reply, with that reply opened." : ""}</p>`;
+    <p class="help">Gap ${pos} of ${list.length}</p>`;
   box._list = list;
 }
 // Jump the board to a gap. For an unprepared reply, show the position before it with the reply's

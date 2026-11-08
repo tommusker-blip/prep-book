@@ -30,6 +30,7 @@ f.onload = () => setTimeout(async () => {
   G("walk")("black");
   w.eval(`S.build.black = "${P}".split(" "); render()`);
   const t0 = performance.now();
+  d.querySelector('[data-ptab="ideas"]').click();
   d.querySelector('[data-ideas="here"]').click();
   while (G("ideaRun") && performance.now() - t0 < 180000) await new Promise(r => setTimeout(r, 250));
   L(`analysed in ${Math.round(performance.now() - t0)} ms with engine=${G("Engine").which}`);
@@ -45,7 +46,7 @@ f.onload = () => setTimeout(async () => {
   const tagsOf = c => c ? G("ideaTags")(c, P.split(" "), "black").tags : [];
   L(tagsOf(nd4).includes("trick") ? "ok   3...Nd4 is a practical trick" : "FAIL 3...Nd4 not tagged as a trick");
   L(tagsOf(nf6).includes("memorable") ? "ok   3...Nf6 is easy to remember (same setup as the Berlin)" : "FAIL 3...Nf6 not tagged memorable");
-  const panel = [...d.querySelectorAll("#prompt table.yours")].pop();
+  const panel = d.querySelector("#ideasCard table.yours");
   L("panel: " + (panel ? panel.innerText.replace(/\s+/g, " ").slice(0, 700) : "missing"));
   report();
 }, 2500);

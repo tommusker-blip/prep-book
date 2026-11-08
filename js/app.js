@@ -326,33 +326,35 @@ function renderBuild() {
   const n = rep().pos[key];
   BB.set(fen, { last, arrows: buildArrows(fen, key, n) });
   BB.el.classList.toggle("exploring", exploring());
-  document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.bmode === (exploring() ? "explore" : "commit"))));
+  document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(exploring())));
+  showPane();
   // line strip
   $("#line").innerHTML = lineHtml(path, true);
   // "Practise from here" (item 3): for a position in the tree with my moves below it
   const branch = path.length ? branchInfo(S.color)[key] : null;
-  $("#buildActions").innerHTML = branch && branch.cards ? `<button type="button" class="btn ghost" data-practicehere>Practise from here (${branch.cards} of your move${branch.cards === 1 ? "" : "s"} below)</button>` : "";
+  $("#buildActions").innerHTML = branch && branch.cards ? `<button type="button" class="btn ghost" data-practicehere>Practise from here (${branch.cards} move${branch.cards === 1 ? "" : "s"})</button>` : "";
   const op = openingFor(path);
   const ex = cachedExplorer(fen);
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
-  $("#opIdea").textContent = op && op.idea ? op.idea : "";
+  const oi = $("#opInfo"); oi.hidden = !(op && op.idea); if (op && op.idea) oi.dataset.tip = op.idea;
   // prompt
   const mine = isMine(key, S.color);
   const pr = $("#prompt");
   if (mine) {
     if (n && n.m.length) {
       const many = n.m.length > 1;
-      pr.innerHTML = `<p class="lbl">${many ? `Your moves (${n.m.length} options)` : "Your move"}</p>
-      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button>`}</li>`).join("")}</ul>
-      ${exploring() ? "" : `<p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`}`;
+      pr.innerHTML = `<p class="lbl">${many ? `Your moves (${n.m.length} options)` : "Your move"} ${exploring() ? "" : info(`Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Remove takes the move out with the line after it.`, "About your moves")}</p>
+      <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button>`}</li>`).join("")}</ul>`;
     } else {
-      pr.innerHTML = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the moves below.</p>`;
+      pr.innerHTML = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet: play your move on the board</p>`;
     }
-    pr.innerHTML += candRows(fen, key, n, path) + ideasPanel(fen, key, n, path);
+    pr.innerHTML += candRows(fen, key, n, path);
   } else {
     pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
   if (exploring()) pr.innerHTML = exploreBar() + pr.innerHTML;
+  // Ideas tab: only for positions where it's my move; only built while the tab is open
+  if (S.ptab === "ideas") $("#ideasCard").innerHTML = mine ? ideasPanel(fen, key, n, path) : `<p class="help">Ideas are for positions where it's your move. Play the opponent's reply, or go back one move.</p>`;
   if (!ex && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   renderGaps();
   renderSuggest();
@@ -413,12 +415,11 @@ function ideaWhy(c, m) {
 }
 function ideasPanel(fen, key, n, path) {
   const res = cachedIdeas(fen), mine = n ? n.m : [];
-  const head = `<p class="lbl" style="margin-top:14px">Ideas for this position</p>`;
+  const head = `<p class="lbl">Ideas for this position ${info(`Checks the moves played here for how memorable they are (they lead back into your prep, or build the same setup as your other lines) and how practical (how often opponents at your level go wrong against them). Engine is from your side. "Go wrong" is the share of replies played at your level that give you at least ${(MISTAKE_CP / 100).toFixed(1)} pawns more than their best defence. "Fits your prep" combines the chance of transposing into your lines with how alike the setup is to your other lines.`, "About ideas")}</p>`;
   if (ideaRun && ideaRun.key === key) return `${head}<p class="help" aria-live="polite">Working: ${esc(ideaRun.step)}… (Lichess lookups go at about one a second)</p>`;
   if (!res) {
     if (Engine.failed) return "";
-    return `${head}<p class="help">Checks the moves played here for how memorable they are (they lead back into your prep, or build the same setup as your other lines) and how practical (how often opponents at your level go wrong against them). Takes about 10–20 seconds.</p>
-      <div class="row" style="margin:6px 0 0"><button type="button" class="btn ghost" data-ideas="here">Find ideas here</button></div>`;
+    return `${head}<div class="row" style="margin:6px 0 0"><button type="button" class="btn ghost" data-ideas="here">Find ideas here (10–20 s)</button></div>`;
   }
   const rows = res.cands.slice().sort((a, b) => a.loss - b.loss).map(c => {
     const { tags, m } = ideaTags(c, path);
@@ -434,7 +435,7 @@ function ideasPanel(fen, key, n, path) {
       <tr class="why"><td colspan="4">${ideaWhy(c, m) || ""}</td></tr>`;
   }).join("");
   return `${head}<div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Engine<br>(vs best)</th><th class="num">Opponents<br>go wrong</th><th class="num">Fits your<br>prep</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="src">Engine: Stockfish, from your side. "Go wrong": the share of replies played at your level that give you at least ${(MISTAKE_CP / 100).toFixed(1)} pawns more than their best defence. "Fits your prep": the chance of transposing into your lines, and how alike the setup is to your other lines. <button type="button" class="linkbtn" data-ideas="here">Check again</button></p>`;
+    <p class="src"><button type="button" class="linkbtn" data-ideas="here">Check again</button></p>`;
 }
 async function findIdeasHere() {
   const path = curPath().slice(), fen = fenAfter(START, path), key = K(fen);
@@ -444,7 +445,7 @@ async function findIdeasHere() {
   try {
     await analyseIdeas(fen, S.color, step => {
       ideaRun.step = step;
-      if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) { const p = $("#prompt [aria-live]"); if (p) p.textContent = `Working: ${step}… (Lichess lookups go at about one a second)`; }
+      if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) { const p = $("#ideasCard [aria-live]"); if (p) p.textContent = `Working: ${step}… (Lichess lookups go at about one a second)`; }
     }, () => false, PRIO.soon);
   } catch (e) { toast("The engine couldn't run in this browser."); }
   ideaRun = null;
@@ -487,7 +488,7 @@ function renderSuggest() {
   const section = (id, title, help, rows, fmt) => {
     if (!rows.length) return "";
     const shown = rows.slice(0, sugOpen[id]);
-    return `<h4 class="lbl" style="margin-top:14px">${title} <span class="muted">(${rows.length})</span></h4><p class="help">${help}</p>
+    return `<h4 class="lbl" style="margin-top:14px">${title} <span class="muted">(${rows.length})</span> ${info(help, "About " + title)}</h4>
       <ol class="gaplist">${shown.map((r, i) => `<li>${fmt(r, i)}</li>`).join("")}</ol>
       ${rows.length > shown.length ? `<button type="button" class="btn ghost" data-more="${id}">Show more</button>` : ""}`;
   };
@@ -552,6 +553,13 @@ function goMove(san) {
    (switching to Commit there). Where the line plays a different move of mine than the
    repertoire has, the user chooses: add it as another option, or replace mine. */
 const exploring = () => S.buildMode === "explore";
+// Build's panel tabs (Moves, Gaps, Ideas, Lichess): one section at a time, so on a phone the
+// board and the section stay close together
+function showPane() {
+  const tab = S.ptab || "moves";
+  document.querySelectorAll("[data-ptab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.ptab === tab)));
+  document.querySelectorAll("[data-pane]").forEach(p => (p.hidden = p.dataset.pane !== tab));
+}
 function setBuildMode(mode) {
   S.buildMode = mode;
   if (mode === "explore") S.explore = { ...(S.explore || {}), [S.color]: curPath().slice() };
@@ -595,8 +603,7 @@ function exploreSave(whole) {
 function exploreBar() {
   if (!exploring()) return "";
   const line = S.explore[S.color] || [], path = curPath(), beyond = line.length > path.length;
-  return `<div class="explorebar"><p class="lbl warn">Exploring: nothing is saved</p>
-    <p class="help">Play moves for either side, and use Back and Next to step through the line. Every statistic and the engine follow along.</p>
+  return `<div class="explorebar"><p class="lbl warn">Exploring: nothing is saved ${info("Play moves for either side, and use Back and Next to step through the line. The statistics and the engine follow along. Save the line when you like it.", "About exploring")}</p>
     <div class="row" style="margin:6px 0 0">${line.length ? `<button type="button" class="btn ghost" data-exwhole>Save this whole line${beyond ? ` (${line.length} moves)` : ""}</button>` : ""}
       ${path.length ? `<button type="button" class="btn ghost" data-exhere>Save up to here and keep building</button>` : ""}</div></div>`;
 }
@@ -1053,7 +1060,7 @@ function renderHeader() { $("#bookName").textContent = prepBookName(); }
 const SAVE_TEXT = {
   idle: "", pending: "Unsaved changes…", saving: "Saving…",
   saved: () => `Saved ${new Date(Store.savedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
-  error: "Not saved yet · tap to retry", device: "Saved on this device",
+  error: "Not saved · tap to retry", device: "Saved locally",
 };
 function renderSaveState(state) {
   const el = $("#saveState"), t = SAVE_TEXT[state];
@@ -1122,7 +1129,8 @@ async function boot() {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
-    else if (d.bmode) setBuildMode(d.bmode);
+    else if (d.bmode) setBuildMode(exploring() ? "commit" : "explore");
+    else if (d.ptab) { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "gaps" || d.ptab === "lichess") renderBuild(); }
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
@@ -1145,8 +1153,12 @@ async function boot() {
     if (n && n.m.length) { path.push(n.m[0]); renderBuild(); }
   };
   $("#toStart").onclick = () => { S.build[S.color] = []; renderBuild(); };
+  $("#quickGap").onclick = () => { const t = nextGapTarget(rankedGaps()); if (t) { S.ptab = "moves"; jumpToGap(t.id); } else toast("No gaps found in the positions checked so far."); };
   // Build rows (rows.js): tap a row to expand it; the move button inside plays the move
   Tip.init();
+  // Keep --hdr at the header's height, so the pinned Build board sits just under it
+  const hdr = document.querySelector(".top"), setHdr = () => document.documentElement.style.setProperty("--hdr", hdr.offsetHeight + "px");
+  setHdr(); if (window.ResizeObserver) new ResizeObserver(setHdr).observe(hdr);
   const toggleCand = san => { const id = K(fenAfter(START, curPath()) || START) + "|" + san; if (candOpen.has(id)) candOpen.delete(id); else candOpen.add(id); renderBuild(); };
   $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });
   $("#prompt").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("cand")) { e.preventDefault(); toggleCand(e.target.dataset.cand); } });

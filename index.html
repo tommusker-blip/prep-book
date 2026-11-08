@@ -44,33 +44,39 @@
 <main>
 <section data-view="build" hidden>
   <div class="layout">
-    <div class="boardcol">
-      <div class="modebar"><div class="seg" role="group" aria-label="Build mode"><button type="button" data-bmode="commit" aria-pressed="true">Commit</button><button type="button" data-bmode="explore" aria-pressed="false">Explore</button></div>
-        <span class="exbadge">Exploring: nothing saved</span></div>
+    <!-- On phones the board column stays pinned under the header; the panel scrolls beneath it -->
+    <div class="boardcol" id="buildBoardCol">
       <div id="board" class="board" aria-label="Chess board"></div>
-      <div class="navrow">
-        <button type="button" class="btn ghost" id="toStart" aria-label="Back to start">⏮ Start</button>
-        <button type="button" class="btn ghost" id="back" aria-label="Back one move">◀ Back</button>
-        <button type="button" class="btn ghost" id="fwd" aria-label="Forward along your line">Next ▶</button>
+      <div class="navrow icons">
+        <button type="button" class="btn ghost" id="toStart" aria-label="Back to the start">⏮</button>
+        <button type="button" class="btn ghost" id="back" aria-label="Back one move">◀</button>
+        <button type="button" class="btn ghost" id="fwd" aria-label="Forward along the line">▶</button>
+        <button type="button" class="btn ghost modebtn" data-bmode="toggle" aria-pressed="false" aria-label="Explore without saving">Explore</button>
+        <button type="button" class="btn ghost" id="quickGap" aria-label="Next gap">Gap ›</button>
       </div>
     </div>
     <div class="panel">
-      <div>
-        <h2 class="opname" id="opName">Starting position</h2>
-        <p class="idea" id="opIdea"></p>
+      <div class="bhead">
+        <h2 class="opname"><span id="opName">Starting position</span> <span class="info" id="opInfo" role="button" tabindex="0" aria-label="About this opening" hidden>i</span></h2>
         <div class="line" id="line"></div>
-        <div id="buildActions" class="row" style="margin-top:8px"></div>
+        <div id="buildActions" class="row" style="margin-top:6px"></div>
       </div>
-      <div class="card" id="prompt"></div>
-      <div class="card" id="gapCard">
-        <div class="gaphead"><h3>Gaps</h3>
+      <div class="ptabs" role="tablist" aria-label="Build sections">
+        <button type="button" role="tab" data-ptab="moves" aria-selected="true">Moves</button>
+        <button type="button" role="tab" data-ptab="gaps" aria-selected="false">Gaps</button>
+        <button type="button" role="tab" data-ptab="ideas" aria-selected="false">Ideas</button>
+        <button type="button" role="tab" data-ptab="lichess" aria-selected="false">Lichess</button>
+      </div>
+      <div class="card" data-pane="moves" id="prompt" role="tabpanel"></div>
+      <div class="card" data-pane="gaps" id="gapCard" role="tabpanel" hidden>
+        <div class="gaphead"><h3>Gaps <span class="info" role="button" tabindex="0" aria-label="About gaps" data-tip="Gaps are positions you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. Frequency ranks them by how often you'll get there. Rating impact ranks them by how often × how far below 50% you'd score, using your own games blended with peer data; it also lists weak spots, positions you've prepared but keep losing.">i</span></h3>
           <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="freq" aria-pressed="true">Frequency</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
         </div>
         <div id="gapNext" style="margin-top:10px"></div>
       </div>
-      <div class="card" id="suggest">
-        <h3>Suggestions from Lichess</h3>
-        <p class="help">Based on Lichess rapid games at your rating bands. Scan your tree first so every position has data.</p>
+      <div class="card" data-pane="ideas" id="ideasCard" role="tabpanel" hidden></div>
+      <div class="card" data-pane="lichess" id="suggest" role="tabpanel" hidden>
+        <h3>Suggestions from Lichess <span class="info" role="button" tabindex="0" aria-label="About suggestions" data-tip="Based on Lichess rapid games at your rating bands. Scan your tree first so every position has data. Hidden gems are rarely played but score well; practical tricks are where opponents at your level often go wrong.">i</span></h3>
         <div id="scanBox" style="margin-top:10px"></div>
         <div id="ideaBox" style="margin-top:10px"></div>
         <div id="sugOut"></div>

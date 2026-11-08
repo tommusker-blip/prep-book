@@ -256,3 +256,32 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .board.exploring{box-shadow:0 0 0 3px var(--warn)}
 .boardcol:has(.board.exploring) .exbadge{display:inline}
 .explorebar{border-left:3px solid var(--warn);padding:2px 0 8px 10px;margin-bottom:10px}
+
+/* ---------- Build layout: board always in view on phones, tabs below ---------- */
+/* --hdr is the header's height, kept up to date by JS (boot) */
+@media (max-width:899px){
+  #buildBoardCol{position:sticky;top:calc(var(--hdr,64px) + env(safe-area-inset-top,0px));z-index:6;background:var(--bg);padding-bottom:6px;margin:0 -2px}
+  #buildBoardCol .board{max-width:min(100%,42vh,520px);margin:0 auto}
+  #buildBoardCol .navrow{max-width:min(100%,520px);margin:6px auto 0}
+}
+.navrow.icons{display:grid;grid-template-columns:repeat(3,minmax(44px,1fr)) minmax(0,1.6fr) minmax(0,1.3fr);gap:6px}
+.navrow.icons .btn{padding:8px 6px;min-width:0;white-space:nowrap}
+.modebtn[aria-pressed="true"]{background:var(--warn);color:#fff;box-shadow:none}
+.bhead .opname{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ptabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);margin:4px 0 -6px}
+.ptabs button{border:0;background:none;padding:10px 4px;font-weight:600;font-size:.88rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
+.ptabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+/* ⓘ buttons: explanations on hover (PC) or tap (Android) */
+.info{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--muted);color:var(--muted);font:600 .72rem/1 var(--f-body);font-style:italic;text-transform:none;letter-spacing:0;cursor:pointer;vertical-align:middle;position:relative}
+.info::after{content:"";position:absolute;inset:-12px} /* a 44px tap target around the small circle */
+.info:hover,.info:focus-visible{color:var(--accent);border-color:var(--accent)}
+.chead .info{margin-left:4px}
+/* narrow phones: keep the move rows' numbers apart, and the header to two lines */
+.crow{grid-template-columns:minmax(0,1.25fr) minmax(0,.9fr) minmax(0,1.15fr) minmax(0,.8fr)}
+.cpeer,.cyou,.ceng{overflow:hidden;text-overflow:ellipsis}
+@media (max-width:420px){
+  .ceng,.cpeer,.cyou{font-size:.74rem}
+  .cmove{flex-direction:column;align-items:flex-start;gap:2px}
+  .cmove .pill{font-size:.64rem;padding:1px 6px}
+}
+.brand .sub{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}

@@ -47,7 +47,7 @@ f.onload = () => {
     const at = s => R().pos[G("K")(G("fenAfter")(G("START"), s ? s.split(" ") : []))];
     play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
     const before = count();
-    d.querySelector('[data-bmode="explore"]').click();
+    d.querySelector('[data-bmode]').click();
     L("explore on: board edge=" + d.querySelector("#board").classList.contains("exploring") + " | bar: " + (d.querySelector(".explorebar .lbl") || {}).textContent);
     play("#board", "b8", "c6"); play("#board", "f1", "c4");
     L("after exploring Nc6 Bc4: path=" + G("S").build.white.join(" ") + " | repertoire unchanged=" + (count() === before));
