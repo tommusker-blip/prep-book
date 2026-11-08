@@ -1,21 +1,29 @@
 /* Layout: one column on phones (board, then panel), board left / panel right from 900px; fixed bottom tab bar. */
+/* Colours: soft and light by default. Good = blue and bad/warning = orange (never red against
+   green), so the meaning survives red-green colour blindness; purple marks gems and weapons. */
 :root{
-  --bg:#EEF1EC; --surface:#FFFFFF; --ink:#18211C; --muted:#5C6962; --line:#D5DCD6;
-  --accent:#2C6A4C; --accent-ink:#FFFFFF; --sq-l:#E6ECDD; --sq-d:#86A58C;
-  --good:#2E7D4F; --warn:#B4541C; --bad:#B3261E; --draw:#9AA49E; --hl:rgba(222,190,60,.55); --hint:rgba(44,106,76,.55);
+  --bg:#F5F7FA; --surface:#FFFFFF; --ink:#1F2A37; --muted:#667085; --line:#E4E8EE;
+  --accent:#3A6EA5; --accent-ink:#FFFFFF; --accent-soft:#E8F0F9;
+  --sq-l:#E9EEF4; --sq-d:#A3B7CC;
+  --good:#2F6DB5; --warn:#C46A1C; --bad:#C2551A; --draw:#B4BDC8; --gem:#7B5CC4; --other:#8A96A5;
+  --hl:rgba(246,196,84,.55); --hint:rgba(58,110,165,.42); --badsq:rgba(214,110,40,.45); --check:rgba(214,90,30,.7);
   --f-display:"IBM Plex Sans Condensed","Roboto Condensed","Arial Narrow",sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"Roboto Mono",Menlo,monospace;
   --f-piece:"Noto Sans Symbols 2","Segoe UI Symbol","DejaVu Sans","Arial Unicode MS",serif;
+  color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111613; --surface:#1A211D; --ink:#E3EAE5; --muted:#9AA8A0; --line:#2C3631;
-  --accent:#6CC193; --accent-ink:#0C1A12; --sq-l:#C9D4C2; --sq-d:#5F7F67;
-  --good:#6CC193; --warn:#E59A62; --bad:#F08A80; --draw:#6E7A73; --hl:rgba(230,200,70,.55); --hint:rgba(60,150,100,.6); color-scheme:dark}}
+/* Dark: Settings > Board > Dark, or "Match my phone" (data-theme="system") on a phone in dark mode */
+@media (prefers-color-scheme: dark){:root[data-theme="system"]{
+  --bg:#12161C; --surface:#1A2029; --ink:#E4E9F0; --muted:#97A3B4; --line:#2A3240;
+  --accent:#86ADDA; --accent-ink:#0E1620; --accent-soft:#1E2A3A; --sq-l:#C9D3DE; --sq-d:#7C93AC;
+  --good:#86ADDA; --warn:#E9A15F; --bad:#EE9A62; --draw:#5F6B7B; --gem:#B49AE6; --other:#7D8898;
+  --hl:rgba(240,200,90,.5); --hint:rgba(134,173,218,.5); --badsq:rgba(233,150,80,.45); --check:rgba(238,140,80,.7); color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#111613; --surface:#1A211D; --ink:#E3EAE5; --muted:#9AA8A0; --line:#2C3631;
-  --accent:#6CC193; --accent-ink:#0C1A12; --sq-l:#C9D4C2; --sq-d:#5F7F67;
-  --good:#6CC193; --warn:#E59A62; --bad:#F08A80; --draw:#6E7A73; --hl:rgba(230,200,70,.55); --hint:rgba(60,150,100,.6); color-scheme:dark}
+  --bg:#12161C; --surface:#1A2029; --ink:#E4E9F0; --muted:#97A3B4; --line:#2A3240;
+  --accent:#86ADDA; --accent-ink:#0E1620; --accent-soft:#1E2A3A; --sq-l:#C9D3DE; --sq-d:#7C93AC;
+  --good:#86ADDA; --warn:#E9A15F; --bad:#EE9A62; --draw:#5F6B7B; --gem:#B49AE6; --other:#7D8898;
+  --hl:rgba(240,200,90,.5); --hint:rgba(134,173,218,.5); --badsq:rgba(233,150,80,.45); --check:rgba(238,140,80,.7); color-scheme:dark}
 html,body{background:var(--bg);color:var(--ink)}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0}
@@ -60,8 +68,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sq.last::after{background:var(--hl)}
 .sq.sel::after{background:var(--hl);box-shadow:inset 0 0 0 3px rgba(0,0,0,.25)}
 .sq.hint::after{background:var(--hint)}
-.sq.bad::after{background:rgba(200,40,30,.45)}
-.sq.check::after{background:radial-gradient(circle,rgba(220,30,30,.75) 0,rgba(220,30,30,0) 70%)}
+.sq.bad::after{background:var(--badsq)}
+.sq.check::after{background:radial-gradient(circle,var(--check) 0,transparent 70%)}
 .pc{position:relative;z-index:1;font-family:var(--f-piece);font-size:10.4cqw;line-height:1;pointer-events:none}
 .pw{color:#FBFBF7;-webkit-text-stroke:.28cqw #1C1C1C;paint-order:stroke fill;text-shadow:0 .2cqw .3cqw rgba(0,0,0,.25)}
 .pb{color:#161616;text-shadow:0 .1cqw 0 rgba(255,255,255,.25)}
@@ -150,7 +158,7 @@ details summary{cursor:pointer;font-weight:600;padding:6px 0}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 .mymoves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mymoves li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.pill.gem{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
+.pill.gem{background:color-mix(in srgb,var(--gem) 16%,transparent);color:var(--gem)}
 .scanrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 progress{width:100%;height:8px;margin-top:8px;accent-color:var(--accent)}
 h4.lbl{font-family:var(--f-body)}
@@ -163,6 +171,7 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 
 /* ---------- board looks (Settings > Board). Green is the default in :root above. ---------- */
 .pc.pimg{width:100%;height:100%;display:block;object-fit:contain;-webkit-user-drag:none}
+:root[data-board="green"]{--sq-l:#E6ECDD;--sq-d:#86A58C}
 :root[data-board="brown"]{--sq-l:#F0D9B5;--sq-d:#B58863}
 :root[data-board="blue"]{--sq-l:#DEE3E6;--sq-d:#8CA2AD}
 :root[data-board="grey"]{--sq-l:#E4E4E4;--sq-d:#A5A8AA}
@@ -181,6 +190,7 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 .lookchip[aria-pressed="true"] .pc:not(.pimg){color:inherit}
 .swatch{display:inline-flex;width:26px;height:26px;border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
 .swatch i{flex:1}
+[data-swatch="soft"] i:first-child{background:#E9EEF4} [data-swatch="soft"] i:last-child{background:#A3B7CC}
 [data-swatch="green"] i:first-child{background:#E6ECDD} [data-swatch="green"] i:last-child{background:#86A58C}
 [data-swatch="brown"] i:first-child{background:#F0D9B5} [data-swatch="brown"] i:last-child{background:#B58863}
 [data-swatch="blue"] i:first-child{background:#DEE3E6} [data-swatch="blue"] i:last-child{background:#8CA2AD}
@@ -205,10 +215,10 @@ input[type=number]{width:6.5em;background:var(--bg);border:1px solid var(--line)
 .board{position:relative}
 .arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
 .arw line{stroke-linecap:round}
-.arw.mine line{stroke:#2E9D5B} .arw.mine polygon{fill:#2E9D5B}
-.arw.gap line{stroke:#E0802F} .arw.gap polygon{fill:#E0802F}
-.arw.gem line{stroke:#8E5BD0} .arw.gem polygon{fill:#8E5BD0}
-.arw.other line{stroke:#3F6FA8} .arw.other polygon{fill:#3F6FA8}
+.arw.mine line{stroke:var(--good)} .arw.mine polygon{fill:var(--good)}
+.arw.gap line{stroke:var(--warn)} .arw.gap polygon{fill:var(--warn)}
+.arw.gem line{stroke:var(--gem)} .arw.gem polygon{fill:var(--gem)}
+.arw.other line{stroke:var(--other)} .arw.other polygon{fill:var(--other)}
 .arw{opacity:.72}
 .quickrow{margin:4px 0 10px}
 .btn.quick{display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;padding:6px 12px}
@@ -234,7 +244,7 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .cand{border-top:1px solid var(--line);padding:6px 4px;cursor:pointer;border-radius:6px}
 .cand:hover{background:color-mix(in srgb,var(--line) 35%,transparent)}
 .cand.open{background:color-mix(in srgb,var(--line) 45%,transparent)}
-.cand.warn{box-shadow:inset 3px 0 0 var(--warn)} .cand.gem{box-shadow:inset 3px 0 0 #8E5BD0}
+.cand.warn{box-shadow:inset 3px 0 0 var(--warn)} .cand.gem{box-shadow:inset 3px 0 0 var(--gem)}
 .cmove{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
 .ceng,.cpeer,.cyou{font-family:var(--f-mono);font-size:.82rem;white-space:nowrap}
 .cdetail{margin-top:8px;display:flex;flex-direction:column;gap:6px;cursor:default}
@@ -330,7 +340,7 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .chip.prep{border-color:var(--good);box-shadow:inset 0 0 0 1px var(--good)}
 .chip.gapmv{border-color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)}
 .crep{font:600 .82rem/1 var(--f-mono);text-align:center}
-.crep.weapon{color:#fff;background:#8E5BD0;border-radius:999px;padding:3px 0}
+.crep.weapon{color:#fff;background:var(--gem);border-radius:999px;padding:3px 0}
 .cand{padding:3px 2px}
 .cand .chip{min-height:30px;padding:2px 8px}
 @media (max-width:899px){ #buildBoardCol .board{max-width:min(100%,32vh,520px)} }
@@ -346,3 +356,27 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .mrow .num{text-align:right}
 .mbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden}
 .mbar i{display:block;height:100%;background:var(--accent)}
+
+/* ---------- soft, light look (v0.8) ---------- */
+.card{border-radius:12px;border-color:var(--line);box-shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.03)}
+.tiles>div{border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.btn{border-radius:10px;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.btn.ghost{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line),0 1px 2px rgba(16,24,40,.04)}
+.btn.ghost:hover:not(:disabled){box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,var(--line))}
+.chip{border-radius:8px;background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.seg{background:var(--surface);border-color:var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+.tabs{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(8px);box-shadow:0 -1px 0 var(--line)}
+.top{border-bottom-color:transparent;box-shadow:0 1px 0 var(--line)}
+.ptabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.board{border-radius:10px;box-shadow:0 0 0 1px var(--line),0 2px 6px rgba(16,24,40,.06)}
+.eco{background:var(--accent-soft);color:var(--accent)}
+.mv.cur{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pill{background:color-mix(in srgb,var(--line) 70%,transparent)}
+.cand:hover{background:color-mix(in srgb,var(--accent-soft) 60%,transparent)}
+.cand.open{background:var(--accent-soft)}
+input[type=text],input[type=password],input[type=number],select,textarea{background:var(--surface)}
+.newmark{background:var(--gem)}
+#tip{background:#1F2A37;color:#F5F7FA}
+:root[data-theme="dark"] #tip{background:#E4E9F0;color:#12161C}

@@ -5,6 +5,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09b", date: "9 Nov 2026", title: "A softer, lighter look",
+    items: [
+      "A new light colour scheme: soft greys, white cards and a calm blue accent.",
+      "Colour-blind friendly: good is blue and bad is orange everywhere (results bars, ✓ and drops, prepared and gap moves, arrows).",
+      "Purple still marks hidden gems and practical weapons.",
+      "New default board, Soft blue (your own board choice is kept).",
+      "Settings → Board → Appearance: Light, Dark, or Match my phone. Light is the default.",
+      "Less text on the Train screen: explanations are behind ⓘ.",
+    ],
+  },
+  {
     id: "2026-11-09a", date: "9 Nov 2026", title: "Mistake review: puzzles from your own games",
     items: [
       "Train → Mistake review turns your real mistakes into puzzles: moves that lost 1.5 pawns or more (or threw away a win or a draw) and that your opponent actually punished.",

@@ -139,7 +139,7 @@ const PIECE_SETS = [
 ];
 // Colours are set in css/app.css under :root[data-board=…]; wood and marble add generated textures
 const BOARD_THEMES = [
-  { id: "green", name: "Tournament green" }, { id: "brown", name: "Brown" }, { id: "blue", name: "Blue" },
+  { id: "soft", name: "Soft blue" }, { id: "green", name: "Tournament green" }, { id: "brown", name: "Brown" }, { id: "blue", name: "Blue" },
   { id: "grey", name: "Grey" }, { id: "wood", name: "Wood" }, { id: "marble", name: "Marble" },
 ];
 let pieceFallback = false; // set if an SVG fails to load: use the Unicode pieces for this session
@@ -150,8 +150,13 @@ function pieceHtml(p, set = pieceSet()) {
   return `<img class="pc pimg" src="${pieceSrc(set, p.color, p.type)}" alt="" draggable="false">`;
 }
 function applyLook() {
-  const t = S.settings.board || "green";
-  if (t === "green") delete document.documentElement.dataset.board; else document.documentElement.dataset.board = t;
+  const t = S.settings.board || "soft"; // the soft blue default lives in :root
+  if (t === "soft") delete document.documentElement.dataset.board; else document.documentElement.dataset.board = t;
+  // Appearance: light (default), dark, or match the phone ("system")
+  const th = ["light", "dark", "system"].includes(S.settings.theme) ? S.settings.theme : "light";
+  document.documentElement.dataset.theme = th; lsSet("pb_theme", th);
+  const meta = document.querySelector("meta[name=theme-color]"); // the phone's status bar follows the page
+  if (meta) meta.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#F5F7FA");
 }
 function redrawBoards() { applyLook(); if (BB) BB.draw(); if (TB) TB.draw(); }
 
@@ -692,8 +697,8 @@ function renderTrainHome() {
   // Practise lines: from the start, or from the position picked in Build (item 3)
   const root = practiceRoot(), here = root.length ? openingFor(root) : null;
   $("#tRoot").innerHTML = root.length
-    ? `Starting from <b class="mono">${esc(root.map((m, i) => (i % 2 ? "" : i / 2 + 1 + ". ") + m).join(" "))}</b>${here ? ` (${esc(here.name)})` : ""}.`
-    : `Starting from the beginning. To practise one part of your repertoire, open a position in Build and choose "Practise from here".`;
+    ? `From <b class="mono">${esc(root.map((m, i) => (i % 2 ? "" : i / 2 + 1 + ". ") + m).join(" "))}</b>${here ? ` (${esc(here.name)})` : ""}.`
+    : `From the start.`;
   $("#tRootReset").hidden = !root.length;
   $("#tLines").disabled = !cards.length;
   renderMistakeCard();
@@ -1061,6 +1066,8 @@ function renderLook() {
   $("#boardThemes").innerHTML = BOARD_THEMES.map(t => `<button type="button" class="chip lookchip" aria-pressed="${t.id === theme}" data-boardtheme="${t.id}"><span class="swatch" data-swatch="${t.id}"><i></i><i></i></span><span>${esc(t.name)}</span></button>`).join("");
   $("#arrowOpt").innerHTML = [["on", "Show"], ["off", "Hide"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${(S.settings.arrows !== false) === (v === "on")}" data-arrows="${v}">${l}</button>`).join("");
   $("#autoOpp").value = S.settings.autoOpp || "off";
+  const th = ["light", "dark", "system"].includes(S.settings.theme) ? S.settings.theme : "light";
+  $("#appTheme").innerHTML = [["light", "Light"], ["dark", "Dark"], ["system", "Match my phone"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${v === th}" data-apptheme="${v}">${l}</button>`).join("");
   $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
 }
 function renderSettings() {
@@ -1236,6 +1243,7 @@ async function boot() {
     else if (d.openbook) switchBook(d.openbook);
     else if (d.bookact) onBookAction(d.bookact);
     else if (d.pieces) { S.settings.pieces = d.pieces; pieceFallback = false; Store.save("settings"); redrawBoards(); renderLook(); }
+    else if (d.apptheme) { S.settings.theme = d.apptheme; lsSet("pb_theme", d.apptheme); Store.save("settings"); applyLook(); renderLook(); }
     else if (d.boardtheme) { S.settings.board = d.boardtheme; Store.save("settings"); redrawBoards(); renderLook(); }
     else if ("scan" in d) scanTree(S.color, onScanTick);
     else if (d.ideas === "here") findIdeasHere();

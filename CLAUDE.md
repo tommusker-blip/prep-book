@@ -11,7 +11,7 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.7, proof of concept)
+## Current state (v0.8, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -469,6 +469,17 @@ Stockfish's choice:
   - connect the **Supabase MCP server** in Claude Code, so Claude can inspect
     the schema and run migrations. Prefer read-only mode, or a development
     branch, for anything risky.
-- Design: plain, functional tool. Green tournament-board palette, light and
-  dark themes driven by CSS custom properties, 44 px tap targets, and a fixed
-  bottom tab bar that respects safe-area insets.
+- Design (v0.8): clean, soft and light, all driven by CSS custom properties.
+  - Palette: soft cool greys, white cards with faint shadows, and a calm blue
+    accent (`--accent`) used sparingly.
+  - Colour-blind safe: **good = blue (`--good`), bad or warning = orange
+    (`--bad`/`--warn`)**, and never red against green. Purple (`--gem`) marks
+    gems and practical weapons. Keep to these tokens; don't hard-code colours.
+  - Light is the default. `S.settings.theme` is `light` / `dark` / `system`,
+    set on `html[data-theme]`. An inline script in `<head>` applies it from
+    `pb_theme` before the first paint.
+  - The default board is "Soft blue" (`--sq-l`/`--sq-d` on `:root`). Other
+    boards use `html[data-board]`.
+  - 44 px tap targets (40 px for the Build controls), and a fixed bottom tab
+    bar that respects safe-area insets.
+  - Explanations go behind ⓘ (`info()`), not into the page.

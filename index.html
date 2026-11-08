@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#EEF1EC" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111613" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F5F7FA">
+<!-- Light by default: set the appearance before anything draws, so there's no dark flash -->
+<script>try { var t = JSON.parse(localStorage.getItem("pb_theme") || "\"light\""); document.documentElement.dataset.theme = ["light", "dark", "system"].indexOf(t) >= 0 ? t : "light"; } catch (e) { document.documentElement.dataset.theme = "light"; }</script>
 <meta name="mobile-web-app-capable" content="yes">
 <!-- Installable app: opens in its own window without the browser's address bar (Android "Install app") -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -92,20 +93,17 @@
 
 <section data-view="train" hidden>
   <div id="trainHome" class="stack">
-    <h2>Train</h2>
-    <p class="help">Spaced repetition on your own moves. Positions you misplayed in real games come first; ones you know well come back less often.</p>
+    <h2>Train <span class="info" role="button" tabindex="0" aria-label="About training" data-tip="Spaced repetition on your own moves. Positions you misplayed in real games come first; ones you know well come back less often.">i</span></h2>
     <div class="tiles" id="tStats"></div>
     <div id="tSummary" class="card" hidden></div>
     <div class="card" style="display:flex;flex-direction:column;gap:8px">
-      <h3>Review positions</h3>
-      <p class="help">The positions that are due, one at a time, each with its line played in first.</p>
+      <h3>Review positions <span class="info" role="button" tabindex="0" aria-label="About reviewing positions" data-tip="The positions that are due, one at a time, each with its line played in first.">i</span></h3>
       <div><button type="button" class="btn" id="tStart">Start</button></div>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:8px">
-      <h3>Practise lines</h3>
-      <p class="help">Whole lines: you play your moves and the app plays your opponent's, mixing the branches by how often they're played, which ones need work, and which you haven't had yet.</p>
+      <h3>Practise lines <span class="info" role="button" tabindex="0" aria-label="About practising lines" data-tip="Whole lines: you play your moves and the app plays your opponent's, mixing the branches by how often they're played, which ones need work, and which you haven't had yet. To practise one part of your repertoire, open a position in Build and tap Practise under the board.">i</span></h3>
       <p class="help" id="tRoot"></p>
-      <div class="row" style="margin:0"><button type="button" class="btn" id="tLines">Practise 10 lines</button><button type="button" class="btn ghost" id="tRootReset" hidden>Start from the beginning instead</button></div>
+      <div class="row" style="margin:0"><button type="button" class="btn" id="tLines">Practise 10 lines</button><button type="button" class="btn ghost" id="tRootReset" hidden>From the start instead</button></div>
     </div>
     <div class="card" id="mistakeCard" style="display:flex;flex-direction:column;gap:8px">
       <h3>Mistake review <span class="info" role="button" tabindex="0" aria-label="About mistake review" data-tip="Puzzles from your own games: moves that lost at least the mistake size (Settings > Advanced) or threw away a result, and that your opponent actually punished. Moves under time pressure, positions that were already lost, recaptures and only-moves are left out. Find any good move; then see what you played and how it was punished, and choose Keep (it comes back on a schedule), Seen it, or Later.">i</span></h3>
@@ -202,6 +200,7 @@
       <h3>Board</h3>
       <div class="preview" id="lookPreview" aria-hidden="true"></div>
       <div class="field"><span class="lbl" style="margin:0">Pieces</span><div class="chips" id="pieceSets"></div></div>
+      <div class="field"><span class="lbl" style="margin:0">Appearance</span><div class="chips" id="appTheme"></div></div>
       <div class="field"><span class="lbl" style="margin:0">Board colours</span><div class="chips" id="boardThemes"></div></div>
       <div class="field"><span class="lbl" style="margin:0">Move arrows in Build</span><div class="chips" id="arrowOpt"></div>
         <p class="help">Arrows show the moves played at your level on Lichess, thicker for more common ones. Green is your repertoire, orange is an opponent move you haven't prepared, and purple is a hidden gem or a better-scoring move.</p></div>
