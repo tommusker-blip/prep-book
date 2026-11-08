@@ -17,9 +17,10 @@ const Evals = {
   askTimer: null,
   out: new Map(), outTimer: null,
   usable() { return S.storeMode === "supabase" && Store.sb && Store.user && this.table !== false; },
-  lookup(fen, depth) {
-    const key = K(fen);
-    if (!this.usable() || depth < MIN_REMOTE_DEPTH || this.missed.has(key)) return Promise.resolve(null);
+  // kind "eval" (a single best line) or "mpv" (MultiPV, item 7: stored under "mpv:<key>")
+  lookup(fen, depth, kind = "eval") {
+    const key = (kind === "mpv" ? "mpv:" : "") + K(fen);
+    if (!this.usable() || (kind === "eval" && depth < MIN_REMOTE_DEPTH) || this.missed.has(key)) return Promise.resolve(null);
     return new Promise(resolve => {
       (this.ask.get(key) || this.ask.set(key, []).get(key)).push({ depth, resolve });
       if (this.ask.size >= 100) this.query(); else if (!this.askTimer) this.askTimer = setTimeout(() => this.query(), 40);
@@ -38,15 +39,15 @@ const Evals = {
     } catch (e) { if (missingTable(e)) this.table = false; }
     const found = new Map(rows.map(r => [r.key, r.data]));
     for (const [key, waiters] of batch) {
-      const d = found.get(key);
-      if (d && (!EVALC[key] || (EVALC[key].d || 0) < d.d)) EVALC[key] = d; // keep the deeper one locally
+      const d = found.get(key), mpv = key.startsWith("mpv:"), k = mpv ? key.slice(4) : key, cache = mpv ? MPV : EVALC;
+      if (d && (!cache[k] || (cache[k].d || 0) < d.d)) cache[k] = d; // keep the deeper one locally
       if (!d) this.missed.add(key);
       for (const w of waiters) w.resolve(d && d.d >= w.depth ? d : null);
     }
   },
-  put(fen, r) {
-    if (!this.usable() || !r || r.d < MIN_REMOTE_DEPTH || r.e !== "wasm") return;
-    const key = K(fen);
+  put(fen, r, kind = "eval") {
+    if (!this.usable() || !r || (kind === "eval" && r.d < MIN_REMOTE_DEPTH) || r.e !== "wasm") return;
+    const key = (kind === "mpv" ? "mpv:" : "") + K(fen);
     this.missed.delete(key);
     this.out.set(key, { user_id: Store.user.id, key, depth: r.d, data: r });
     if (!this.outTimer) this.outTimer = setTimeout(() => this.flush(), 2000);

@@ -90,7 +90,19 @@ when it loads; the others just define things.
   - `blended()`: the sample-size rule, `(n × mine + k × peers) / (n + k)`
   - `adv()`: thresholds from Settings > Advanced (`good`, `mistake`, `clock`,
     `k`)
-  - `Tip`: hover or tap tips (no `title` tooltips)
+  - `Tip`: hover or tap tips (no `title` tooltips); `info(text)` makes an ⓘ
+    button for explanations, so they aren't on screen all the time
+  - `followups()` (item 7): for each of my top 6 candidates, `Engine.multi()`
+    (MultiPV 5 at depth 12, cached in `MPV` / `pb_mpv` and in `evals` as
+    `mpv:<key>`) counts the opponent's replies within the good margin. The
+    label is "Only move", "Narrow", "Several" or "Many". The Lichess data
+    after the move gives how often peers find a good reply (needs 50+ games
+    with half the replies listed). `isWeapon()` marks a move a "Practical
+    weapon" when it costs me no more than the margin, leaves 1–2 good
+    replies, and peers find one 50% of the time or less.
+- Build layout: on phones the board column is pinned under the header
+  (`--hdr`), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
+  control row has Start, Back, Next, Explore and Gap.
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
   four views (Build, Train, Games, Settings), `renderBg()` for the header's
   background-job marker, and `boot()`

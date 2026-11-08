@@ -137,7 +137,9 @@ they're done.
 
 ## New features
 
-- [ ] **7. Follow-up information for each candidate move.**
+- [x] **7. Follow-up information for each candidate move.** (Done 2026-11-08 in
+  `js/rows.js`: MultiPV 5 at depth 12 per candidate, "find" needs 50+ peer games with
+  half the replies listed, and practical weapons are marked purple.)
   - **Likely replies:** the one or two most common replies at the user's band,
     with frequency and peer score after each. For example, "Usually 3…Nf6
     (62%), 3…d6 (21%)".

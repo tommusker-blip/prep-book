@@ -423,6 +423,25 @@ t("gaps: Next gap steps through the list and wraps round", () => {
   gapLast = null;
 });
 
+/* ----- follow-ups: good replies and how often peers find them (item 7) ----- */
+t("follow-ups: count good replies from MultiPV, and how often peers find one", () => {
+  reset(); resetEx(); S.settings.adv = undefined; // good-move margin 0.5
+  const fen = fenOf("e4 e5 Nf3 Nc6 Bc4 Nf6"), p1 = fenAfter(fen, ["Ng5"]);
+  const uci = san => { const c = new Chess(p1); const m = c.move(san); return m.from + m.to; };
+  // Black to move after 4.Ng5: d5 best, Bc5 close, the rest well behind (cp from Black's side)
+  MPV[K(p1)] = { d: 12, n: 5, e: "wasm", lines: [{ uci: uci("d5"), cp: -20 }, { uci: uci("Bc5"), cp: -60 }, { uci: uci("Qe7"), cp: -150 }, { uci: uci("Nxe4"), cp: -220 }, { uci: uci("h6"), cp: -300 }] };
+  setEx("e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5", 1000, 500, 50, 450, [mv("d5", 400, 200, 20, 180), mv("Nxe4", 300, 200, 10, 90), mv("Qe7", 200, 80, 10, 110), mv("Bc5", 100, 20, 10, 70)]);
+  const fu = followups(fen, "Ng5");
+  eq([fu.good, fu.count, fu.label, Math.round(fu.find * 100)], [["d5", "Bc5"], 2, "Narrow", 50]);
+  // sound for me (loss 0.2) + narrow + found only 50% of the time = a practical weapon
+  eq(isWeapon(fu, { loss: 20 }), true);
+  eq(isWeapon(fu, { loss: 120 }), false, "not if it costs me more than the margin");
+  eq(isWeapon({ ...fu, find: 0.8 }, { loss: 20 }), false, "not if peers usually find the answer");
+  S.settings.adv = { good: 150 };
+  eq(followups(fen, "Ng5").label, "Several", "a wider margin counts more replies as good");
+  S.settings.adv = undefined; delete MPV[K(p1)];
+});
+
 /* ----- line practice: choosing replies (items 2 and 3) ----- */
 const practiceSetup = () => {
   reset(); resetEx();

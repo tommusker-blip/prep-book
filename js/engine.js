@@ -60,6 +60,40 @@ const Engine = {
       return out;
     }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + depth + (store ? "" : "|nc"), stale: opts.stale || null });
   },
+  // MultiPV (NOTES item 7): the engine's top n moves in a position, each with its eval (cp from
+  // the side to move), through the job queue. Cached locally (MPV, pb_mpv) and in the database
+  // (Evals, kind "mpv").
+  multi(fen, depth = 12, n = 5, opts = {}) {
+    const key = K(fen), ok = h => h && h.d >= depth && h.n >= n;
+    if (ok(MPV[key])) return Promise.resolve(MPV[key]);
+    return Jobs.add("engine", async () => {
+      if (ok(MPV[key])) return MPV[key];
+      if (typeof Evals !== "undefined") { const remote = await Evals.lookup(fen, depth, "mpv"); if (ok(remote)) return remote; }
+      const out = await this.searchMulti(fen, depth, n);
+      MPV[key] = out; saveMpvSoon();
+      if (typeof Evals !== "undefined") Evals.put(fen, out, "mpv");
+      return out;
+    }, { prio: opts.prio ?? PRIO.background, key: "mpv|" + key + "|" + depth + "|" + n, stale: opts.stale || null });
+  },
+  searchMulti(fen, depth, n) {
+    return this.init().then(() => new Promise(res => {
+      const lines = {};
+      const score = m => (m[1] === "cp" ? +m[2] : +m[2] > 0 ? 3000 - +m[2] : -3000 - +m[2]);
+      this.handler = line => {
+        if (line.startsWith("info") && line.includes(" multipv ") && line.includes(" score ")) {
+          const k = +line.match(/ multipv (\d+)/)[1], m = line.match(/score (cp|mate) (-?\d+)/), pv = line.match(/ pv (\S+)/);
+          if (m && pv) lines[k] = { uci: pv[1], cp: score(m), mate: m[1] === "mate" ? +m[2] : undefined };
+        } else if (line.startsWith("bestmove")) {
+          this.handler = null;
+          this.w.postMessage("setoption name MultiPV value 1");
+          res({ d: depth, n, e: this.which, lines: Object.keys(lines).sort((a, b) => a - b).map(k => lines[k]) });
+        }
+      };
+      this.w.postMessage("setoption name MultiPV value " + n);
+      this.w.postMessage("position fen " + fen);
+      this.w.postMessage("go depth " + depth);
+    }));
+  },
   // One search on the worker. Only ever called from the engine lane, so never two at once.
   search(fen, depth, store = true) {
     const key = K(fen);
@@ -86,6 +120,12 @@ const Engine = {
     }));
   },
 };
+// MultiPV results by position key: {d, n, e, lines: [{uci, cp, mate}]}
+let MPV = lsGet("pb_mpv", {}), mpvTimer = null;
+function saveMpvSoon() {
+  clearTimeout(mpvTimer);
+  mpvTimer = setTimeout(() => { const k = Object.keys(MPV); if (k.length > 1500) for (const x of k.slice(0, k.length - 1300)) delete MPV[x]; lsSet("pb_mpv", MPV); }, 1500);
+}
 function saveEvalCache() {
   const keys = Object.keys(EVALC);
   if (keys.length > 4000) for (const k of keys.slice(0, 800)) delete EVALC[k];

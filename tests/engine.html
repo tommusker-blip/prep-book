@@ -40,7 +40,14 @@ const positions = [
   const mate = EVALC[K(positions[4])];
   const ok = mate && mate.mate === 1 && uciToSan(positions[4], mate.best) === "Rd8#";
   L(ok ? "ok   finds mate in 1 (Rd8#)" : "FAIL mate in 1 not found");
-  document.title = ok ? "PASS" : "FAIL";
+  // MultiPV (item 7): after 4.Ng5 in the Two Knights, Black's good replies are few (d5, maybe Bc5)
+  const ng5 = fenAfter(START, "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5".split(" "));
+  const t2 = performance.now(), m = await Engine.multi(ng5, 12, 5, { prio: PRIO.now });
+  const sans = m.lines.map(l => uciToSan(ng5, l.uci) + " " + (l.cp / 100).toFixed(2));
+  L(`MultiPV 5 at depth 12 after 4.Ng5: ${Math.round(performance.now() - t2)} ms: ${sans.join(", ")}`);
+  const mpvOk = m.lines.length === 5 && uciToSan(ng5, m.lines[0].uci) === "d5" && m.lines[0].cp >= m.lines[4].cp;
+  L(mpvOk ? "ok   MultiPV gives 5 ranked lines with 4...d5 first" : "FAIL MultiPV lines wrong");
+  document.title = ok && mpvOk ? "PASS" : "FAIL";
   report();
 })();
 </script>

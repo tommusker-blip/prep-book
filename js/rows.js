@@ -91,6 +91,41 @@ function queueRowEvals(fen, key, sans) {
   for (const f of fens) Engine.analyse(f, ROW_DEPTH, opts).then(() => rowsChanged(key), () => {});
 }
 
+/* ----- follow-ups for each of my candidate moves (NOTES item 7) -----
+   After my candidate move, how many of the opponent's replies keep them within the "good move"
+   margin of their best (Stockfish MultiPV), and how often players at my level actually find one
+   of those (Lichess). One or two good replies that peers often miss make a practical weapon. */
+const MPV_DEPTH = 12, MPV_N = 5, FOLLOW_MAX = 6;
+function followups(fen, san) {
+  const p1 = fenAfter(fen, [san]);
+  if (!p1) return null;
+  const mpv = MPV[K(p1)], exA = cachedExplorer(p1), out = { p1, exA };
+  if (mpv && mpv.d >= MPV_DEPTH && mpv.lines.length) {
+    const best = mpv.lines[0].cp;
+    out.good = mpv.lines.filter(l => best - l.cp <= adv().good).map(l => uciToSan(p1, l.uci));
+    out.count = out.good.length;
+    out.label = out.count <= 1 ? "Only move" : out.count === 2 ? "Narrow" : out.count < MPV_N ? "Several" : "Many";
+    // only with enough peer data: 50+ games, and the listed replies covering at least half of them
+    const listed = exA && exA.total ? exA.moves.reduce((a, m) => a + m.n, 0) : 0;
+    if (exA && exA.total >= 50 && listed / exA.total >= 0.5) { out.found = exA.moves.filter(m => out.good.includes(m.san)).reduce((a, m) => a + m.n, 0); out.find = out.found / exA.total; }
+  }
+  return out;
+}
+// Ask for the MultiPV and Lichess replies for my top candidates, one at a time, most played first
+function queueFollowups(fen, key, list) {
+  if (!isMine(key, S.color)) return;
+  const opts = { prio: PRIO.now, stale: notHere(key) };
+  for (const c of list.slice(0, FOLLOW_MAX)) {
+    const p1 = fenAfter(fen, [c.san]);
+    if (!p1) continue;
+    const m = MPV[K(p1)];
+    if (!Engine.failed && !(m && m.d >= MPV_DEPTH && m.n >= MPV_N)) Engine.multi(p1, MPV_DEPTH, MPV_N, opts).then(() => rowsChanged(key), () => {});
+    if (S.token && !explorerBlocked && !cachedExplorer(p1)) explorer(p1, opts).then(d => { if (d) rowsChanged(key); });
+  }
+}
+// A practical weapon: sound for me, one or two good replies, and peers find them half the time or less
+const isWeapon = (fu, e) => fu && fu.count != null && fu.count <= 2 && fu.find != null && fu.find <= 0.5 && e && e.loss != null && e.loss <= adv().good;
+
 /* ----- which moves get a row ----- */
 // My repertoire moves, the moves peers play (top 6, or 3%+), moves from my own games, and the
 // engine's choice; at most 10, most played first.
@@ -127,7 +162,11 @@ function candRow(fen, key, c, ex, path) {
   if (myTurn && e && e.loss != null && e.loss <= adv().good && c.mine && c.mine.n >= 3 && wdlScore(c.mine) < 0.4) { flag = "warn"; flagText = "The engine likes it, but you score badly with it"; }
   else if (myTurn && e && e.loss != null && e.loss >= adv().mistake / 2 && peerScore != null && avg != null && peerScore - avg >= 0.05) { flag = "gem"; flagText = "The engine dislikes it, but it scores well at your level"; }
   else if (!myTurn && c.mine && c.mine.n >= 3 && wdlScore(c.mine) < 0.4) { flag = "warn"; flagText = "You score badly against this reply"; }
-  const mark = c.prep ? `<span class="pill ok">${myTurn ? "Yours" : "Prepared"}</span>` : (!myTurn ? `<span class="pill gap">Gap</span>` : "");
+  // Item 7: how many good replies, and how often peers find one
+  const fu = myTurn ? followups(fen, c.san) : null, weapon = isWeapon(fu, e);
+  if (weapon && !flag) { flag = "gem"; flagText = `A practical weapon: only ${fu.good.join(" or ")} keep${fu.count === 1 ? "s" : ""} your opponent level, and players at your level find ${fu.count === 1 ? "it" : "one"} ${pctOf(fu.find)} of the time`; }
+  const mark = (c.prep ? `<span class="pill ok">${myTurn ? "Yours" : "Prepared"}</span>` : (!myTurn ? `<span class="pill gap">Gap</span>` : ""))
+    + (fu && fu.label ? `<span class="pill${weapon ? " gem" : ""}">${weapon ? "Practical weapon" : fu.label}${fu.find != null ? ` · ${pctOf(fu.find)} find` : ""}</span>` : (myTurn && fu && !Engine.failed && c.rank < FOLLOW_MAX ? `<span class="pill muted">analysing…</span>` : ""));
   const head = `<div class="crow">
       <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}">${esc(c.san)}</button>${mark}</span>
       <span class="ceng">${engineCell(e, myTurn)}</span>
@@ -146,6 +185,7 @@ function candRow(fen, key, c, ex, path) {
       <div class="cbars"><span class="lbl">You</span>${c.mine ? barFor(c.mine, "Your games") + `<span class="help">${wdlLine(c.mine)}</span>` : `<span class="help">Not in your games</span>`}</div>
       ${b ? `<p class="help">Expected score for you: <b>${pctOf(b.score)}</b> (${esc(b.basis)})</p>` : ""}
       <p class="help">${replies ? `Usually ${replies}` : S.token ? (exA ? (exA.total ? "No common replies at your level" : "Peers rarely reach this position") : "Loading likely replies…") : "Add a Lichess token for likely replies"}${bestReply ? ` · Stockfish's best reply: ${esc(bestReply)}` : ""}</p>
+      ${fu && fu.good ? `<p class="help">Good replies for your opponent (within ${(adv().good / 100).toFixed(1)} of their best): <b>${fu.good.map(esc).join(", ")}</b> (${fu.label.toLowerCase()})${fu.find != null ? ` · players at your level find one ${pctOf(fu.find)} of the time (n = ${nOf(fu.exA.total)})` : ""}</p>` : ""}
     </div>`;
   }
   return `<div class="cand${open ? " open" : ""}${flag ? " " + flag : ""}" data-cand="${esc(c.san)}" role="button" tabindex="0" aria-expanded="${open}">${head}${detail}</div>`;
@@ -169,6 +209,8 @@ function positionSummary(fen, key, ex) {
 function candRows(fen, key, n, path) {
   const ex = cachedExplorer(fen), list = candidates(fen, key, n);
   queueRowEvals(fen, key, list.map(c => c.san));
+  list.forEach((c, i) => (c.rank = i));
+  queueFollowups(fen, key, list);
   if (!list.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
   return positionSummary(fen, key, ex) + `<div class="cands">
       <div class="crow chead"><span>Move ${info(`Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score. Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span></div>
