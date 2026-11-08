@@ -8,7 +8,7 @@
 const SF_WASM = new URL("../engine/stockfish-17.1-lite-single-03e3232.js", (document.currentScript && document.currentScript.src) || location.href).href;
 const SF_ASM = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
 const Engine = {
-  w: null, ready: null, queue: Promise.resolve(), handler: null, failed: false, which: "",
+  w: null, ready: null, handler: null, failed: false, which: "",
   init() {
     if (this.ready) return this.ready;
     const wasmOk = typeof WebAssembly === "object" && location.protocol !== "file:";
@@ -38,13 +38,31 @@ const Engine = {
       w.postMessage("uci");
     });
   },
-  analyse(fen, depth = 12) {
+  // A cached eval that's good enough: deep enough, and from the WASM engine (old Stockfish 10
+  // evals are only reused when that's the engine we're running too)
+  cached(fen, depth) {
+    const hit = EVALC[K(fen)];
+    return hit && hit.d >= depth && (hit.e === "wasm" || this.which === "asm") ? hit : null;
+  },
+  // Analyse through the job queue (G3). opts: {prio, stale} - see jobs.js. Results go to the
+  // local cache and, through Evals (G2), to the database.
+  analyse(fen, depth = 12, opts = {}) {
+    const hit = this.cached(fen, depth);
+    if (hit) return Promise.resolve(hit);
+    return Jobs.add("engine", async () => {
+      const again = this.cached(fen, depth); // another job may have done it meanwhile
+      if (again) return again;
+      const remote = typeof Evals !== "undefined" ? await Evals.lookup(fen, depth) : null;
+      if (remote) return remote;
+      const out = await this.search(fen, depth);
+      if (typeof Evals !== "undefined") Evals.put(fen, out);
+      return out;
+    }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + depth, stale: opts.stale || null });
+  },
+  // One search on the worker. Only ever called from the engine lane, so never two at once.
+  search(fen, depth) {
     const key = K(fen);
-    // Reuse a cached eval if it's deep enough. Evals from the old Stockfish 10 (no `e` field)
-    // are only reused when we're running that engine too.
-    const hit = EVALC[key];
-    if (hit && hit.d >= depth && (hit.e === "wasm" || this.which === "asm")) return Promise.resolve(hit);
-    const job = this.queue.then(() => this.init()).then(() => new Promise(res => {
+    return this.init().then(() => new Promise(res => {
       let last = { cp: 0, best: null, pv: [] };
       this.handler = line => {
         if (line.startsWith("info") && line.includes(" score ")) {
@@ -65,8 +83,6 @@ const Engine = {
       this.w.postMessage("position fen " + fen);
       this.w.postMessage("go depth " + depth);
     }));
-    this.queue = job.catch(() => {});
-    return job;
   },
 };
 function saveEvalCache() {

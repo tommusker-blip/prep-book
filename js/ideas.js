@@ -25,18 +25,18 @@ const ideaRules = () => {
   return { maxLoss: (g.trapLoss ?? 150), minErr: (g.trapErr ?? 30) / 100 };
 };
 // Engine eval in centipawns from my side, whoever is to move
-async function evalMine(fen, depth, color) {
-  const e = await Engine.analyse(fen, depth);
+async function evalMine(fen, depth, color, prio = PRIO.background) {
+  const e = await Engine.analyse(fen, depth, { prio });
   return { cp: fen.split(" ")[1] === myChar(color) ? e.cp : -e.cp, best: e.best };
 }
 const afterMove = (fen, san) => { const c = new Chess(fen); return c.move(san, { sloppy: true }) ? c.fen() : null; };
 
 // Analyse the candidate moves at one of my-turn positions. onStep(text) reports progress.
 // Returns {at, cands:[…]} and caches it. Stops early (returning null) if shouldStop() says so.
-async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop = () => false) {
-  const ex = (S.token && !explorerBlocked) ? await explorer(fen) : null;
+async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop = () => false, prio = PRIO.background) {
+  const ex = (S.token && !explorerBlocked) ? await explorer(fen, { prio }) : null;
   onStep("engine: best move");
-  const base = await evalMine(fen, IDEA_DEPTH, color);
+  const base = await evalMine(fen, IDEA_DEPTH, color, prio);
   const bestSan = uciToSan(fen, base.best);
   // Candidates: the moves peers play here (at least 30 games), plus the engine's choice
   let cands = ex && ex.total ? ex.moves.filter(m => m.n >= 30).sort((a, b) => b.n - a.n).slice(0, 8).map(m => ({ san: m.san, peer: m })) : [];
@@ -48,7 +48,7 @@ async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop 
     const p1 = afterMove(fen, c.san);
     if (!p1) continue;
     onStep(`move ${i + 1} of ${cands.length}: ${c.san}`);
-    const e1 = await evalMine(p1, IDEA_DEPTH, color);
+    const e1 = await evalMine(p1, IDEA_DEPTH, color, prio);
     const cand = {
       san: c.san, p1, myEval: e1.cp, loss: Math.max(0, base.cp - e1.cp),
       top: c.san === topSan, engineBest: c.san === bestSan,
@@ -57,7 +57,7 @@ async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop 
     };
     // How do peers answer it, and how often do they go wrong?
     if (cand.loss <= Math.max(ideaRules().maxLoss, 200) && S.token && !explorerBlocked) {
-      const ex1 = await explorer(p1);
+      const ex1 = await explorer(p1, { prio });
       if (ex1 && ex1.total) {
         cand.total = ex1.total;
         let cum = 0;
@@ -66,7 +66,7 @@ async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop 
           if (shouldStop()) return null;
           const p2 = afterMove(p1, r.san);
           if (!p2) continue;
-          const e2 = await evalMine(p2, REPLY_DEPTH, color);
+          const e2 = await evalMine(p2, REPLY_DEPTH, color, prio);
           cand.replies.push({ san: r.san, f: r.n / ex1.total, myEval: e2.cp, p2, mistake: e2.cp - e1.cp >= MISTAKE_CP });
         }
         cand.cover = cand.replies.reduce((a, r) => a + r.f, 0);

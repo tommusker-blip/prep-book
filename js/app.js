@@ -280,6 +280,8 @@ function render() {
 
 /* ----- build ----- */
 function curPath() { return S.build[S.color]; }
+// For queued work about the Build position with this key: true once the user has moved on
+const notHere = key => () => S.view !== "build" || K(fenAfter(START, curPath()) || START) !== key;
 function renderBuild() {
   const path = curPath();
   const fen = fenAfter(START, path) || START;
@@ -311,7 +313,7 @@ function renderBuild() {
   } else {
     pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${oppTable(fen, key, n)}`;
   }
-  if (!ex && S.token && !explorerBlocked) explorer(fen).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
+  if (!ex && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
   // engine panel
   const ev = EVALC[key];
   $("#engOut").innerHTML = ev ? `<b class="mono">${fmtEval(ev.cp, ev.mate, sideOf(key))}</b> <span class="muted">depth ${ev.d}, Stockfish ${ev.e === "wasm" ? "17" : "10"}</span> · best <b>${esc(uciToSan(fen, ev.best))}</b>` : `<span class="muted">Not analysed yet.</span>`;
@@ -354,7 +356,7 @@ async function autoOpponent(path) {
   if (!mode || mode === "off") return;
   const fen = fenAfter(START, path), key = K(fen);
   if (isMine(key, S.color)) return;
-  if (!cachedExplorer(fen)) await explorer(fen);
+  if (!cachedExplorer(fen)) await explorer(fen, { prio: PRIO.now });
   const same = () => S.view === "build" && curPath() === path && curPath().join(" ") === path.join(" ");
   if (!same()) return;
   const p = pickOpp(fen, key, rep().pos[key], mode);
@@ -396,7 +398,7 @@ function queueVerdicts(fen, sans) {
   if (!jobs.length) return;
   jobs.forEach(f => verdictBusy.add(K(f)));
   const key = K(fen);
-  Promise.all(jobs.map(f => Engine.analyse(f, VERDICT_DEPTH).catch(() => null))).then(() => {
+  Promise.all(jobs.map(f => Engine.analyse(f, VERDICT_DEPTH, { prio: PRIO.now, stale: notHere(key) }).catch(() => null))).then(() => {
     jobs.forEach(f => verdictBusy.delete(K(f)));
     saveEvalCache();
     if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild();
@@ -483,7 +485,7 @@ async function findIdeasHere() {
     await analyseIdeas(fen, S.color, step => {
       ideaRun.step = step;
       if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) { const p = $("#prompt [aria-live]"); if (p) p.textContent = `Working: ${step}… (Lichess lookups go at about one a second)`; }
-    });
+    }, () => false, PRIO.soon);
   } catch (e) { toast("The engine couldn't run in this browser."); }
   ideaRun = null;
   if (S.view === "build") renderBuild();
@@ -1084,7 +1086,7 @@ async function boot() {
   $("#engRun").onclick = async () => {
     const fen = fenAfter(START, curPath()); const key = K(fen);
     $("#engOut").innerHTML = `<span class="muted">${Engine.which ? "Thinking…" : "Starting Stockfish (about 7 MB the first time)…"}</span>`;
-    try { await Engine.init(); await Engine.analyse(fen, Engine.which === "wasm" ? 20 : 16); saveEvalCache(); } catch (e) { $("#engOut").innerHTML = `<span class="muted">The engine couldn't start in this browser.</span>`; return; }
+    try { await Engine.init(); await Engine.analyse(fen, Engine.which === "wasm" ? 20 : 16, { prio: PRIO.now }); saveEvalCache(); } catch (e) { $("#engOut").innerHTML = `<span class="muted">The engine couldn't start in this browser.</span>`; return; }
     if (K(fenAfter(START, curPath())) === key) renderBuild();
   };
   $("#tStart").onclick = startTraining;

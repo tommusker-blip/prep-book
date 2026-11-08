@@ -4,18 +4,22 @@
 let explorerBlocked = false; // set when Lichess can't be reached at all (e.g. inside Claude)
 const EXPL_MAX = 2500;       // cached positions kept in localStorage (pb_expl)
 const EXPL_GAP = 1100;       // ms between requests: one at a time, about one a second
-let explQueue = Promise.resolve(), explNext = 0, explSaveTimer = null, explVer = 0;
+let explNext = 0, explSaveTimer = null, explVer = 0;
 
 const bandKey = () => S.settings.band.join(",");
 function cachedExplorer(fen) { return EXPL[K(fen) + "|" + bandKey()] || null; }
 function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeout(() => lsSet("pb_expl", EXPL), 1500); }
 
-// Every request goes through one queue, so the Build view and a tree scan never hit Lichess in
-// parallel. Resolves to the data, or {error: "auth" | "rate" | "http" | "net"}.
-function fetchExplorer(fen) {
-  const job = explQueue.then(async () => {
-    const hit = cachedExplorer(fen);
-    if (hit) return hit;
+// Lookups run in the job queue's "net" lane (G3), one at a time and about a second apart, so
+// Build, a tree scan and Find ideas never hit Lichess in parallel. opts: {prio, stale}.
+// Resolves to the data, or {error: "auth" | "rate" | "http" | "net"}; rejects with Jobs.STALE
+// if the request went stale while waiting.
+function fetchExplorer(fen, opts = {}) {
+  const hit = cachedExplorer(fen);
+  if (hit) return Promise.resolve(hit);
+  return Jobs.add("net", async () => {
+    const again = cachedExplorer(fen);
+    if (again) return again;
     const wait = explNext - Date.now();
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
     explNext = Date.now() + EXPL_GAP;
@@ -37,16 +41,16 @@ function fetchExplorer(fen) {
     if (keys.length > EXPL_MAX) for (const k of keys.slice(0, keys.length - EXPL_MAX + 200)) delete EXPL[k];
     saveExplSoon();
     return small;
-  });
-  explQueue = job.catch(() => {});
-  return job;
+  }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + bandKey(), stale: opts.stale || null });
 }
-// Cached data, or fetch it. Returns null when there's no token or Lichess can't be used.
-async function explorer(fen) {
+// Cached data, or fetch it. Returns null when there's no token, Lichess can't be used, or the
+// request went stale.
+async function explorer(fen, opts = {}) {
   const hit = cachedExplorer(fen);
   if (hit) return hit;
   if (!S.token || explorerBlocked) return null;
-  const d = await fetchExplorer(fen);
+  let d;
+  try { d = await fetchExplorer(fen, opts); } catch (e) { return null; }
   if (d.error === "auth") { toast("Lichess rejected the token. Check it in Settings."); return null; }
   if (d.error === "net") { explorerBlocked = true; return null; }
   return d.error ? null : d;

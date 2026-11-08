@@ -13,6 +13,7 @@
 <script src="../js/store.js"></script>
 <script src="../js/rep.js"></script>
 <script src="../js/explore.js"></script>
+<script src="../js/jobs.js"></script>
 <script src="../js/engine.js"></script>
 <script src="../js/ideas.js"></script>
 <script>
@@ -261,9 +262,59 @@ t("same pawn structure finds other named openings", () => {
 });
 
 ideaTests();
-const fails = results.filter(r => r.startsWith("FAIL")).length;
-document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
-document.title = fails ? "FAIL" : "PASS";
+
+/* ----- job queue (G3): async, so they run last ----- */
+async function at(name, fn) {
+  try { const r = await fn(); results.push((r === false ? "FAIL " : "ok   ") + name); }
+  catch (e) { results.push("FAIL " + name + " — " + e.message); }
+}
+async function jobTests() {
+  const tick = ms => new Promise(r => setTimeout(r, ms));
+  await at("jobs: higher priority runs first, then first come first served", async () => {
+    const order = [];
+    const slow = name => async () => { await tick(5); order.push(name); };
+    const all = [Jobs.add("engine", slow("first"), { prio: PRIO.background }), // starts at once
+      Jobs.add("engine", slow("bg"), { prio: PRIO.background }), Jobs.add("engine", slow("soon"), { prio: PRIO.soon }),
+      Jobs.add("engine", slow("now-a"), { prio: PRIO.now }), Jobs.add("engine", slow("now-b"), { prio: PRIO.now })];
+    await Promise.all(all);
+    eq(order, ["first", "now-a", "now-b", "soon", "bg"]);
+  });
+  await at("jobs: same key shares one run, and is upgraded to the higher priority", async () => {
+    let runs = 0;
+    const block = Jobs.add("engine", () => tick(10));
+    const a = Jobs.add("engine", async () => { runs++; return 42; }, { key: "k1", prio: PRIO.background });
+    const other = Jobs.add("engine", async () => "other", { prio: PRIO.soon });
+    const b = Jobs.add("engine", async () => { runs++; return 0; }, { key: "k1", prio: PRIO.now });
+    const order = [];
+    a.then(() => order.push("k1")); other.then(() => order.push("other"));
+    await Promise.all([block, a, b, other]);
+    eq([await a, await b, runs], [42, 42, 1]); eq(order, ["k1", "other"]);
+  });
+  await at("jobs: stale jobs are skipped when their turn comes", async () => {
+    let here = true, ran = false;
+    const block = Jobs.add("net", () => tick(10));
+    const p = Jobs.add("net", async () => { ran = true; }, { stale: () => !here });
+    here = false;
+    await block;
+    let why = "";
+    try { await p; } catch (e) { why = isStale(e) ? "stale" : e.message; }
+    eq([ran, why], [false, "stale"]);
+  });
+  await at("jobs: a shared job stays needed while any requester needs it", async () => {
+    let ran = false;
+    const block = Jobs.add("net", () => tick(10));
+    const a = Jobs.add("net", async () => { ran = true; }, { key: "k2", stale: () => true });
+    const b = Jobs.add("net", async () => { ran = true; }, { key: "k2" }); // no stale check: always wanted
+    await Promise.all([block, b]);
+    eq(ran, true);
+  });
+}
+
+jobTests().then(() => {
+  const fails = results.filter(r => r.startsWith("FAIL")).length;
+  document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
+  document.title = fails ? "FAIL" : "PASS";
+});
 </script>
 </body>
 </html>
