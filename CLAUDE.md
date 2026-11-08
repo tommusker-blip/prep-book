@@ -11,7 +11,7 @@ now, but should stay structured so other people could use it later.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.6, proof of concept)
+## Current state (v0.7, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -57,8 +57,18 @@ when it loads; the others just define things.
   `addMove()`, `removeMove()`), PGN parsing, `analyseGame()`, scheduler
   (`grade()`, `dueCards()`, `flagMisplays()`), and repertoire PGN
   export/import
-- `js/engine.js`: `Engine` (Stockfish wrapper with an eval cache) and the
-  accuracy formula
+- `js/games.js` (G1): `Games` keeps `S.games` and `S.acc` in IndexedDB
+  locally (`IDB`, timing out after 3 s with a fallback to localStorage). When
+  signed in, it saves them to the Supabase `games` table, one row per game.
+  `Games.mark(ids)` sends only the games that changed.
+- `js/evals.js` (G2): `Evals` gives batched lookups and saves of Stockfish
+  results in the Supabase `evals` table (depth 14 and up only).
+- `js/jobs.js` (G3): `Jobs`, the one queue for slow work. It has an "engine"
+  lane and a "net" lane, and priorities `PRIO.now` / `soon` / `background`.
+  Jobs can carry a `key`, which shares one run between duplicate requests,
+  and a `stale` check, which drops the job once the user has moved on.
+- `js/engine.js`: `Engine` (Stockfish wrapper with an eval cache; it goes
+  through `Jobs` and `Evals`) and the accuracy formula
 - `js/explore.js`: the Lichess explorer code:
   - client: one shared request queue, about 1 request per second, with a 61 s
     pause after a 429
@@ -118,12 +128,23 @@ chrome --headless=new --allow-file-access-from-files --virtual-time-budget=10000
   `flagMisplays()`, so a misplay only raises a flag once. It lives in the
   repertoire doc so it syncs. Older builds kept it in localStorage
   `pb_flagged_<color>`, which is read once as a migration.
-- `S.games[]`: rapid games only, as `{id, my, tc, url, date, white, black,
-  welo, belo, result, moves: "SAN SAN …"}`
-- `S.acc[gameId] = {inb:[…], post:[…], exitCp}`: per-move accuracy, using the
-  Lichess formula from centipawn loss. `inb` covers moves inside my book,
-  `post` covers up to about 8 plies after leaving book, and `exitCp` is the
-  engine eval at book exit from my side.
+- `S.games[]`: rapid games only, as `{id, my, tc, tcs, url, date, white,
+  black, welo, belo, result, moves: "SAN SAN …", clk: [seconds left after each
+  move]}`. `tcs` is the raw TimeControl (e.g. "600+5"). `clk` comes from the
+  PGN's `[%clk]` comments and is missing for games imported before v0.7 until
+  they're fetched again.
+- `S.acc[gameId]` (analysis v2) = `{v: 2, d: 10, ev: [cp from White's side,
+  one per position, 0 = start], bm: [best move in UCI per position], inb,
+  post, exitCp}`:
+  - `ev` and `bm` cover the whole game up to ply 160, at depth 10. Game evals
+    don't go into `EVALC`.
+  - `inb`/`post` are per-move accuracy (the Lichess formula from centipawn
+    loss), in book and up to 8 plies after it. `exitCp` is the eval at book
+    exit from my side.
+  - v1 entries (no `v`) are redone by "Analyse all" (`needsAnalysis()`).
+- My own statistics (G1, `rep.js`): `myPosStats(key)` and
+  `myMoveStats(key, san)` give `{n, w, d, l}` from my side. They're matched by
+  position key over the first 40 plies (`GAMEKEYS`), so transpositions count.
 - `analyseGame()` returns where a game left the tree, as one of these exit types:
   - `misplay`: I played none of my prepared moves (`expected` lists them,
     separated by " / ")
@@ -190,8 +211,19 @@ stay in `localStorage` and never go to the database.
   - `0001_prep_data.sql`: table, RLS policies, grants
   - `0002_server_updated_at.sql`: trigger that sets `updated_at = now()` on
     every write
+  - `0003_games_table.sql` (G1): `games`, one row per game (`game` and
+    `analysis` jsonb), with RLS and the same trigger. **Not applied yet** (as
+    of 2026-11-08). The app falls back to the old `games`/`acc` documents
+    until it is. Once applied, the app copies games in by itself the first
+    time (`settings.gamesInTable`). It leaves the old documents as a backup,
+    and `settings.gamesEpoch` tells other devices when games were cleared.
+  - `0004_evals_table.sql` (G2): `evals`, Stockfish results by position key.
+    **Not applied yet.** Without it, `Evals` does nothing.
 - Claude Code reaches the database through the claude.ai Supabase connector,
   which has **write** access. Ask before running anything other than reads.
+  Claude Code's permission check blocks `apply_migration` unless the user
+  allows it, so migrations are applied by the user (SQL Editor) or with
+  their explicit go-ahead.
 
 The whole-document approach is fine for now. If `games` grows large, move games
 and accuracy into their own table, with one row per game.

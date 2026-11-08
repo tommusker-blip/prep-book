@@ -44,23 +44,24 @@ const Engine = {
     const hit = EVALC[K(fen)];
     return hit && hit.d >= depth && (hit.e === "wasm" || this.which === "asm") ? hit : null;
   },
-  // Analyse through the job queue (G3). opts: {prio, stale} - see jobs.js. Results go to the
-  // local cache and, through Evals (G2), to the database.
+  // Analyse through the job queue (G3). opts: {prio, stale} - see jobs.js; {cache: false} for
+  // bulk work (game analysis) that shouldn't fill the local cache or the database. Otherwise
+  // results go to the local cache and, through Evals (G2), to the database.
   analyse(fen, depth = 12, opts = {}) {
+    const store = opts.cache !== false;
     const hit = this.cached(fen, depth);
     if (hit) return Promise.resolve(hit);
     return Jobs.add("engine", async () => {
       const again = this.cached(fen, depth); // another job may have done it meanwhile
       if (again) return again;
-      const remote = typeof Evals !== "undefined" ? await Evals.lookup(fen, depth) : null;
-      if (remote) return remote;
-      const out = await this.search(fen, depth);
-      if (typeof Evals !== "undefined") Evals.put(fen, out);
+      if (store && typeof Evals !== "undefined") { const remote = await Evals.lookup(fen, depth); if (remote) return remote; }
+      const out = await this.search(fen, depth, store);
+      if (store && typeof Evals !== "undefined") Evals.put(fen, out);
       return out;
-    }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + depth, stale: opts.stale || null });
+    }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + depth + (store ? "" : "|nc"), stale: opts.stale || null });
   },
   // One search on the worker. Only ever called from the engine lane, so never two at once.
-  search(fen, depth) {
+  search(fen, depth, store = true) {
     const key = K(fen);
     return this.init().then(() => new Promise(res => {
       let last = { cp: 0, best: null, pv: [] };
@@ -76,7 +77,7 @@ const Engine = {
           this.handler = null;
           if (new Chess(fen).game_over()) { last.cp = new Chess(fen).in_checkmate() ? -3000 : 0; }
           const out = { cp: last.cp, mate: last.mate, best: last.best, pv: last.pv, d: depth, e: this.which };
-          EVALC[key] = out;
+          if (store) EVALC[key] = out;
           res(out);
         }
       };

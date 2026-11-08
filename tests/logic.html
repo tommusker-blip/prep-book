@@ -11,6 +11,8 @@
 <script src="../js/openings.js"></script>
 <script src="../js/book.js"></script>
 <script src="../js/store.js"></script>
+<script src="../js/games.js"></script>
+<script src="../js/evals.js"></script>
 <script src="../js/rep.js"></script>
 <script src="../js/explore.js"></script>
 <script src="../js/jobs.js"></script>
@@ -176,6 +178,55 @@ t("practical trick needs: not most played, not engine's choice, small enough los
   S.settings.gem = { min: 300, freq: 10, edge: 5 };
 });
 }; // run after the explorer helpers below are defined
+
+/* ----- G1: clocks, own statistics; G4: rating bands ----- */
+const PGN_CLK = `[Event "Live Chess"]
+[White "me"]
+[Black "them"]
+[Result "1-0"]
+[TimeControl "600+5"]
+[Link "https://www.chess.com/game/live/1"]
+
+1. e4 {[%clk 0:09:58.1]} 1... e5 {[%clk 0:09:57]} 2. Nf3 {[%clk 0:09:50.4]} (2. Bc4 {a variation [%clk 0:01:00]}) 2... Nc6 {[%clk 0:09:41.9]} 3. Bb5 {[%clk 0:09:30]} 1-0`;
+t("clocks: seconds left after each move, variations and other comments ignored", () => {
+  const r = mainlineWithClocks(PGN_CLK);
+  eq(r.moves, ["e4", "e5", "Nf3", "Nc6", "Bb5"]);
+  eq(r.clk, [598.1, 597, 590.4, 581.9, 570]);
+  eq(clockSeconds("{[%clk 1:02:03.5]}"), 3723.5);
+});
+t("clocks: stored on the game with the time control", () => {
+  const g = gameFromPGN(PGN_CLK, "me", "rapid");
+  eq([g.moves, g.tcs, g.clk.length, g.my], ["e4 e5 Nf3 Nc6 Bb5", "600+5", 5, "white"]);
+});
+t("clocks: a game imported without clocks gets them on the next import", () => {
+  reset();
+  const g = gameFromPGN(PGN_CLK, "me", "rapid"), old = { ...g, clk: undefined, tcs: undefined };
+  S.games = [old];
+  eq(addGames([g]), 0, "not counted as new");
+  eq(S.games[0].clk.length, 5);
+});
+t("own statistics count transpositions (by position, not move order)", () => {
+  reset(); GAMEKEYS.clear();
+  S.games = [
+    { id: "s1", my: "white", result: "1-0", moves: "d4 Nf6 c4 e6 Nc3" },
+    { id: "s2", my: "white", result: "0-1", moves: "c4 e6 d4 Nf6 Nf3" },
+    { id: "s3", my: "white", result: "1/2-1/2", moves: "e4 e5" },
+  ];
+  S.games.forEach(gameKeys);
+  const k = K(fenAfter(START, "d4 Nf6 c4 e6".split(" ")));
+  eq(myPosStats(k, "white"), { n: 2, w: 1, d: 0, l: 1 });
+  eq(myMoveStats(k, "Nc3", "white"), { n: 1, w: 1, d: 0, l: 0 });
+  eq(myMoveStats(k, "Nf3", "white"), { n: 1, w: 0, d: 0, l: 1 });
+  eq(myPosStats(K(START), "white").n, 3);
+  eq(wdlScore(myPosStats(K(START), "white")), 0.5);
+  S.games = []; GAMEKEYS.clear();
+});
+t("rating bands from chess.com rapid rating", () => {
+  eq(bandsFor(1550), [1600, 1800], "1550"); eq(bandLabel(bandsFor(1550)), "1600–1999");
+  eq(bandsFor(1500), [1600, 1800], "1500"); eq(bandsFor(1600), [1600, 1800], "1600");
+  eq(bandsFor(1700), [1800, 2000], "1700"); eq(bandsFor(900), [1000, 1200], "900");
+  eq(bandsFor(2400), [2200, 2500], "2400");
+});
 
 /* ----- prep books ----- */
 t("book doc names: main keeps white/black, others get @id", () => {

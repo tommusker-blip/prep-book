@@ -58,7 +58,8 @@ function applyData(d) {
 }
 // Everything, for the browser copy (pb_data)
 function localSnapshot() {
-  const d = { settings: S.settings, games: { list: S.games }, acc: { map: S.acc } };
+  // Games and their analysis live in IndexedDB (games.js) once that works on this device
+  const d = Games.idb ? { settings: S.settings } : { settings: S.settings, games: { list: S.games }, acc: { map: S.acc } };
   for (const id of Object.keys(S.books)) { d[repDoc("white", id)] = S.books[id].white; d[repDoc("black", id)] = S.books[id].black; }
   return d;
 }
@@ -79,8 +80,9 @@ const Store = {
   // Save state for the header indicator:
   //   "pending" (change waiting to be sent), "saving", "saved", "error" (will retry), "device" (local only)
   status() {
-    if (Object.values(this.inflight).some(Boolean)) return "saving";
-    if (Object.values(this.timers).some(Boolean)) return "pending";
+    if (Object.values(this.inflight).some(Boolean) || Games.inflight) return "saving";
+    if (Object.values(this.timers).some(Boolean) || Games.timer) return "pending";
+    if (Games.table && Games.failed && Games.dirty.size) return "error";
     if (S.storeMode === "local") return this.savedAt ? "device" : "idle";
     if (this.failed || (S.storeMode === "supabase" && Object.keys(Dirty.get()).length)) return "error";
     return this.savedAt ? "saved" : "idle";
@@ -119,6 +121,7 @@ const Store = {
     }
     applyData(lsGet("pb_data", {}));
     S.storeMode = "local";
+    await Games.initLocal();
     return "ready";
   },
   async loadRemote(user) {
@@ -131,6 +134,7 @@ const Store = {
       // First sign-in: move anything saved in this browser up to the database
       applyData(local);
       if (hasLocalData()) for (const n of allDocNames()) this.save(n);
+      await Games.initRemote();
       return true;
     }
     // The database copy wins, except for docs this device changed later and never got saved
@@ -144,6 +148,7 @@ const Store = {
     }
     applyData(d);
     for (const n of push) this.save(n);
+    await Games.initRemote();
     return true;
   },
   // Pull changes made on another device since we last looked
@@ -164,6 +169,7 @@ const Store = {
   busy() { return Object.values(this.inflight).some(Boolean) || Object.values(this.timers).some(Boolean); },
   async signOut() {
     await this.flushAll();
+    await Games.signOut();
     if (this.sb) await this.sb.auth.signOut();
     try { for (const k of ["pb_data", "pb_dirty", "pb_token"]) localStorage.removeItem(k); } catch (e) {}
     location.reload();
@@ -177,6 +183,12 @@ const Store = {
     return r ? { deleted: true } : null; // a deleted book: leave a tombstone so other devices drop it
   },
   save(name) {
+    // Games and analysis: kept in IndexedDB, and sent per game by Games.mark() once the games
+    // table is in use. The old whole documents are only written while it isn't.
+    if (name === "games" || name === "acc") {
+      Games.saveLocalSoon();
+      if (Games.table) { this.emit(); return; }
+    }
     if (S.storeMode === "supabase") Dirty.mark(name);
     clearTimeout(this.timers[name]);
     this.timers[name] = setTimeout(() => { this.timers[name] = null; this.flush(name); }, 700);
@@ -188,9 +200,12 @@ const Store = {
     for (const n of names) { clearTimeout(this.timers[n]); this.timers[n] = null; }
     if (S.storeMode === "supabase") for (const n of Object.keys(Dirty.get())) if (!names.includes(n)) names.push(n);
     if (!names.length && S.storeMode === "local") lsSet("pb_data", localSnapshot());
+    if (Games.table) Games.push();
+    if (Evals.out.size) Evals.flush();
     return Promise.all(names.map(n => this.flush(n)));
   },
   async flush(name) {
+    if ((name === "games" || name === "acc") && Games.table) { Dirty.clear(name, Date.now()); return; } // old docs retired
     lsSet("pb_data", localSnapshot());
     if (!this.db && S.storeMode !== "supabase") { this.savedAt = Date.now(); this.emit(); return; }
     if (this.inflight[name]) { this.pending[name] = true; return; }

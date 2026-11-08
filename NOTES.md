@@ -28,25 +28,44 @@ they're done.
 ## Groundwork (do first)
 
 - [ ] **G1. Store more per game.** Needed for the items marked below.
-  - Keep clock times. chess.com PGNs have `{[%clk 0:04:12.3]}` after each move,
-    but the current parser strips comments, so change it to read them.
-  - Store an engine evaluation for every analysed move.
-  - Build per-position statistics from the user's own games: games, wins,
-    draws, losses.
-  - Move games and their analysis into their own Supabase table, with one row
-    per game, instead of one large JSON document.
+  (Code done 2026-11-08. Waiting on migration `0003_games_table.sql`.)
+  - [x] Keep clock times. chess.com PGNs have `{[%clk 0:04:12.3]}` after each
+    move, but the current parser strips comments, so change it to read them.
+    *Done:* `mainlineWithClocks()` gives `game.clk`, seconds left after each
+    move, plus `game.tcs`. Games imported before this get their clocks on the
+    next chess.com fetch.
+  - [x] Store an engine evaluation for every analysed move. *Done:* analysis
+    v2 has `ev` (cp from White's side) and `bm` (best move) for every position
+    up to ply 160, at depth 10. Older analyses are redone by "Analyse all".
+  - [x] Build per-position statistics from the user's own games: games, wins,
+    draws, losses. *Done:* `myPosStats(key)` and `myMoveStats(key, san)`,
+    matched by position, so transpositions count.
+  - [ ] Move games and their analysis into their own Supabase table, with one
+    row per game, instead of one large JSON document. *Code done* (`js/games.js`).
+    It switches over by itself once migration 0003 is applied, and copies the
+    games across the first time. Locally, games are now in IndexedDB instead
+    of localStorage.
 - [ ] **G2. Save engine results to the database.** Store Stockfish results by
   position key in Supabase, so analysis run on the PC is instantly available on
   the phone. Use them alongside the local cache. Also switch to the faster
   WASM Stockfish build (see `CLAUDE.md`).
-- [ ] **G3. One background job queue.** All slow work goes through one queue,
+  (WASM build done in v0.5. Database code done in `js/evals.js`: lookups are
+  batched, and results of depth 14 and up are saved. Waiting on migration
+  `0004_evals_table.sql`.)
+- [x] **G3. One background job queue.** All slow work goes through one queue,
   with the current screen's requests first. That covers engine analysis, MultiPV
   follow-up counts, Lichess lookups, game analysis and puzzle extraction.
   Features shouldn't compete for the engine.
-- [ ] **G4. Rating band that keeps up.** Read the user's current chess.com
+  (Done 2026-11-08: `js/jobs.js`, with "engine" and "net" lanes. Priorities
+  are now / soon / background, same-key requests are shared, and stale jobs
+  are dropped. MultiPV and puzzle jobs will use it when they're built.)
+- [x] **G4. Rating band that keeps up.** Read the user's current chess.com
   rapid rating and suggest the matching Lichess rating band. Lichess ratings
   run higher; 1500–1600 on chess.com is roughly 1600–1999 on Lichess. The user
   can still override it.
+  (Done 2026-11-08: `bandsFor()` estimates chess.com + 250 and picks the two
+  bands around it. The rating is checked daily and after each fetch. Bands
+  follow it automatically until the user sets them by hand.)
 
 ## Changes to existing features
 

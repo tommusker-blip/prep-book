@@ -7,6 +7,20 @@ const EXPL_GAP = 1100;       // ms between requests: one at a time, about one a 
 let explNext = 0, explSaveTimer = null, explVer = 0;
 
 const bandKey = () => S.settings.band.join(",");
+
+// Lichess rating bands (lower bounds; 2500 means 2500+)
+const BANDS = [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
+/* ---------- G4: rating band that keeps up ----------
+   Lichess ratings run higher than chess.com ones: about +250 at club level, so 1500–1600 on
+   chess.com is roughly the Lichess 1600–1999 bands. The two bands either side of that estimate
+   are suggested, and used automatically until the user picks bands by hand (bandAuto false). */
+function bandsFor(cc) {
+  const est = cc + 250, top = BANDS[BANDS.length - 2]; // 2200; 2500+ is the open-ended top band
+  const b = Math.max(BANDS[0], Math.min(top, Math.floor(est / 200) * 200));
+  if (est >= 2500) return [2200, 2500];
+  return est - b < 100 && b > BANDS[0] ? [b - 200, b] : [b, Math.min(b + 200, top)];
+}
+const bandLabel = band => { const lo = Math.min(...band), hi = Math.max(...band); return `${lo}–${hi === 2500 ? "2500+" : hi + 199}`; };
 function cachedExplorer(fen) { return EXPL[K(fen) + "|" + bandKey()] || null; }
 function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeout(() => lsSet("pb_expl", EXPL), 1500); }
 

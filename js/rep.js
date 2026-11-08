@@ -99,16 +99,27 @@ function cleanTok(t) {
   return t || null;
 }
 // Main line only (for games)
-function mainline(g) {
-  const out = []; let depth = 0;
-  for (const raw of tokens(movetext(g))) {
+function mainline(g) { return mainlineWithClocks(g).moves; }
+// Clock comment after a move, e.g. {[%clk 0:04:12.3]} -> 252.3 seconds left
+function clockSeconds(comment) {
+  const m = /\[%clk\s+(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)\]/.exec(comment);
+  return m ? Math.round((+m[1] * 3600 + +m[2] * 60 + +m[3]) * 10) / 10 : null;
+}
+// Main line moves, plus the clock left after each move where the PGN has %clk comments
+// (chess.com writes them for every move). clk[i] belongs to moves[i]; null if missing.
+function mainlineWithClocks(g) {
+  const body = g.replace(/^\[.*\]\s*$/gm, " ").replace(/;[^\n]*/g, " ");
+  const moves = [], clk = [];
+  let depth = 0;
+  for (const raw of body.match(/\{[^}]*\}|\(|\)|[^\s(){}]+/g) || []) {
     if (raw === "(") { depth++; continue; }
     if (raw === ")") { depth--; continue; }
     if (depth) continue;
+    if (raw[0] === "{") { const s = clockSeconds(raw); if (s != null && moves.length) clk[moves.length - 1] = s; continue; }
     const t = cleanTok(raw);
-    if (t) out.push(t);
+    if (t) { moves.push(t); clk.push(null); }
   }
-  return out;
+  return { moves, clk };
 }
 // Full tree with variations (for repertoire import). Calls onMove(fenBefore, san).
 function walkPGNTree(g, onMove) {
@@ -141,10 +152,11 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 function gameFromPGN(g, user, tcHint) {
   const h = parseHeaders(g);
   const tc = tcHint || timeClass(h.TimeControl);
-  const moves = mainline(g);
+  const { moves, clk } = mainlineWithClocks(g);
   // validate moves, keep SAN normalised
   const c = new Chess(); const sans = [];
   for (const m of moves) { const mv = c.move(m, { sloppy: true }); if (!mv) break; sans.push(mv.san); }
+  const clocks = clk.slice(0, sans.length);
   const u = (user || "").toLowerCase();
   let my = null;
   if ((h.White || "").toLowerCase() === u) my = "white";
@@ -154,6 +166,8 @@ function gameFromPGN(g, user, tcHint) {
     id, my, tc, url: h.Link || "", date: (h.UTCDate || h.Date || "").replace(/\./g, "-"),
     white: h.White || "?", black: h.Black || "?", welo: +h.WhiteElo || 0, belo: +h.BlackElo || 0,
     result: h.Result || "*", moves: sans.join(" "),
+    tcs: h.TimeControl || "",                                      // e.g. "600+5"
+    clk: clocks.some(x => x != null) ? clocks : undefined,         // seconds left after each move
   };
 }
 function myScore(g) {
@@ -162,11 +176,20 @@ function myScore(g) {
   if (g.result === "0-1") return g.my === "black" ? 1 : 0;
   return null;
 }
+// Adds new rapid games of mine. Games imported before clocks were read get their clock times
+// (and time control) filled in when they're fetched again. Returns the number of new games.
 function addGames(list) {
-  const have = new Set(S.games.map(g => g.id));
+  const byId = new Map(S.games.map(g => [g.id, g]));
+  const changed = [];
   let n = 0;
-  for (const g of list) if (g.my && g.tc === "rapid" && !have.has(g.id)) { S.games.push(g); have.add(g.id); n++; }
+  for (const g of list) {
+    if (!g.my || g.tc !== "rapid") continue;
+    const old = byId.get(g.id);
+    if (!old) { S.games.push(g); byId.set(g.id, g); changed.push(g.id); n++; continue; }
+    if (!old.clk && g.clk) { old.clk = g.clk; old.tcs = g.tcs; changed.push(g.id); }
+  }
   S.games.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (typeof Games !== "undefined") Games.mark(changed);
   Store.save("games");
   return n;
 }
@@ -234,6 +257,34 @@ function analysis(color = S.color, all = false) {
   analysisMemo = { sig, out };
   return out;
 }
+// G1: my own results by position and by move, from my games. Positions are matched by key, so
+// a transposition counts. Covers the first GAME_PLIES plies (from GAMEKEYS); a position that
+// repeats within a game counts once. Memoised until the games change.
+//   pos: key -> {n, w, d, l}      mv: key -> san -> {n, w, d, l}      (from my side)
+const wdlAdd = (o, s) => { o.n++; if (s === 1) o.w++; else if (s === 0.5) o.d++; else if (s === 0) o.l++; };
+const newWdl = () => ({ n: 0, w: 0, d: 0, l: 0 });
+let myStatsMemo = {};
+function myStats(color = S.color) {
+  const ready = S.games.filter(g => g.my === color && GAMEKEYS.has(g.id));
+  const sig = S.games.length + "|" + ready.length;
+  if (myStatsMemo[color] && myStatsMemo[color].sig === sig) return myStatsMemo[color];
+  const pos = {}, mv = {};
+  for (const g of ready) {
+    const s = myScore(g), keys = GAMEKEYS.get(g.id), moves = g.moves ? g.moves.split(" ") : [], seen = new Set();
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      wdlAdd(pos[key] || (pos[key] = newWdl()), s);
+      if (i < moves.length && i + 1 < keys.length) { const m = mv[key] || (mv[key] = {}); wdlAdd(m[moves[i]] || (m[moves[i]] = newWdl()), s); }
+    }
+  }
+  return (myStatsMemo[color] = { sig, pos, mv });
+}
+const myPosStats = (key, color = S.color) => myStats(color).pos[key] || null;
+const myMoveStats = (key, san, color = S.color) => ((myStats(color).mv[key] || {})[san]) || null;
+const wdlScore = o => (o && o.n ? (o.w + o.d / 2) / o.n : null);
+
 // Opponent replies seen in games at positions inside the tree: key -> san -> count
 function oppSeen(color = S.color) {
   const out = {};

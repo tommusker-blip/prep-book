@@ -1,4 +1,25 @@
 "use strict";
+/* ---------- G4: read the chess.com rapid rating and keep the Lichess bands in step (bandsFor in explore.js) ---------- */
+async function fetchRating(force = false) {
+  const u = (S.settings.user || "").trim();
+  const last = S.settings.ccRating;
+  if (!validChessComUser(u) || (!force && last && Date.now() - last.at < 86400000)) return;
+  try {
+    const r = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(u.toLowerCase())}/stats`);
+    if (!r.ok) return;
+    const d = await r.json(), rating = d.chess_rapid && d.chess_rapid.last && d.chess_rapid.last.rating;
+    if (!rating) return;
+    S.settings.ccRating = { r: rating, at: Date.now() };
+    const want = bandsFor(rating);
+    if (S.settings.bandAuto !== false && want.join(",") !== S.settings.band.join(",")) {
+      S.settings.band = want;
+      toast(`Lichess rating bands set to ${bandLabel(want)} to match your chess.com rapid rating (${rating}).`);
+    }
+    Store.save("settings");
+    if (S.view === "settings") renderSettings();
+  } catch (e) { /* offline or blocked: keep the current bands */ }
+}
+
 /* ---------- chess.com import ---------- */
 // chess.com usernames: letters, digits, "_" and "-". An email address is the usual mistake,
 // and chess.com answers it without CORS headers, so the browser only reports a network error.
@@ -27,6 +48,7 @@ async function fetchChessCom() {
     }
     st.textContent = `Added ${added} new rapid game${added === 1 ? "" : "s"}.`;
     warmGameKeys(() => { flagMisplays("white"); flagMisplays("black"); render(); });
+    fetchRating(true); // G4: keep the Lichess bands in step with the rating
     render();
   } catch (e) {
     st.textContent = e.message && !/fetch|network|Failed/i.test(e.message)
@@ -42,32 +64,42 @@ async function fetchChessCom() {
 // so stopping or closing loses at most a few and the next run carries on from there.
 let analysing = false, stopAnalysis = false;
 const SAVE_EVERY = 20;
-function analyseOne(g) {
+// G1: analysis of a whole game (v2). Every position up to GAME_EVAL_PLIES gets a Stockfish
+// eval at depth 10 and its best move, for mistake review later (NOTES item 9):
+//   {v: 2, d, ev: [cp from White's side, one per position, 0 = start], bm: [best move in UCI],
+//    inb, post, exitCp}   (inb/post/exitCp as before: accuracy in book and just after, eval at exit)
+// Game evals don't go into the interactive eval cache, so they don't push out Build's results.
+const ACC_VERSION = 2, GAME_EVAL_DEPTH = 10, GAME_EVAL_PLIES = 160;
+const needsAnalysis = g => !S.acc[g.id] || S.acc[g.id].v !== ACC_VERSION;
+async function analyseOne(g) {
   const a = analyseGame(g);
-  const moves = g.moves.split(" ");
-  const last = Math.min(moves.length, a.ply + 8, 40);
-  const c = new Chess(); const fens = [c.fen()];
-  for (let i = 0; i < last; i++) { c.move(moves[i]); fens.push(c.fen()); }
-  return (async () => {
-    const ev = [];
-    for (const f of fens) ev.push(await Engine.analyse(f, 10));
-    const inb = [], post = [];
-    for (let i = 0; i < last; i++) {
-      if (!isMine(K(fens[i]), g.my)) continue;
-      (i < a.ply ? inb : post).push(Math.round(moveAcc(ev[i].cp, -ev[i + 1].cp)));
-    }
-    const x = Math.min(a.ply, last);
-    const exitCp = sideOf(K(fens[x])) === myChar(g.my) ? ev[x].cp : -ev[x].cp;
-    return { inb, post, exitCp: Math.round(exitCp) };
-  })();
+  const moves = g.moves ? g.moves.split(" ") : [];
+  const c = new Chess(), fens = [c.fen()];
+  for (let i = 0; i < Math.min(moves.length, GAME_EVAL_PLIES); i++) { if (!c.move(moves[i])) break; fens.push(c.fen()); }
+  const ev = [], bm = [], mine = []; // mine: evals from my side, for accuracy
+  for (const f of fens) {
+    const r = await Engine.analyse(f, GAME_EVAL_DEPTH, { cache: false });
+    const white = f.split(" ")[1] === "w" ? r.cp : -r.cp;
+    ev.push(Math.round(white)); bm.push(r.best || "");
+    mine.push(g.my === "white" ? white : -white);
+  }
+  const plies = fens.length - 1, inb = [], post = [];
+  for (let i = 0; i < Math.min(plies, a.ply + 8); i++) {
+    if (!isMine(K(fens[i]), g.my)) continue;
+    (i < a.ply ? inb : post).push(Math.round(moveAcc(mine[i], mine[i + 1])));
+  }
+  const exitCp = mine[Math.min(a.ply, plies)];
+  return { v: ACC_VERSION, d: GAME_EVAL_DEPTH, ev, bm, inb, post, exitCp: Math.round(exitCp) };
 }
 async function analyseGamesWithEngine() {
   if (analysing) { stopAnalysis = true; $("#engStatus").textContent = "Stopping after this game…"; return; }
-  const todo = S.games.filter(g => !S.acc[g.id]);
+  const todo = S.games.filter(needsAnalysis);
   if (!todo.length) { toast("All imported games are analysed."); return; }
   analysing = true; stopAnalysis = false;
   const st = $("#engStatus");
-  const persist = () => { saveEvalCache(); if (S.storeMode === "supabase") Dirty.mark("acc"); Store.flush("acc"); };
+  // Saved through Games (G1): one row per game in the games table, or the old "acc" doc
+  const persist = () => { saveEvalCache(); Games.mark(analysed.splice(0)); Store.save("acc"); };
+  const analysed = [];
   let done = 0;
   render();
   try {
@@ -77,6 +109,7 @@ async function analyseGamesWithEngine() {
       if (stopAnalysis) break;
       st.textContent = `Analysing game ${done + 1} of ${todo.length}${g.date ? ` (${g.date})` : ""}…`;
       S.acc[g.id] = await analyseOne(g);
+      analysed.push(g.id);
       done++;
       if (done % SAVE_EVERY === 0) { persist(); if (S.view === "games") renderGames(); }
     }
@@ -365,19 +398,11 @@ async function autoOpponent(path) {
 }
 
 /* ----- my turn: what I play here, and is it any good? ----- */
-// Moves I actually played from this position in my games, by this exact move order
-// (transpositions aren't counted): san -> {n, pts}
+// Moves I actually played from this position in my games, by any move order (G1 stats):
+// san -> {n, pts, scored}
 function myGameMoves(path, color) {
-  const pre = path.join(" "), out = {};
-  for (const g of S.games) {
-    if (g.my !== color || !g.moves) continue;
-    if (pre && !(g.moves === pre || g.moves.startsWith(pre + " "))) continue;
-    const san = g.moves.split(" ")[path.length];
-    if (!san) continue;
-    const s = myScore(g);
-    const o = out[san] || (out[san] = { n: 0, pts: 0, scored: 0 });
-    o.n++; if (s != null) { o.pts += s; o.scored++; }
-  }
+  const out = {}, byMove = myStats(color).mv[K(fenAfter(START, path) || START)] || {};
+  for (const [san, o] of Object.entries(byMove)) out[san] = { n: o.n, pts: o.w + o.d / 2, scored: o.w + o.d + o.l };
   return out;
 }
 // Stockfish verdict on a move: centipawns lost against the best move (depth 14, cached)
@@ -434,7 +459,7 @@ function yourMovesTable(fen, key, n, path) {
   }).join("");
   return `<p class="lbl" style="margin-top:14px">Your moves here</p>
     <div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Your games<br>(score)</th><th class="num">Lichess<br>score</th><th>Engine</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="src">${totalGames ? `You reached this position in ${totalGames} rapid game${totalGames === 1 ? "" : "s"} by this move order. ` : ""}Engine: Stockfish depth ${VERDICT_DEPTH}, compared with its best move (Good, OK, Dubious, Mistake).</p>`;
+    <p class="src">${totalGames ? `You reached this position in ${totalGames} rapid game${totalGames === 1 ? "" : "s"} (any move order). ` : ""}Engine: Stockfish depth ${VERDICT_DEPTH}, compared with its best move (Good, OK, Dubious, Mistake).</p>`;
 }
 /* ----- my turn: practical, memorable ideas (js/ideas.js) ----- */
 let ideaRun = null; // {key, step} while "Find ideas here" is working
@@ -874,7 +899,7 @@ function renderGames() {
   const anyConv = conv.some(c => c.n);
   $("#gConv").innerHTML = anyConv ? conv.map(c => `<tr><td>${c.label}</td><td class="num">${c.n}</td><td class="num">${c.sc == null ? "–" : c.sc + "%"}</td><td>${c.n ? `<span class="wdl"><i class="w" style="width:${pct(c.w, c.n)}%"></i><i class="d" style="width:${pct(c.d, c.n)}%"></i><i class="l" style="width:${pct(c.l, c.n)}%"></i></span>` : ""}</td></tr>`).join("")
     : `<tr><td colspan="4" class="muted">Run the engine on your games to see how you convert positions coming out of the opening.</td></tr>`;
-  const todo = S.games.filter(g => !S.acc[g.id]).length;
+  const todo = S.games.filter(needsAnalysis).length;
   $("#engBtn").textContent = analysing ? "Stop" : todo ? `Analyse all (${todo.toLocaleString("en-GB")} left)` : "All games analysed";
   $("#engBtn").disabled = !todo && !analysing;
   // recent games
@@ -900,7 +925,6 @@ function importPasted() {
 }
 
 /* ----- settings ----- */
-const BANDS = [1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
 function renderLook() {
   const set = pieceSet(), theme = S.settings.board || "green";
   const row = ["wK", "bQ", "wN", "bB", "wR", "bP"];
@@ -920,7 +944,12 @@ function renderSettings() {
   const gem = { ...gemDefaults(), ...S.settings.gem };
   $("#gemMin").value = gem.min; $("#gemFreq").value = gem.freq; $("#gemEdge").value = gem.edge;
   $("#gemTrapErr").value = gem.trapErr ?? 30; $("#gemTrapLoss").value = ((gem.trapLoss ?? 150) / 100).toFixed(1);
-  $("#bands").innerHTML = BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
+  const cc = S.settings.ccRating, sug = cc ? bandsFor(cc.r) : null;
+  $("#bandHint").innerHTML = !cc ? (validChessComUser(S.settings.user || "") ? "Your chess.com rating will be checked to suggest bands." : "Add your chess.com username to get bands that match your rating.")
+    : `Your chess.com rapid rating is <b>${cc.r}</b>, which suggests Lichess <b>${bandLabel(sug)}</b>. ` + (S.settings.bandAuto === false
+      ? `You've set the bands by hand. <button type="button" class="linkbtn" data-bandauto>Follow my rating again</button>`
+      : "The bands follow your rating automatically; tap a band to set them by hand.");
+  $("#bands").innerHTML =BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
   $("#storeNote").textContent = S.storeMode === "db"
     ? "Your repertoire and games are saved to your Claude account, so they follow you between your phone and computer. The Lichess token stays on this device."
     : S.storeMode === "supabase"
@@ -1035,13 +1064,15 @@ async function boot() {
   const state = await Store.init();
   if (state === "auth") await new Promise(res => showAuth(res));
   applyLook(); syncToken(); renderHeader();
+  fetchRating(); // G4, at most once a day, in the background
   walk("white"); walk("black");
   warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") { Store.flushAll(); return; }
-    if (await Store.refresh()) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); warmGameKeys(() => render()); if (!(S.view === "train" && T.state === "run")) render(); }
+    const docsChanged = await Store.refresh(), gamesChanged = await Games.refresh(); // games after settings (gamesEpoch)
+    if (docsChanged || gamesChanged) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); warmGameKeys(() => render()); if (!(S.view === "train" && T.state === "run")) render(); }
   });
   document.addEventListener("click", e => {
     const t = e.target.closest("button");
@@ -1070,11 +1101,12 @@ async function boot() {
     }
     else if (d.gap) { const g = $("#gaps")._gaps[+d.gap]; S.build[S.color] = g.path.slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" }); }
     else if ("open" in d) { S.build[S.color] = d.open ? d.open.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
+    else if ("bandauto" in d) { S.settings.bandAuto = true; Store.save("settings"); if (S.settings.ccRating) { S.settings.band = bandsFor(S.settings.ccRating.r); } fetchRating(true); renderSettings(); }
     else if (d.band) {
       const b = +d.band, set = new Set(S.settings.band);
       set.has(b) ? set.delete(b) : set.add(b);
       if (!set.size) { toast("Keep at least one rating band."); return; }
-      S.settings.band = [...set].sort((x, y) => x - y); Store.save("settings"); renderSettings();
+      S.settings.band = [...set].sort((x, y) => x - y); S.settings.bandAuto = false; Store.save("settings"); renderSettings();
     }
   });
   $("#back").onclick = () => { curPath().pop(); renderBuild(); };
@@ -1128,7 +1160,7 @@ async function boot() {
   $("#signIn").onclick = () => { try { localStorage.removeItem("pb_local_only"); } catch (e) {} location.reload(); };
   $("#clearGames").onclick = () => { $("#confirmClear").hidden = false; };
   $("#confirmNo").onclick = () => { $("#confirmClear").hidden = true; };
-  $("#confirmYes").onclick = () => { S.games = []; S.acc = {}; for (const id of Object.keys(S.books)) for (const c of ["white", "black"]) { S.books[id][c].flagged = []; Store.save(repDoc(c, id)); } Store.save("games"); Store.save("acc"); $("#confirmClear").hidden = true; toast("Imported games cleared. Your repertoire is untouched."); };
+  $("#confirmYes").onclick = () => { Games.clearAll(); GAMEKEYS.clear(); for (const id of Object.keys(S.books)) for (const c of ["white", "black"]) { S.books[id][c].flagged = []; Store.save(repDoc(c, id)); } Store.save("games"); Store.save("acc"); $("#confirmClear").hidden = true; render(); toast("Imported games cleared. Your repertoire is untouched."); };
   setView("build");
 }
 boot();

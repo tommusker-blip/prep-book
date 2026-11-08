@@ -1,0 +1,68 @@
+<!doctype html><meta charset="utf-8"><title>Prep Book storage test</title><pre id="out">running…</pre>
+<!-- End-to-end test of game storage (G1) in local-only mode, with the real engine. Serve over
+     HTTP and open tests/storage.html; under a test server with POST /report the results are sent
+     there too. Clears this origin's localStorage and the "prepbook" IndexedDB database.
+     1. An old build's games in localStorage (pb_data) move into IndexedDB
+     2. A pasted PGN with %clk comments is stored with its clock times
+     3. Games survive a reload, and pb_data no longer holds them
+     4. "Analyse all" stores an eval and best move for every position (analysis v2) -->
+<body><script>
+const out = [], L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
+const report = () => fetch("/report", { method: "POST", body: "== storage\n" + out.join("\n") }).catch(() => {});
+window.onerror = m => { L("ERR " + m); report(); };
+const ok = (cond, name, detail = "") => L((cond ? "ok   " : "FAIL ") + name + (detail ? " — " + detail : ""));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const PGN = `[Event "Live Chess"]
+[White "me"]
+[Black "them"]
+[Result "1-0"]
+[UTCDate "2026.11.01"]
+[TimeControl "600+5"]
+[Link "https://www.chess.com/game/live/42"]
+
+1. e4 {[%clk 0:09:58.1]} 1... e5 {[%clk 0:09:57]} 2. Nf3 {[%clk 0:09:50.4]} 2... Nc6 {[%clk 0:09:41.9]} 3. Bc4 {[%clk 0:09:30]} 3... Nd4 {[%clk 0:09:20]} 4. Nxe5 {[%clk 0:09:00]} 4... Qg5 {[%clk 0:08:50]} 5. Nxf7 {[%clk 0:08:30]} 5... Qxg2 {[%clk 0:08:20]} 1-0`;
+const frame = () => new Promise(res => {
+  const old = document.querySelector("iframe"); if (old) old.remove();
+  const f = document.createElement("iframe"); f.style.cssText = "width:420px;height:800px;border:0"; f.src = "../index.html";
+  f.onload = () => setTimeout(() => res(f), 2500);
+  document.body.append(f);
+});
+const idbGet = key => new Promise(res => { const r = indexedDB.open("prepbook", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => { const g = r.result.transaction("kv").objectStore("kv").get(key); g.onsuccess = () => { res(g.result); r.result.close(); }; g.onerror = () => res(undefined); }; r.onerror = () => res(undefined); });
+(async () => {
+  localStorage.clear();
+  await new Promise(r => { const d = indexedDB.deleteDatabase("prepbook"); d.onsuccess = d.onerror = d.onblocked = r; });
+  localStorage.setItem("pb_local_only", "true");
+  // 1. an old build's data: games inside pb_data
+  const legacy = { id: "legacy1", my: "white", tc: "rapid", date: "2026-10-01", white: "me", black: "x", result: "1-0", moves: "d4 d5 c4" };
+  localStorage.setItem("pb_data", JSON.stringify({ settings: { user: "me", band: [1600, 1800], months: 3 }, games: { list: [legacy] }, acc: { map: {} } }));
+  let f = await frame(), w = f.contentWindow, d = f.contentDocument, G = n => w.eval(n);
+  ok(G("S").games.length === 1 && G("S").games[0].id === "legacy1", "old pb_data games are loaded");
+  await sleep(1200);
+  ok((await idbGet("games:local") || []).length === 1, "and copied into IndexedDB");
+  // 2. import a PGN with clocks
+  d.querySelector('[data-nav="games"]').click();
+  d.querySelector("#pgnIn").value = PGN; d.querySelector("#pasteBtn").click();
+  const g = G("S").games.find(x => x.id !== "legacy1");
+  ok(g && g.clk && g.clk.length === 10 && g.clk[0] === 598.1 && g.tcs === "600+5", "pasted game keeps its clock times", g ? JSON.stringify(g.clk) : "no game");
+  await sleep(1500);
+  const pb = JSON.parse(localStorage.getItem("pb_data"));
+  ok(!("games" in pb) && !("acc" in pb), "pb_data no longer holds games", Object.keys(pb).join(","));
+  // 3. reload
+  f = await frame(); w = f.contentWindow; d = f.contentDocument;
+  ok(G("S").games.length === 2 && G("S").games.some(x => x.clk && x.clk.length === 10), "games and clocks survive a reload", "games=" + G("S").games.length);
+  // 4. analyse all: v2 with an eval and best move per position
+  d.querySelector('[data-nav="games"]').click();
+  L("button: " + d.querySelector("#engBtn").textContent);
+  d.querySelector("#engBtn").click();
+  const t0 = Date.now();
+  while (G("analysing") && Date.now() - t0 < 120000) await sleep(200);
+  const a = G("S").acc[g.id];
+  ok(a && a.v === 2 && a.ev.length === 11 && a.bm.length === 11, "analysis v2: eval and best move for all 11 positions", a ? `v${a.v} ev=${a.ev.length} bm=${a.bm.length}` : "none");
+  if (a) L("  evals (White's side): " + a.ev.join(" ") + " | engine=" + G("Engine").which);
+  ok(a && a.ev[9] < -150, "after 5.Nxf7? the eval shows Black winning (Qxg2 next)", a ? "ev[9] position after 5.Nxf7: " + a.ev[9] : "");
+  await sleep(1500);
+  const acc = await idbGet("acc:local");
+  ok(acc && acc[g.id] && acc[g.id].v === 2, "analysis saved to IndexedDB");
+  report();
+})();
+</script>
