@@ -75,7 +75,7 @@
       </div>
       <div class="card" data-pane="moves" id="prompt" role="tabpanel"></div>
       <div class="card" data-pane="gaps" id="gapCard" role="tabpanel" hidden>
-        <div class="gaphead"><h3>Gaps <span class="info" role="button" tabindex="0" aria-label="About gaps" data-tip="Gaps are positions you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. Frequency ranks them by how often you'll get there. Rating impact ranks them by how often × how far below 50% you'd score, using your own games blended with peer data; it also lists weak spots, positions you've prepared but keep losing.">i</span></h3>
+        <div class="gaphead"><h3>Gaps <span class="info" role="button" tabindex="0" aria-label="About gaps" data-tip="Gaps are positions you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. Frequency ranks them by how often you'll get there. Rating impact ranks them by how often × how far below 50% you'd score, using your own games blended with peer data. A gap clears as soon as you add a move there.">i</span></h3>
           <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="freq" aria-pressed="true">Frequency</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
         </div>
         <div id="gapNext" style="margin-top:10px"></div>
@@ -154,12 +154,21 @@
       <div class="row"><button type="button" class="btn ghost" id="engBtn">Analyse games</button></div>
       <p class="help" id="engStatus" aria-live="polite" style="margin-top:6px">Checks your opening moves with Stockfish on this device, newest games first. Runs until done or stopped, and results are saved as it goes.</p>
     </div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3>Coach report <span class="info" role="button" tabindex="0" aria-label="About the coach report" data-tip="A compact summary of your openings, results, gaps, training and mistakes: aggregated numbers and line names only, no raw games. Read it here, or copy it into an AI coach such as Claude for training advice.">i</span></h3><p class="help">Everything a coach would want to know, in one page.</p></div><button type="button" class="btn ghost" data-nav="report">Open</button></div>
     <div class="card"><h3>Recent games</h3><ul class="list" id="gList" style="margin-top:8px"></ul></div>
     <div>
       <button type="button" class="btn ghost" id="clearGames">Clear imported games</button>
       <div class="confirm" id="confirmClear" hidden><p>Remove all imported games and engine results? Your repertoire and training history stay.</p>
         <div class="row"><button type="button" class="btn" id="confirmYes">Clear games</button><button type="button" class="btn ghost" id="confirmNo">Cancel</button></div></div>
     </div>
+  </div>
+</section>
+
+<section data-view="report" hidden>
+  <div class="stack">
+    <div class="settingshead"><h2>Coach report</h2><button type="button" class="btn ghost" data-nav="games">Back to Games</button></div>
+    <div class="row" style="margin:0"><button type="button" class="btn" id="repCopyAI">Copy for an AI coach</button><button type="button" class="btn ghost" id="repCopyJSON">Copy JSON</button><button type="button" class="btn ghost" id="repDownload">Download JSON</button></div>
+    <div id="reportBody" class="stack" style="gap:10px"></div>
   </div>
 </section>
 
@@ -272,6 +281,7 @@
 <script src="js/gaps.js"></script>
 <script src="js/practice.js"></script>
 <script src="js/puzzles.js"></script>
+<script src="js/report.js"></script>
 <script src="js/updates.js"></script>
 <script src="js/app.js"></script>
 </body>

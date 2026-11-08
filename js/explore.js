@@ -1,7 +1,8 @@
 "use strict";
 /* ---------- Lichess opening explorer: client, tree index, tree scan, suggestions ----------
    Needs the network (so not inside Claude) and a personal Lichess token (Settings). */
-let explorerBlocked = false; // set when Lichess can't be reached at all (e.g. inside Claude)
+let explorerBlocked = false; // only inside Claude, where pages can't reach outside sites at all
+const EXPL_NET_PAUSE = 20000; // after a network failure (dropped connection, Lichess error page), wait and try again
 const EXPL_MAX = 2500;       // cached positions kept in localStorage (pb_expl)
 const EXPL_GAP = 1100;       // ms between requests: one at a time, about one a second
 let explNext = 0, explSaveTimer = null, explVer = 0;
@@ -66,7 +67,14 @@ async function explorer(fen, opts = {}) {
   let d;
   try { d = await fetchExplorer(fen, opts); } catch (e) { return null; }
   if (d.error === "auth") { toast("Lichess rejected the token. Check it in Settings."); return null; }
-  if (d.error === "net") { explorerBlocked = true; return null; }
+  if (d.error === "net") {
+    // Inside Claude nothing outside can be reached, so stop asking. Anywhere else a failure is
+    // usually brief (a dropped connection, or a Lichess error page without CORS headers): pause and
+    // let later requests try again. This used to block Lichess for the whole session, which
+    // looked like a lost token, since pasting the token again cleared the block.
+    if (S.storeMode === "db") explorerBlocked = true; else explNext = Math.max(explNext, Date.now() + EXPL_NET_PAUSE);
+    return null;
+  }
   return d.error ? null : d;
 }
 

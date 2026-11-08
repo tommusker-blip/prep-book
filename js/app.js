@@ -316,6 +316,7 @@ function render() {
   if (S.view === "games") renderGames();
   if (S.view === "settings") renderSettings();
   if (S.view === "updates") renderUpdates();
+  if (S.view === "report") renderReport();
 }
 
 /* ----- build ----- */
@@ -639,12 +640,24 @@ function onBuildMove(mv) {
 function commitBuildMove(san, replaces = null) {
   const path = curPath();
   const myMove = isMine(K(fenAfter(START, path)), S.color);
+  const filled = fillPath(path);
   const r = addMove(path, san, S.color, replaces);
   path.push(san);
   walk();
-  if (r !== "same") Store.save(repDoc(S.color));
+  if (r !== "same" || filled) Store.save(repDoc(S.color));
   renderBuild();
   if (myMove) autoOpponent(path);
+}
+// The Build path can end with opponent moves that aren't saved yet: Next gap plays the
+// unprepared reply. Save those before the move played after them. Returns how many it added.
+function fillPath(path, color = S.color) {
+  let added = 0;
+  for (let i = 0; i < path.length; i++) {
+    const key = K(fenAfter(START, path.slice(0, i)));
+    if (isMine(key, color)) continue; // my moves on a gap path are already in the tree
+    if (addMove(path.slice(0, i), path[i], color) === "added") added++;
+  }
+  return added;
 }
 // On my turn, a new move where I already have one: add it as another option, or replace one
 function showAddOrReplace(newSan, have) {
@@ -781,6 +794,64 @@ function showPosition() {
 function skipLine() { if (T.phase === "anim" && T.runup) { T.runup = false; afterRunup(); } }
 // After the replay up to the position: lines go on, puzzles ask for a move, cards wait for one
 function afterRunup() { if (T.mode === "lines") stepLine(); else if (T.mode === "puzzles") showPuzzle(); else showPosition(); }
+
+/* ----- coach report (report.js): a readable page, plus copy and download ----- */
+let coachReport = null;
+function renderReport() {
+  const box = $("#reportBody");
+  // The report needs every game's positions (worked out in the background at start-up); if some
+  // are still missing, wait for them rather than freezing the page
+  if (warming || S.games.some(g => !GAMEKEYS.has(g.id))) {
+    box.innerHTML = `<p class="help">Reading your games…</p>`;
+    warmGameKeys(() => { if (S.view === "report") renderReport(); });
+    return;
+  }
+  // Mistakes need the background scan; build once it's done
+  const analysed = S.games.filter(g => S.acc[g.id] && S.acc[g.id].v === 2).length;
+  if (analysed && (MIST.running || MIST.byGame.size < analysed || MIST.sig !== mistSig())) {
+    box.innerHTML = `<p class="help">Gathering your mistakes first… ${MIST.running ? `${nOf(MIST.done)} of ${nOf(MIST.total)} games` : ""}</p>`;
+    if (!MIST.running) scanMistakes(done => { if (S.view === "report") { if (done) renderReport(); else box.querySelector("p").textContent = `Gathering your mistakes first… ${nOf(MIST.done)} of ${nOf(MIST.total)} games`; } });
+    return;
+  }
+  box.innerHTML = `<p class="help">Building your report…</p>`;
+  setTimeout(() => { // let the page paint first
+    coachReport = buildCoachReport();
+    box.innerHTML = reportHtml(coachReport);
+  }, 30);
+}
+function reportHtml(r) {
+  const pc = x => (x == null ? "–" : Math.round(x) + "%");
+  const table = (head, rows) => rows.length ? `<div class="tblwrap"><table class="rep"><thead><tr>${head.map(h => `<th${h.n ? ' class="num"' : ""}>${esc(h.t || h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>` : `<p class="help">Nothing yet.</p>`;
+  const td = (v, num) => `<td${num ? ' class="num"' : ""}>${esc(v == null ? "–" : v)}</td>`;
+  const side = c => {
+    const s = r[c], C = c === "white" ? "White" : "Black";
+    return `<article class="card"><h3>As ${C}</h3>
+      <p class="lbl" style="margin-top:8px">Openings you play</p>
+      ${table(["Opening", { t: "Games", n: 1 }, { t: "Score", n: 1 }, { t: "Acc. book / after", n: 1 }, { t: "Moves in prep", n: 1 }, { t: "Misplay", n: 1 }],
+        s.openings.map(o => `<tr>${td(o.opening)}${td(o.games, 1)}${td(pc(o.score), 1)}${td(`${o.accuracyInBook ?? "–"} / ${o.accuracyAfterBook ?? "–"}`, 1)}${td(o.avgMovesInPrep, 1)}${td(pc(o.leftPrepByMisplayPct), 1)}</tr>`))}
+      <p class="lbl" style="margin-top:10px">Below peer par</p>
+      ${table(["Line", { t: "You", n: 1 }, { t: "Peers", n: 1 }], s.belowPeerPar.map(b => `<tr>${td(b.line)}${td(`${pc(b.myScore)} (${b.myGames})`, 1)}${td(pc(b.peerScore), 1)}</tr>`))}
+      <p class="lbl" style="margin-top:10px">Biggest gaps by rating impact</p>
+      ${table(["Gap", { t: "Reach", n: 1 }, { t: "Expected", n: 1 }], s.biggestGapsByRatingImpact.slice(0, 6).map(g => `<tr>${td(g.what + ": " + g.line)}${td(pc(g.reachPct), 1)}${td(g.expectedScore == null ? "–" : pc(g.expectedScore), 1)}</tr>`))}
+      <p class="lbl" style="margin-top:10px">Training: hardest positions</p>
+      <p class="help">${s.training.learned} of ${s.training.positions} learned · ${s.training.due} due · ${s.training.flaggedFromGames} flagged from games · ${s.training.totalLapses} misses in all</p>
+      ${table(["Line", "Your move", { t: "Misses", n: 1 }], s.training.hardest.slice(0, 5).map(h => `<tr>${td(h.line)}${td(h.myMove)}${td(h.lapses, 1)}</tr>`))}
+      ${s.practicalWeapons.length ? `<p class="lbl" style="margin-top:10px">Practical tricks found</p>${table(["Line", "Move", { t: "Go wrong", n: 1 }], s.practicalWeapons.map(w => `<tr>${td(w.line)}${td(w.move)}${td(pc(w.opponentsGoWrongPct), 1)}</tr>`))}` : ""}
+    </article>`;
+  };
+  const m = r.mistakes;
+  return `<article class="card"><p class="possum"><b>${nOf(r.player.rapidGames)}</b> rapid games · score W ${pc(r.player.winPct)} · D ${pc(r.player.drawPct)} · L ${pc(r.player.lossPct)} · chess.com ${r.player.chesscomRapid ?? "–"} · Lichess bands ${esc(r.player.lichessBands)} · ${nOf(r.player.gamesAnalysed)} analysed</p></article>
+    <article class="card"><h3>Mistakes</h3>${m.note ? `<p class="help">${esc(m.note)}</p>` : `
+      <p class="help">${nOf(m.mistakes)} mistakes in ${nOf(m.gamesScanned)} games · by phase: opening ${m.byPhase.opening}, middlegame ${m.byPhase.middlegame}, endgame ${m.byPhase.endgame}</p>
+      <p class="help">By time left: ${Object.entries(m.byTimeLeft).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</p>
+      ${table(["Where they cluster", "Phase", { t: "Mistakes", n: 1 }], m.clusters.map(c => `<tr>${td(c.opening)}${td(c.phase)}${td(c.mistakes, 1)}</tr>`))}`}</article>
+    ${side("white")}${side("black")}
+    <p class="help">The copy for an AI coach starts with a short brief asking for training advice from these numbers (no chess analysis of its own), then the report as JSON (about ${Math.round(JSON.stringify(r).length / 1024)} KB).</p>`;
+}
+async function copyText(text, label) {
+  try { await navigator.clipboard.writeText(text); toast(`${label} copied.`); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = text; document.body.append(ta); ta.select(); try { document.execCommand("copy"); toast(`${label} copied.`); } catch (x) { toast("Couldn't copy: try Download instead."); } ta.remove(); }
+}
 
 /* ----- mistake review (NOTES item 9; the logic is in puzzles.js) ----- */
 function renderMistakeCard() {
@@ -1289,6 +1360,9 @@ async function boot() {
   $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });
   $("#prompt").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("cand")) { e.preventDefault(); toggleCand(e.target.dataset.cand); } });
   $("#tStart").onclick = startTraining;
+  $("#repCopyAI").onclick = () => { if (coachReport) copyText(coachPrompt(coachReport), "The report for an AI coach"); };
+  $("#repCopyJSON").onclick = () => { if (coachReport) copyText(JSON.stringify(coachReport, null, 1), "The report"); };
+  $("#repDownload").onclick = () => { if (!coachReport) return; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(coachReport, null, 1)], { type: "application/json" })); a.download = `prep-book-report-${coachReport.generated}.json`; a.click(); };
   $("#tLines").onclick = startLines;
   $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay

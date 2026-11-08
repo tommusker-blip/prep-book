@@ -38,6 +38,20 @@ f.onload = () => {
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
     if (mode === "explore-mode") runExploreMode();
+    if (mode === "report") (async () => {
+      w.eval(`const lines = ["e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7"];
+        S.games = Array.from({ length: 1800 }, (_, i) => ({ id: "r" + i, my: i % 2 ? "black" : "white", tc: "rapid", date: "2026-01-01", result: ["1-0", "0-1", "1/2-1/2"][i % 3], moves: lines[i % 3], clk: Array(12).fill(400) }));
+        S.acc = Object.fromEntries(S.games.map(g => [g.id, { v: 2, d: 10, ev: [30, 30, 30, 30, 30, 30, 60, -150, -160, -500, -520, -520, -540], bm: Array(13).fill(""), inb: [90], post: [50], exitCp: 0 }]));`);
+      const t0 = performance.now();
+      d.querySelector('[data-nav="games"]').click();
+      d.querySelector('[data-nav="report"]').click();
+      for (let i = 0; i < 600 && !d.querySelector("#reportBody article"); i++) await new Promise(r => setTimeout(r, 100));
+      L(`report built with 1,800 games in ${Math.round(performance.now() - t0)} ms (incl. scanning mistakes)`);
+      L("sections: " + [...d.querySelectorAll("#reportBody article h3")].map(h => h.textContent).join(" | "));
+      L("first opening row: " + (d.querySelector("#reportBody table.rep tbody tr") || {}).textContent);
+      L("size: " + Math.round(JSON.stringify(G("coachReport")).length / 1024) + " KB");
+      L("DONE");
+    })();
     if (mode === "updates") {
       const nm = d.querySelector("#newMark");
       L("New marker at first: " + (nm.hidden ? "hidden" : "shown"));

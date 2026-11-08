@@ -7,10 +7,10 @@
      "impact" - rating impact: how often × how far my expected score there falls below an even
                 50%. Expected score uses the sample-size rule (blended(): my games blended with
                 the peer score; peer score alone when I have none). Unprepared positions get a
-                small extra weight (GAP_BONUS) because no prep is a risk in itself. This mode
-                also lists weak spots: positions I have prepared but score badly in (at least
-                WEAK_MIN_GAMES games, expected below WEAK_BELOW). */
-const GAP_BONUS = 0.02, WEAK_MIN_GAMES = 3, WEAK_BELOW = 0.45;
+                small extra weight (GAP_BONUS) because no prep is a risk in itself.
+                Only unprepared positions count, in both modes, so adding the move clears the
+                gap. Prepared lines I score badly in are in the coach report (belowPar()). */
+const GAP_BONUS = 0.02;
 function findGaps(color = S.color) {
   const R = rep(color), games = oppSeen(color), gaps = [];
   walk(color);
@@ -18,22 +18,15 @@ function findGaps(color = S.color) {
     const b = blended(mine, peer);
     return b ? { score: b.score, basis: b.basis } : { score: 0.5, basis: "no data yet" };
   };
-  const add = (g, reach, e, prepared = false) => {
-    g.freq = prepared ? 0 : reach; // weak spots only show in rating-impact mode
+  const add = (g, reach, e) => {
+    g.freq = reach;
     g.expected = e.score; g.basis = e.basis;
-    g.impact = reach * (Math.max(0, 0.5 - e.score) + (prepared ? 0 : GAP_BONUS));
-    g.weak = prepared;
+    g.impact = reach * (Math.max(0, 0.5 - e.score) + GAP_BONUS);
     gaps.push(g);
   };
   for (const [key, { path, fen, reach }] of Object.entries(indexTree(color))) {
     const n = R.pos[key], ex = cachedExplorer(fen);
     const peerHere = ex && ex.total ? posAverage(ex, color) : null;
-    // A position I've prepared but keep scoring badly in
-    const mineHere = myPosStats(key, color);
-    if (n && n.m.length && mineHere && mineHere.n >= WEAK_MIN_GAMES) {
-      const e = expect(mineHere, peerHere);
-      if (e.score < WEAK_BELOW) add({ id: "w|" + key, path, text: `Weak spot: you score ${Math.round(wdlScore(mineHere) * 100)}% here`, detail: `${mineHere.n} games` }, reach, e, true);
-    }
     if (isMine(key, color)) {
       if (!n || !n.m.length) add({ id: "m|" + key, path, text: "Your move is missing", detail: path.length ? "after " + path.slice(-1)[0] : "first move" }, reach, expect(myPosStats(key, color), peerHere));
       continue;
@@ -54,7 +47,7 @@ function findGaps(color = S.color) {
 const gapMode = () => (S.settings.gapMode === "impact" ? "impact" : "freq");
 function rankedGaps(color = S.color) {
   const k = gapMode();
-  return findGaps(color).filter(g => k === "impact" || !g.weak).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
+  return findGaps(color).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
 }
 // What the button says about a gap, in the current ranking mode
 function gapLabel(g) {
@@ -86,8 +79,9 @@ function jumpToGap(id) {
   const list = $("#gapNext")._list || rankedGaps(), g = list.find(x => x.id === id);
   if (!g) return;
   gapLast = g.id;
-  S.build[S.color] = g.path.slice();
-  if (g.opp) candOpen.add(K(fenAfter(START, g.path) || START) + "|" + g.opp);
+  // An unprepared reply: play it on the board so it's my move. It isn't saved until I answer
+  // it (commitBuildMove() saves the missing reply along with my move).
+  S.build[S.color] = g.opp ? g.path.concat(g.opp) : g.path.slice();
   renderBuild();
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
 }

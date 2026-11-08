@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09c", date: "9 Nov 2026", title: "Coach report, and two fixes",
+    items: [
+      "Games → Coach report: a summary of your openings, where you leave prep, lines where you score below peers, gaps, training and mistakes. Copy it for an AI coach, or copy or download it as JSON.",
+      "Gaps now clear as soon as you add a move, in Rating impact mode too. Prepared lines where you score badly have moved to the coach report.",
+      "Next gap now plays the opponent's unprepared reply for you, so you land on your own move. The reply is saved when you answer it.",
+      "Lichess no longer stops working after a dropped connection. It waits a few seconds and tries again, so you shouldn't need to paste your token again.",
+    ],
+  },
+  {
     id: "2026-11-09b", date: "9 Nov 2026", title: "A softer, lighter look",
     items: [
       "A new light colour scheme: soft greys, white cards and a calm blue accent.",

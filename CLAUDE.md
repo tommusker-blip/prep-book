@@ -119,6 +119,12 @@ when it loads; the others just define things.
   - The UI is in `app.js`: `renderMistakeCard()` and `startPuzzles()` through
     `onPuzzleChoice()`. A puzzle reuses the Train board and run-up, and judges
     any move within the good margin at depth 12 as correct.
+- `js/report.js`: the coach data report (backlog 6, without the AI for now).
+  `buildCoachReport()` gathers aggregated numbers only: openings from my games (results,
+  accuracy in and after book, prep depth, misplays), prep exits, positions where I score below
+  peers (`belowPar()`), gaps by both rankings, training lapses, mistakes by phase, clock and
+  opening, and practical tricks. `coachPrompt()` adds a short brief. The Coach report page
+  (Games) shows it, with Copy for an AI coach, Copy JSON and Download JSON.
 - `js/updates.js`: the Updates ("What's new") page
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
   four views (Build, Train, Games, Settings), `renderBg()` for the header's

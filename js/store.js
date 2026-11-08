@@ -51,7 +51,8 @@ function applyData(d) {
     if (r && !v.deleted) ensureBook(r.id)[r.color] = normRep(v);
     if (r && v.deleted && r.id !== "main") delete S.books[r.id];
   }
-  if (d.settings) Object.assign(S.settings, d.settings);
+  // A settings copy without the Lichess token (saved by a device that never had it) never wipes it
+  if (d.settings) { const tok = S.settings.lichessToken; Object.assign(S.settings, d.settings); if (!S.settings.lichessToken && tok) S.settings.lichessToken = tok; }
   if (d.games && d.games.list) S.games = d.games.list;
   if (d.acc && d.acc.map) S.acc = d.acc.map;
   if (d.puzzles && d.puzzles.map) S.puzzles = { map: d.puzzles.map };
@@ -179,7 +180,7 @@ const Store = {
     if (name === "games") return { list: S.games };
     if (name === "acc") return { map: S.acc };
     if (name === "puzzles") return { map: S.puzzles.map || {} };
-    if (name === "settings") return { ...S.settings };
+    if (name === "settings") return { ...S.settings, lichessToken: S.settings.lichessToken || S.token || "" };
     const r = parseRepDoc(name);
     if (r && S.books[r.id]) return S.books[r.id][r.color];
     return r ? { deleted: true } : null; // a deleted book: leave a tombstone so other devices drop it

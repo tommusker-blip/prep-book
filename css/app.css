@@ -380,3 +380,6 @@ input[type=text],input[type=password],input[type=number],select,textarea{backgro
 .newmark{background:var(--gem)}
 #tip{background:#1F2A37;color:#F5F7FA}
 :root[data-theme="dark"] #tip{background:#E4E9F0;color:#12161C}
+/* coach report */
+table.rep td{font-size:.82rem;padding:5px 4px}
+table.rep th{font-size:.64rem}

@@ -90,8 +90,8 @@ they're done.
   Practise from here.) Pick any position in the tree (for example after 1.e4 c5 2.Nf3) and practise only the branches that
   grow from there.
 - [x] **4. Replace the gaps list with a single "Next biggest gap" button.** (Done
-  2026-11-08 in `js/gaps.js`. Rating-impact mode also lists weak spots: prepared positions
-  where you score below 45% over 3+ games. The unprepared bonus is 0.02.)
+  2026-11-08 in `js/gaps.js`. The unprepared bonus is 0.02. Only unprepared positions count, so adding the move clears
+  the gap in both modes; prepared lines where you score badly are in the coach report.)
   Remove the long "Biggest gaps" list from Build. One button jumps the board to
   the most important gap, and each tap moves to the next one. The button can
   show what it will jump to, for example "Next gap: 2…d6 (31%)".

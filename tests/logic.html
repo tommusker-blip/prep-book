@@ -22,6 +22,7 @@
 <script src="../js/gaps.js"></script>
 <script src="../js/practice.js"></script>
 <script src="../js/puzzles.js"></script>
+<script src="../js/report.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -403,16 +404,21 @@ t("gaps: rating impact can rank a rare losing position above a common fine one",
   eq([d5.basis, Math.round(d5.expected * 100)], ["your 6 games + peer data", 21]); // (6×0 + 10×0.33)/16 ≈ 0.21
   S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
 });
-t("gaps: a prepared position I keep losing is a weak spot, in rating-impact mode only", () => {
+t("gaps: adding the move clears the gap in both ranking modes", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3 Nc6 Bc4");
   S.games = Array.from({ length: 5 }, (_, i) => ({ id: "w" + i, my: "white", result: i ? "0-1" : "1/2-1/2", moves: "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5" }));
   S.games.forEach(gameKeys);
-  S.settings.gapMode = "impact";
-  const weak = rankedGaps("white").filter(g => g.weak).map(g => g.text);
-  eq(weak.includes("Weak spot: you score 10% here"), true, JSON.stringify(weak));
-  S.settings.gapMode = "freq";
-  eq(rankedGaps("white").some(g => g.weak), false, "not in frequency mode");
+  for (const mode of ["impact", "freq"]) {
+    S.settings.gapMode = mode;
+    eq(rankedGaps("white").some(g => g.opp === "Nf6"), true, mode + ": Nf6 is a gap");
+  }
+  line("white", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5");
+  for (const mode of ["impact", "freq"]) {
+    S.settings.gapMode = mode;
+    const list = rankedGaps("white");
+    eq(list.some(g => g.opp === "Nf6" || g.text === "Your move is missing"), false, mode + ": " + JSON.stringify(list.map(g => g.text)));
+  }
   S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
 });
 t("gaps: Next gap steps through the list and wraps round", () => {
@@ -489,6 +495,27 @@ t("puzzles: queue order is due kept ones, then new, then later; seen ones are re
   S.puzzles.map["bs:6"] = { st: "seen" };
   eq(puzzleQueue().map(puzzleId), ["bs:8"]);
   S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear();
+});
+
+/* ----- coach report: aggregated numbers only ----- */
+t("coach report: openings, exits, training and mistakes, with no raw games", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); MIST.byGame.clear(); S.puzzles = { map: {} }; S.settings.adv = undefined;
+  line("white", "e4 e5 Nf3 Nc6 Bc4");
+  const games = [];
+  for (let i = 0; i < 6; i++) games.push({ id: "c" + i, my: "white", tc: "rapid", result: i < 2 ? "1-0" : i < 3 ? "1/2-1/2" : "0-1", moves: "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+", clk: Array(12).fill(500) });
+  S.games = games;
+  S.acc = Object.fromEntries(games.map(g => [g.id, { v: 2, d: 10, ev: [30, 30, 30, 30, 30, 30, 60, -150, -160, -500, -520, -520, -540], bm: Array(13).fill(""), inb: [90, 85], post: [40], exitCp: 30 }]));
+  S.games.forEach(gameKeys);
+  for (const g of S.games) MIST.byGame.set(g.id, gameMistakes(g, S.acc[g.id], null));
+  const r = buildCoachReport(), op = r.white.openings[0];
+  eq([op.opening, op.games, op.score, op.accuracyInBook, op.accuracyAfterBook], ["Italian Game: Blackburne-Kostić Gambit", 6, 41.7, 88, 40]);
+  eq(r.white.prepExits[0].games, 6);
+  eq([r.mistakes.mistakes, r.mistakes.byPhase.opening, r.mistakes.clusters[0].mistakes], [12, 12, 12]);
+  eq(r.player.rapidGames, 6);
+  const json = JSON.stringify(r);
+  eq(json.includes("Qxe4+") || json.includes('"moves"') || json.includes('"clk"'), false, "no raw games or clocks");
+  eq(coachPrompt(r).startsWith("You are a chess training coach"), true);
+  S.games = []; S.acc = {}; GAMEKEYS.clear(); MIST.byGame.clear();
 });
 
 /* ----- line practice: choosing replies (items 2 and 3) ----- */
