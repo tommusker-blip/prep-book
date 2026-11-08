@@ -69,7 +69,8 @@ they're done.
 
 ## Changes to existing features
 
-- [ ] **1. Win/draw/loss as numbers, not just bars.**
+- [x] **1. Win/draw/loss as numbers, not just bars.** (Done 2026-11-08: bars carry
+  `data-tip`; numbers show on hover or tap via `Tip` in `js/rows.js`. No `title` tooltips remain.)
   - Applies wherever a results bar appears: the opponent-moves table in Build,
     "Where your prep ends", and "Conversion out of the opening" in Games.
   - Keep the bars as the default view. Show the numbers on hover (PC) and on
@@ -106,7 +107,9 @@ they're done.
   - Show the basis in the label, for example "your 4 games" or "peer data".
   - Give unprepared positions a small extra weight, because no prep is a risk
     in itself.
-- [ ] **5. Clearer statistics, including the user's own win rate.** Today the
+- [x] **5. Clearer statistics, including the user's own win rate.** (Done
+  2026-11-08: own W/D/L per move and position from G1, peers labelled as peers, and a
+  summary line per position. The sample-size rule is `blended()` in `js/rows.js`.) Today the
   Build table doesn't show the user's own results at all. Its "You score" column
   is actually peer data, which is confusing.
   - Show the user's own record (games, W/D/L) for every position and move,
@@ -148,7 +151,10 @@ they're done.
   - **Loading:** analyse candidates one at a time through G3, starting with the
     most played. Fill in each row as its result arrives, and show
     "analysing…" while a row waits. Cache results, using G2.
-- [ ] **8. One combined row per candidate move.** Bring the engine, peer and
+- [x] **8. One combined row per candidate move.** (Done 2026-11-08 in `js/rows.js`,
+  apart from the "good replies" column, which comes with item 7. The opponent
+  table, the "Lichess at your level" table, "Your moves here" and the Stockfish
+  card are gone.) Bring the engine, peer and
   personal information together on each suggested move, so the three sources
   can be compared at a glance. This replaces the separate opponent table and
   engine panel in Build.

@@ -220,3 +220,28 @@ table.yours td{vertical-align:top}
 .pc.moving{z-index:5;will-change:transform}
 tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .linkbtn{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit}
+/* header: a long background job in progress */
+.bgstate{border:0;background:none;padding:2px 0;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--accent);cursor:pointer;font-variant-numeric:tabular-nums}
+.bgstate i{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.bgstate i{animation:none}}
+
+/* ---------- Build: one row per candidate move (rows.js) ---------- */
+.possum{margin:10px 0 6px;font-size:.9rem}
+.possum .bad,.cand .bad{color:var(--bad);font-weight:600} .possum .ok,.cand .ok{color:var(--good);font-weight:600}
+.cands{display:flex;flex-direction:column;margin-top:6px}
+.crow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.9fr);gap:6px;align-items:center;font-variant-numeric:tabular-nums}
+.chead{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:0 4px 4px}
+.cand{border-top:1px solid var(--line);padding:6px 4px;cursor:pointer;border-radius:6px}
+.cand:hover{background:color-mix(in srgb,var(--line) 35%,transparent)}
+.cand.open{background:color-mix(in srgb,var(--line) 45%,transparent)}
+.cand.warn{box-shadow:inset 3px 0 0 var(--warn)} .cand.gem{box-shadow:inset 3px 0 0 #8E5BD0}
+.cmove{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.ceng,.cpeer,.cyou{font-family:var(--f-mono);font-size:.82rem;white-space:nowrap}
+.cdetail{margin-top:8px;display:flex;flex-direction:column;gap:6px;cursor:default}
+.cbars{display:grid;grid-template-columns:3.2em 7em 1fr;gap:8px;align-items:center}
+.cbars .lbl{margin:0}
+.flagtext{font-size:.85rem;color:var(--warn);font-weight:600}
+@media (min-width:900px){.cdetail{display:grid;grid-template-columns:1fr 1fr}.cdetail .flagtext,.cdetail p{grid-column:1/-1}}
+/* tips: hover on PC, tap on Android */
+#tip{position:fixed;z-index:50;max-width:min(320px,92vw);background:var(--ink);color:var(--bg);font-size:.8rem;padding:6px 10px;border-radius:6px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+[data-tip]{cursor:help}

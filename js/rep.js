@@ -191,6 +191,7 @@ function addGames(list) {
   S.games.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   if (typeof Games !== "undefined") Games.mark(changed);
   Store.save("games");
+  addGames.clocks = changed.length - n; // older games that got their clock times now
   return n;
 }
 

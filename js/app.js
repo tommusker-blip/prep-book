@@ -36,7 +36,7 @@ async function fetchChessCom() {
     if (!r.ok) throw new Error(r.status === 404 ? "No chess.com player with that username." : "chess.com returned an error (" + r.status + ").");
     const { archives } = await r.json();
     const pick = archives.slice(-S.settings.months);
-    let added = 0;
+    let added = 0, clocks = 0;
     for (const [i, a] of pick.entries()) {
       st.textContent = `Fetching month ${i + 1} of ${pick.length}…`;
       const rr = await fetch(a);
@@ -44,9 +44,9 @@ async function fetchChessCom() {
       const { games } = await rr.json();
       const list = games.filter(x => x.rules === "chess" && x.time_class === "rapid" && x.pgn)
         .map(x => { const g = gameFromPGN(x.pgn, u, "rapid"); g.url = x.url || g.url; return g; });
-      added += addGames(list);
+      added += addGames(list); clocks += addGames.clocks;
     }
-    st.textContent = `Added ${added} new rapid game${added === 1 ? "" : "s"}.`;
+    st.textContent = `${added ? `Added ${added} new rapid game${added === 1 ? "" : "s"}` : "No new rapid games"}${clocks ? `; clock times added to ${clocks} earlier game${clocks === 1 ? "" : "s"}` : ""}.`;
     warmGameKeys(() => { flagMisplays("white"); flagMisplays("black"); render(); });
     fetchRating(true); // G4: keep the Lichess bands in step with the rating
     render();
@@ -62,7 +62,7 @@ async function fetchChessCom() {
 // Analyse every game that has no result yet, newest first (S.games is sorted newest first).
 // Runs in the background until done or stopped; results are saved every SAVE_EVERY games,
 // so stopping or closing loses at most a few and the next run carries on from there.
-let analysing = false, stopAnalysis = false;
+let analysing = false, stopAnalysis = false, anaProg = { done: 0, total: 0 };
 const SAVE_EVERY = 20;
 // G1: analysis of a whole game (v2). Every position up to GAME_EVAL_PLIES gets a Stockfish
 // eval at depth 10 and its best move, for mistake review later (NOTES item 9):
@@ -101,6 +101,7 @@ async function analyseGamesWithEngine() {
   const persist = () => { saveEvalCache(); Games.mark(analysed.splice(0)); Store.save("acc"); };
   const analysed = [];
   let done = 0;
+  anaProg = { done: 0, total: todo.length };
   render();
   try {
     if (!Engine.which) st.textContent = "Starting Stockfish (about 7 MB the first time)…";
@@ -110,7 +111,7 @@ async function analyseGamesWithEngine() {
       st.textContent = `Analysing game ${done + 1} of ${todo.length}${g.date ? ` (${g.date})` : ""}…`;
       S.acc[g.id] = await analyseOne(g);
       analysed.push(g.id);
-      done++;
+      done++; anaProg = { done, total: todo.length }; renderBg();
       if (done % SAVE_EVERY === 0) { persist(); if (S.view === "games") renderGames(); }
     }
     st.textContent = stopAnalysis
@@ -120,7 +121,7 @@ async function analyseGamesWithEngine() {
     st.textContent = done ? `Stopped after ${done} games: the engine failed. Tap again to carry on.` : "The engine couldn't start in this browser.";
   }
   persist();
-  analysing = false; stopAnalysis = false;
+  analysing = false; stopAnalysis = false; renderBg();
   render();
 }
 
@@ -340,25 +341,15 @@ function renderBuild() {
       <ul class="mymoves">${n.m.map(m => `<li><button type="button" class="chip big" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button><button type="button" class="btn ghost" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">Remove</button></li>`).join("")}</ul>
       <p class="help" style="margin-top:8px">Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Removing a move also removes the line after it.</p>`;
     } else {
-      pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the table below. Use the engine if you want a suggestion.</p>`;
+      pr.innerHTML = `<p class="lbl warn">No prep yet</p><p>What do you play here? Make the move on the board, or pick one from the moves below.</p>`;
     }
-    pr.innerHTML += yourMovesTable(fen, key, n, path) + myTable(fen, key, n) + ideasPanel(fen, key, n, path);
+    pr.innerHTML += candRows(fen, key, n, path) + ideasPanel(fen, key, n, path);
   } else {
-    pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${oppTable(fen, key, n)}`;
+    pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
   if (!ex && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
-  // engine panel
-  const ev = EVALC[key];
-  $("#engOut").innerHTML = ev ? `<b class="mono">${fmtEval(ev.cp, ev.mate, sideOf(key))}</b> <span class="muted">depth ${ev.d}, Stockfish ${ev.e === "wasm" ? "17" : "10"}</span> · best <b>${esc(uciToSan(fen, ev.best))}</b>` : `<span class="muted">Not analysed yet.</span>`;
   renderGaps();
   renderSuggest();
-}
-// A win/draw/loss bar from my side for Lichess counts {w, d, b}
-function wdlBar(r, color) {
-  const tot = (r.w || 0) + (r.d || 0) + (r.b || 0);
-  if (!tot) return `<span class="wdl empty"></span>`;
-  const you = color === "white" ? r.w : r.b, them = color === "white" ? r.b : r.w;
-  return `<span class="wdl" title="Your results from here at this rating: ${pct(you, tot)}% win, ${pct(r.d, tot)}% draw, ${pct(them, tot)}% loss"><i class="w" style="width:${pct(you, tot)}%"></i><i class="d" style="width:${pct(r.d, tot)}%"></i><i class="l" style="width:${pct(them, tot)}%"></i></span>`;
 }
 /* ----- opponent's turn: quick picks ----- */
 // "common": the most played reply at my level. "weak": my weakest spot here, which is the most
@@ -398,69 +389,7 @@ async function autoOpponent(path) {
 }
 
 /* ----- my turn: what I play here, and is it any good? ----- */
-// Moves I actually played from this position in my games, by any move order (G1 stats):
-// san -> {n, pts, scored}
-function myGameMoves(path, color) {
-  const out = {}, byMove = myStats(color).mv[K(fenAfter(START, path) || START)] || {};
-  for (const [san, o] of Object.entries(byMove)) out[san] = { n: o.n, pts: o.w + o.d / 2, scored: o.w + o.d + o.l };
-  return out;
-}
 // Stockfish verdict on a move: centipawns lost against the best move (depth 14, cached)
-const VERDICT_DEPTH = 14, verdictBusy = new Set();
-function verdictFor(fen, san) {
-  const best = EVALC[K(fen)], c = new Chess(fen);
-  if (!c.move(san)) return null;
-  const after = EVALC[K(c.fen())];
-  if (!best || !after || best.d < VERDICT_DEPTH || after.d < VERDICT_DEPTH) return null;
-  const loss = Math.max(0, best.cp - -after.cp); // after.cp is from the opponent's side
-  const label = loss <= 30 ? "Good" : loss <= 80 ? "OK" : loss <= 180 ? "Dubious" : "Mistake";
-  return { loss, label, cls: loss <= 80 ? "ok" : "gap" };
-}
-// Work out missing verdicts in the background, then redraw if we're still on this position
-function queueVerdicts(fen, sans) {
-  if (Engine.failed) return;
-  const jobs = [fen, ...sans.map(s => fenAfter(fen, [s])).filter(Boolean)].filter(f => { const e = EVALC[K(f)]; return !(e && e.d >= VERDICT_DEPTH && e.e === "wasm") && !verdictBusy.has(K(f)); });
-  if (!jobs.length) return;
-  jobs.forEach(f => verdictBusy.add(K(f)));
-  const key = K(fen);
-  Promise.all(jobs.map(f => Engine.analyse(f, VERDICT_DEPTH, { prio: PRIO.now, stale: notHere(key) }).catch(() => null))).then(() => {
-    jobs.forEach(f => verdictBusy.delete(K(f)));
-    saveEvalCache();
-    if (S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild();
-  });
-}
-// How a move fits my prep: it transposes into a position I already have, or it keeps a pawn
-// structure from one of my other lines. (A real "fits my style" judgement needs chess
-// understanding, so these are only the two signals the data supports.)
-function fitPills(fen, san, mineHere) {
-  const c = new Chess(fen);
-  if (!c.move(san)) return "";
-  const idx = indexTree(), k = K(c.fen()), pills = [];
-  if (!mineHere.includes(san) && idx[k]) pills.push('<span class="pill gem">Transposes to your prep</span>');
-  const pk = pawnKey(k.split(" ")[0]);
-  const same = Object.values(idx).find(p => p.path.length >= 8 && pawnKey(K(p.fen).split(" ")[0]) === pk && !p.path.join(" ").startsWith(curPath().join(" ")));
-  if (same) { const op = openingFor(same.path); pills.push(`<span class="pill gem" title="${esc(same.path.join(" "))}">Same pawns as your ${esc(op ? op.name.split(":")[0] : "other line")}</span>`); }
-  return pills.join(" ");
-}
-function yourMovesTable(fen, key, n, path) {
-  const mine = n ? n.m : [], played = myGameMoves(path, S.color);
-  const sans = [...new Set([...mine, ...Object.keys(played).sort((a, b) => played[b].n - played[a].n)])].slice(0, 6);
-  if (!sans.length) return "";
-  const ex = cachedExplorer(fen);
-  queueVerdicts(fen, sans);
-  const totalGames = Object.values(played).reduce((a, o) => a + o.n, 0);
-  const rows = sans.map(s => {
-    const g = played[s], lm = ex && ex.moves.find(m => m.san === s), v = verdictFor(fen, s);
-    const tags = (mine.includes(s) ? '<span class="pill ok">Yours</span>' : g ? '<span class="pill gap">Not in your prep</span>' : "") + fitPills(fen, s, mine);
-    return `<tr><td><button type="button" class="chip" data-go="${esc(s)}">${esc(s)}</button>${tags ? `<div class="tags">${tags}</div>` : ""}</td>
-      <td class="num">${g ? `${g.n}×<br><span class="muted">${g.scored ? Math.round((100 * g.pts) / g.scored) + "%" : "–"}</span>` : "–"}</td>
-      <td class="num">${lm ? Math.round(scoreFor(lm, S.color) * 100) + "%" : "–"}</td>
-      <td>${v ? `<span class="pill ${v.cls}" title="Loses about ${(v.loss / 100).toFixed(2)} against Stockfish's best move">${v.label}</span>` : Engine.failed ? "–" : '<span class="muted">checking…</span>'}</td></tr>`;
-  }).join("");
-  return `<p class="lbl" style="margin-top:14px">Your moves here</p>
-    <div class="tblwrap"><table class="yours"><thead><tr><th>Move</th><th class="num">Your games<br>(score)</th><th class="num">Lichess<br>score</th><th>Engine</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="src">${totalGames ? `You reached this position in ${totalGames} rapid game${totalGames === 1 ? "" : "s"} (any move order). ` : ""}Engine: Stockfish depth ${VERDICT_DEPTH}, compared with its best move (Good, OK, Dubious, Mistake).</p>`;
-}
 /* ----- my turn: practical, memorable ideas (js/ideas.js) ----- */
 let ideaRun = null; // {key, step} while "Find ideas here" is working
 const pawns = cp => (cp >= 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
@@ -516,25 +445,6 @@ async function findIdeasHere() {
   if (S.view === "build") renderBuild();
 }
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
-// At my turn: what players at my level play here, how each move scores for me, and which
-// ones are hidden gems or score better than my choice
-function myTable(fen, key, n) {
-  const ex = cachedExplorer(fen);
-  if (!ex || !ex.total) return S.token && !explorerBlocked && !ex ? `<p class="help" style="margin-top:10px">Loading how players at your level score here…</p>` : "";
-  const mine = n ? n.m : [];
-  const avg = posAverage(ex, S.color);
-  const rows = ex.moves.slice().sort((a, b) => b.n - a.n).filter((m, i) => i < 8 || mine.includes(m.san) || judgeMove(m, ex, S.color, mine));
-  const body = rows.map(m => {
-    const kind = judgeMove(m, ex, S.color, mine), sc = scoreFor(m, S.color);
-    const pill = mine.includes(m.san) ? '<span class="pill ok">Yours</span>' : kind === "gem" ? '<span class="pill gem">Hidden gem</span>' : kind === "better" ? '<span class="pill gem">Scores better</span>' : "";
-    return `<tr><td><button type="button" class="chip" data-go="${esc(m.san)}">${esc(m.san)}</button></td>
-      <td class="num">${Math.round((100 * m.n) / ex.total)}%</td><td>${wdlBar(m, S.color)}</td>
-      <td class="num">${Math.round(sc * 100)}%</td><td class="num">${m.n.toLocaleString("en-GB")}</td><td>${pill}</td></tr>`;
-  }).join("");
-  return `<p class="lbl" style="margin-top:14px">At your level on Lichess</p>
-    <div class="tblwrap"><table><thead><tr><th>Move</th><th class="num">Freq</th><th>Results</th><th class="num">You score</th><th class="num">Games</th><th></th></tr></thead><tbody>${body}</tbody></table></div>
-    <p class="src">${esc(srcLine(ex))}. Average score here ${Math.round(avg * 100)}%. Tap a move to add it.</p>`;
-}
 function moveLabel(path, san) {
   const n = Math.floor(path.length / 2) + 1;
   return path.length % 2 === 0 ? `${n}. ${san}` : `${n}… ${san}`;
@@ -545,34 +455,6 @@ function lineHtml(path, clickable) {
     const num = i % 2 === 0 ? `<span class="mn">${i / 2 + 1}.</span>` : "";
     return `${num}<button type="button" class="mv${i === path.length - 1 ? " cur" : ""}" ${clickable ? `data-jump="${i + 1}"` : "disabled"}>${esc(m)}</button>`;
   }).join("");
-}
-function oppTable(fen, key, n) {
-  const ex = cachedExplorer(fen);
-  const seen = oppSeen()[key] || {};
-  const prepared = n ? n.m : [];
-  const rows = {};
-  if (ex) for (const m of ex.moves) rows[m.san] = { san: m.san, f: ex.total ? m.n / ex.total : 0, n: m.n, w: m.w, d: m.d, b: m.b };
-  for (const [s, c] of Object.entries(seen)) (rows[s] = rows[s] || { san: s }).g = c;
-  for (const s of prepared) rows[s] = rows[s] || { san: s };
-  const list = Object.values(rows).sort((a, b) => (b.f || 0) - (a.f || 0) || (b.g || 0) - (a.g || 0));
-  if (!list.length) {
-    if (explorerBlocked) return `<p class="muted">Lichess stats can't load here because this page can't reach outside websites. Play the opponent's move you want to prepare for on the board.</p>`;
-    return `<p class="muted">${S.token ? "Loading what players at your level play here…" : "No data here yet. Play the opponent's move you want to prepare for on the board, or add a Lichess token in Settings to see the most popular replies at your level."}</p>`;
-  }
-  const idx = indexTree();
-  const body = list.map(r => {
-    const ok = prepared.includes(r.san);
-    // An unprepared move that leads into a position I already have is a cheap gap to close
-    let trans = false;
-    if (!ok) { const c = new Chess(fen); trans = !!(c.move(r.san) && idx[K(c.fen())]); }
-    return `<tr><td><button type="button" class="chip" data-go="${esc(r.san)}">${esc(r.san)}</button></td>
-      <td class="num">${r.f != null ? Math.round(r.f * 100) + "%" : "–"}</td>
-      <td>${wdlBar(r, S.color)}</td>
-      <td class="num">${r.g ? r.g + "×" : ""}</td>
-      <td>${ok ? '<span class="pill ok">Prepared</span>' : trans ? '<span class="pill gem">Transposes to your prep</span>' : '<span class="pill gap">Gap</span>'}</td></tr>`;
-  }).join("");
-  const src = ex ? srcLine(ex) : "From your games";
-  return `<div class="tblwrap"><table class="opp"><thead><tr><th>Move</th><th class="num">Freq</th><th>You score</th><th class="num">Your games</th><th></th></tr></thead><tbody>${body}</tbody></table></div><p class="src">${esc(src)}. Tap a move to follow it.</p>`;
 }
 function renderGaps() {
   const color = S.color, R = rep(color);
@@ -657,6 +539,7 @@ function renderSuggest() {
   out._s = s;
 }
 function onScanTick(finished) {
+  renderBg();
   if (S.view !== "build") return;
   if (finished) renderBuild(); else renderScanBox();
 }
@@ -676,6 +559,7 @@ function renderIdeaBox() {
     ${todo ? `<button type="button" class="btn ghost" data-ideas="tree">Find ideas across my tree (about ${Math.max(1, Math.round(todo * 15 / 60))} min)</button>` : ""}</div>`;
 }
 function onIdeaTick(finished) {
+  renderBg();
   if (S.view !== "build") return;
   if (finished) renderBuild(); else renderIdeaBox();
 }
@@ -791,7 +675,7 @@ function renderTrainCard() {
   $("#tOpening").textContent = op ? `${op.eco} ${op.name}` : "";
   const left = T.queue.length - T.i;
   $("#tProgress").textContent = `${T.i + 1} / ${T.queue.length}${T.graded.has(T.key) ? " · again" : ""}`;
-  $("#tProgress").title = `${left} left in this session`;
+  $("#tProgress").dataset.tip = `${left} left in this session`;
 }
 function cardPrompt() {
   const card = rep().cards[T.key], n = rep().pos[T.key];
@@ -886,7 +770,7 @@ function renderGames() {
     const what = r.a.type === "misplay" ? `played ${esc(mv)} instead of ${esc(r.a.expected)}` : r.a.type === "full" ? "" : `then ${esc(mv)}`;
     return `<tr><td><button type="button" class="linkish" data-open="${esc(r.a.path.join(" "))}"><span class="tt">${esc(typeLabel[r.a.type])}</span><span class="sub">${op ? esc(op.name) + " · " : ""}${what}</span></button></td>
       <td class="num">${r.n}</td><td class="num">${r.scored ? Math.round((100 * r.score) / r.scored) + "%" : "–"}</td>
-      <td><span class="wdl"><i class="w" style="width:${pct(r.w, r.scored)}%"></i><i class="d" style="width:${pct(r.d, r.scored)}%"></i><i class="l" style="width:${pct(r.l, r.scored)}%"></i></span></td></tr>`;
+      <td>${barFor({ w: r.w, d: r.d, l: r.l }, "Your games from here")}</td></tr>`;
   }).join("") : `<tr><td colspan="4" class="muted">Import games to see where your prep ends and how those games go.</td></tr>`;
   // conversion by eval at book exit
   const buckets = [["Worse (−1.0 or less)", -1e9, -100], ["Slightly worse", -100, -30], ["Equal (±0.3)", -30, 30], ["Slightly better", 30, 100], ["Better (+1.0 or more)", 100, 1e9]];
@@ -897,7 +781,7 @@ function renderGames() {
     return { label, n: xs.length, sc: xs.length ? Math.round((100 * sc) / xs.length) : null, w, d, l };
   });
   const anyConv = conv.some(c => c.n);
-  $("#gConv").innerHTML = anyConv ? conv.map(c => `<tr><td>${c.label}</td><td class="num">${c.n}</td><td class="num">${c.sc == null ? "–" : c.sc + "%"}</td><td>${c.n ? `<span class="wdl"><i class="w" style="width:${pct(c.w, c.n)}%"></i><i class="d" style="width:${pct(c.d, c.n)}%"></i><i class="l" style="width:${pct(c.l, c.n)}%"></i></span>` : ""}</td></tr>`).join("")
+  $("#gConv").innerHTML = anyConv ? conv.map(c => `<tr><td>${c.label}</td><td class="num">${c.n}</td><td class="num">${c.sc == null ? "–" : c.sc + "%"}</td><td>${c.n ? barFor(c, "Your games") : ""}</td></tr>`).join("")
     : `<tr><td colspan="4" class="muted">Run the engine on your games to see how you convert positions coming out of the opening.</td></tr>`;
   const todo = S.games.filter(needsAnalysis).length;
   $("#engBtn").textContent = analysing ? "Stop" : todo ? `Analyse all (${todo.toLocaleString("en-GB")} left)` : "All games analysed";
@@ -944,6 +828,8 @@ function renderSettings() {
   const gem = { ...gemDefaults(), ...S.settings.gem };
   $("#gemMin").value = gem.min; $("#gemFreq").value = gem.freq; $("#gemEdge").value = gem.edge;
   $("#gemTrapErr").value = gem.trapErr ?? 30; $("#gemTrapLoss").value = ((gem.trapLoss ?? 150) / 100).toFixed(1);
+  const a = adv();
+  $("#advGood").value = (a.good / 100).toFixed(1); $("#advMistake").value = (a.mistake / 100).toFixed(1); $("#advClock").value = a.clock; $("#advK").value = a.k;
   const cc = S.settings.ccRating, sug = cc ? bandsFor(cc.r) : null;
   $("#bandHint").innerHTML = !cc ? (validChessComUser(S.settings.user || "") ? "Your chess.com rating will be checked to suggest bands." : "Add your chess.com username to get bands that match your rating.")
     : `Your chess.com rapid rating is <b>${cc.r}</b>, which suggests Lichess <b>${bandLabel(sug)}</b>. ` + (S.settings.bandAuto === false
@@ -1023,6 +909,22 @@ function onBookAction(act) {
     const c = act.slice(6), C = c === "white" ? "White" : "Black";
     confirmBook(`Remove every move from the ${C} repertoire in <b>${nm}</b>, with its training history? Other books aren't affected. Export it first if you might want it back.`, `Clear ${C}`, () => { clearRep(c); renderBooks(); toast(`${C} repertoire cleared.`); });
   }
+}
+
+/* ---------- header: background work in progress (any screen) ---------- */
+// Shows the long job that's running, with progress; tapping it opens that job's screen
+function renderBg() {
+  const el = $("#bgState");
+  if (!el) return;
+  const n = x => x.toLocaleString("en-GB");
+  let text = "", view = "";
+  if (analysing) { text = `Analysing games ${n(anaProg.done)} / ${n(anaProg.total)}`; view = "games"; }
+  else if (Scan.running) { text = `Lichess scan ${n(Scan.done)} / ${n(Scan.total)}`; view = "build"; }
+  else if (IdeaJob.running) { text = `Finding ideas ${n(IdeaJob.done)} / ${n(IdeaJob.total)}`; view = "build"; }
+  el.hidden = !text;
+  el.querySelector("span").textContent = text;
+  el.dataset.view = view;
+  el.setAttribute("aria-label", text ? `${text}. Open ${view === "games" ? "Games" : "Build"}` : "");
 }
 
 /* ---------- header: open book and save status ---------- */
@@ -1115,12 +1017,11 @@ async function boot() {
     if (n && n.m.length) { path.push(n.m[0]); renderBuild(); }
   };
   $("#toStart").onclick = () => { S.build[S.color] = []; renderBuild(); };
-  $("#engRun").onclick = async () => {
-    const fen = fenAfter(START, curPath()); const key = K(fen);
-    $("#engOut").innerHTML = `<span class="muted">${Engine.which ? "Thinking…" : "Starting Stockfish (about 7 MB the first time)…"}</span>`;
-    try { await Engine.init(); await Engine.analyse(fen, Engine.which === "wasm" ? 20 : 16, { prio: PRIO.now }); saveEvalCache(); } catch (e) { $("#engOut").innerHTML = `<span class="muted">The engine couldn't start in this browser.</span>`; return; }
-    if (K(fenAfter(START, curPath())) === key) renderBuild();
-  };
+  // Build rows (rows.js): tap a row to expand it; the move button inside plays the move
+  Tip.init();
+  const toggleCand = san => { const id = K(fenAfter(START, curPath()) || START) + "|" + san; if (candOpen.has(id)) candOpen.delete(id); else candOpen.add(id); renderBuild(); };
+  $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });
+  $("#prompt").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("cand")) { e.preventDefault(); toggleCand(e.target.dataset.cand); } });
   $("#tStart").onclick = startTraining;
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;
@@ -1137,8 +1038,17 @@ async function boot() {
   $("#setToken").onchange = e => { S.token = e.target.value.trim(); S.settings.lichessToken = S.token; lsSet("pb_token", S.token); Store.save("settings"); explorerBlocked = false; };
   $("#bookRename").onchange = e => { const v = e.target.value.trim(); if (!v) { renderBooks(); return; } S.settings.books = bookList().map(b => (b.id === S.book ? { ...b, name: v } : b)); Store.save("settings"); renderHeader(); renderBooks(); };
   $("#bookName").onclick = () => setView("settings");
+  // Settings > Advanced (rows.js adv()): pawns are stored as centipawns
+  for (const [id, field, lo, hi, scale] of [["advGood", "good", 10, 300, 100], ["advMistake", "mistake", 30, 900, 100], ["advClock", "clock", 0, 600, 1], ["advK", "k", 1, 200, 1]]) {
+    $("#" + id).onchange = e => {
+      const v = Math.round(+e.target.value * scale);
+      if (!(v >= lo && v <= hi)) { toast(`Use a number from ${lo / scale} to ${hi / scale}.`); renderSettings(); return; }
+      S.settings.adv = { ...adv(), [field]: v }; Store.save("settings");
+    };
+  }
   $("#autoOpp").onchange = e => { S.settings.autoOpp = e.target.value; Store.save("settings"); };
   $("#saveState").onclick = onSaveStateTap;
+  $("#bgState").onclick = e => { const v = e.currentTarget.dataset.view; if (v) setView(v); };
   setInterval(() => { if (Store.status() === "saved") renderSaveState("saved"); }, 30000);
   $("#setMonths").onchange = e => { S.settings.months = +e.target.value; Store.save("settings"); };
   for (const [id, field, lo, hi] of [["gemMin", "min", 50, 100000], ["gemFreq", "freq", 1, 50], ["gemEdge", "edge", 1, 30], ["gemTrapErr", "trapErr", 10, 90], ["gemTrapLoss", "trapLoss", 0, 500]]) {

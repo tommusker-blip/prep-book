@@ -11,7 +11,9 @@
      as one of my other lines?
    Results (everything except the memorability, which depends on the tree) are cached per
    position and rating band in localStorage (pb_ideas). */
-const IDEA_DEPTH = 14, REPLY_DEPTH = 12, MISTAKE_CP = 100;
+// Replies are checked as deep as the candidates: at depth 12 traps like 4.Nxe5? Qg5 were
+// sometimes underrated to about 0.0, and tagging flipped between runs.
+const IDEA_DEPTH = 14, REPLY_DEPTH = 14, MISTAKE_CP = 100;
 let IDEAS = lsGet("pb_ideas", {}), ideasVer = 0;
 const ideaKey = fen => K(fen) + "|" + bandKey();
 const cachedIdeas = fen => IDEAS[ideaKey(fen)] || null;

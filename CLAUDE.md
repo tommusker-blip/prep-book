@@ -81,8 +81,19 @@ when it loads; the others just define things.
   `analyseIdeas()` for one position, `findIdeasInTree()` as a background job,
   `memorability()`, `ideaTags()` and `treeIdeas()`. Results are cached in
   `pb_ideas`.
+- `js/rows.js` (NOTES items 1, 5 and 8): the Build candidate rows. Each row
+  shows the engine eval after the move with ✓ within the good margin, the
+  peers' frequency · score, and your games · score. Tapping a row expands it
+  to full W/D/L, the blended expected score, the likely replies and the best
+  reply. Also here:
+  - `positionSummary()`: the "You score X% here against Y% for peers" line
+  - `blended()`: the sample-size rule, `(n × mine + k × peers) / (n + k)`
+  - `adv()`: thresholds from Settings > Advanced (`good`, `mistake`, `clock`,
+    `k`)
+  - `Tip`: hover or tap tips (no `title` tooltips)
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
-  four views (Build, Train, Games, Settings), and `boot()`
+  four views (Build, Train, Games, Settings), `renderBg()` for the header's
+  background-job marker, and `boot()`
 
 Tests (open in a browser, or run headless Chrome with `--dump-dom`; there's no
 Node on the dev machine):

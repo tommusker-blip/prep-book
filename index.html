@@ -18,7 +18,8 @@
 <header class="top">
   <div class="brand"><h1>Prep Book</h1>
     <div class="sub"><button type="button" class="bookbtn" id="bookName" aria-label="Prep book: open the book list">My prep</button>
-      <button type="button" class="savestate" id="saveState" data-state="idle" aria-live="polite"><i></i><span></span></button></div></div>
+      <button type="button" class="savestate" id="saveState" data-state="idle" aria-live="polite"><i></i><span></span></button>
+      <button type="button" class="bgstate" id="bgState" hidden><i></i><span></span></button></div></div>
   <div class="seg" role="group" aria-label="Repertoire colour">
     <button type="button" data-color="white" aria-pressed="true"><i class="sw"></i>White</button>
     <button type="button" data-color="black" aria-pressed="false"><i class="sw"></i>Black</button>
@@ -58,12 +59,6 @@
         <div class="line" id="line"></div>
       </div>
       <div class="card" id="prompt"></div>
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-          <div><p class="lbl">Stockfish</p><div id="engOut"></div></div>
-          <button type="button" class="btn ghost" id="engRun">Analyse position</button>
-        </div>
-      </div>
       <div class="card">
         <h3>Biggest gaps</h3>
         <p class="help">Positions in your tree that still need an answer, most likely first. Tap one to go there.</p>
@@ -166,16 +161,6 @@
       <div class="field"><label for="setMonths">Months of games to fetch</label><select id="setMonths"><option value="1">1</option><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
       <div class="field"><label for="setToken">Lichess API token</label><input type="password" id="setToken" autocomplete="off"><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Saved with your settings, so every device you sign in on uses it.</p></div>
       <div class="field"><span class="lbl" style="margin:0">Lichess rating bands</span><div class="chips" id="bands"></div><p class="help" id="bandHint"></p><p class="help">Lichess ratings usually run higher than chess.com ones. For a 1500–1600 chess.com rapid player, 1600–1999 is a reasonable starting point.</p></div>
-      <fieldset class="field gemset"><legend class="lbl">Hidden gems and better moves</legend>
-        <div class="gemgrid">
-          <label for="gemMin">At least <input type="number" id="gemMin" inputmode="numeric" min="50" step="50"> games</label>
-          <label for="gemFreq">Played at most <input type="number" id="gemFreq" inputmode="numeric" min="1" max="50"> % of the time</label>
-          <label for="gemEdge">Scoring at least <input type="number" id="gemEdge" inputmode="numeric" min="1" max="30"> points above average</label>
-          <label for="gemTrapErr">Practical trick: opponents go wrong at least <input type="number" id="gemTrapErr" inputmode="numeric" min="10" max="90"> % of the time</label>
-          <label for="gemTrapLoss">Practical trick: accept up to <input type="number" id="gemTrapLoss" inputmode="decimal" min="0" max="5" step="0.1"> pawns worse than the engine's best</label>
-        </div>
-        <p class="help">A hidden gem must pass all three. A "better" move must have the minimum games and score that many points more than your move. Small samples are noisy, so keep the game count high.</p>
-      </fieldset>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:14px">
       <h3>Board</h3>
@@ -189,6 +174,31 @@
         <p class="help">Lets you build a line quickly by only playing your own moves. Needs the Lichess token.</p></div>
       <details><summary>Piece set credits</summary><ul class="list help" id="pieceCredits"></ul>
         <p class="help">Piece images come from the Lichess project, where each set's licence is listed. Licence texts are in the repo under <span class="mono">pieces/</span>. The wood and marble boards are generated, with no image files.</p></details>
+    </div>
+    <div class="card" id="advCard">
+      <details>
+        <summary>Advanced: thresholds</summary>
+        <p class="help">Every tunable number in one place. The defaults suit most players.</p>
+        <fieldset class="field gemset"><legend class="lbl">Engine and games</legend>
+          <div class="gemgrid">
+            <label for="advGood">A move is "good" (✓) within <input type="number" id="advGood" inputmode="decimal" min="0.1" max="3" step="0.1"> pawns of the best move</label>
+            <label for="advMistake">A mistake loses at least <input type="number" id="advMistake" inputmode="decimal" min="0.3" max="9" step="0.1"> pawns</label>
+            <label for="advClock">Moves made with less than <input type="number" id="advClock" inputmode="numeric" min="0" max="600" step="5"> seconds left count as time pressure</label>
+            <label for="advK">Your results count fully after about <input type="number" id="advK" inputmode="numeric" min="1" max="200"> games (before that they're blended with peer data)</label>
+          </div>
+          <p class="help">The blend works like this: with n games of your own, your expected score is (n × yours + this number × peers) ÷ (n + this number). Sample sizes are shown next to every statistic.</p>
+        </fieldset>
+        <fieldset class="field gemset"><legend class="lbl">Hidden gems and better moves</legend>
+          <div class="gemgrid">
+            <label for="gemMin">At least <input type="number" id="gemMin" inputmode="numeric" min="50" step="50"> games</label>
+            <label for="gemFreq">Played at most <input type="number" id="gemFreq" inputmode="numeric" min="1" max="50"> % of the time</label>
+            <label for="gemEdge">Scoring at least <input type="number" id="gemEdge" inputmode="numeric" min="1" max="30"> points above average</label>
+            <label for="gemTrapErr">Practical trick: opponents go wrong at least <input type="number" id="gemTrapErr" inputmode="numeric" min="10" max="90"> % of the time</label>
+            <label for="gemTrapLoss">Practical trick: accept up to <input type="number" id="gemTrapLoss" inputmode="decimal" min="0" max="5" step="0.1"> pawns worse than the engine's best</label>
+          </div>
+          <p class="help">A hidden gem must pass all three. A "better" move must have the minimum games and score that many points more than your move. Small samples are noisy, so keep the game count high.</p>
+        </fieldset>
+      </details>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <h3>Repertoire backup</h3>
@@ -223,6 +233,7 @@
 <script src="js/engine.js"></script>
 <script src="js/explore.js"></script>
 <script src="js/ideas.js"></script>
+<script src="js/rows.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@
 <script src="../js/jobs.js"></script>
 <script src="../js/engine.js"></script>
 <script src="../js/ideas.js"></script>
+<script src="../js/rows.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -226,6 +227,25 @@ t("rating bands from chess.com rapid rating", () => {
   eq(bandsFor(1500), [1600, 1800], "1500"); eq(bandsFor(1600), [1600, 1800], "1600");
   eq(bandsFor(1700), [1800, 2000], "1700"); eq(bandsFor(900), [1000, 1200], "900");
   eq(bandsFor(2400), [2200, 2500], "2400");
+});
+
+/* ----- sample-size rule and settings (rows.js) ----- */
+t("sample-size rule: blend my results with peers, moving towards mine as games add up", () => {
+  S.settings.adv = undefined; // defaults: k = 10
+  eq(blended(null, 0.55), { score: 0.55, basis: "peer data", n: 0 });
+  eq(blended({ n: 4, w: 4, d: 0, l: 0 }, null).basis, "your 4 games");
+  const few = blended({ n: 2, w: 1, d: 0, l: 1 }, 0.55);
+  eq([Math.round(few.score * 1000), few.basis], [542, "your 2 games + peer data"]); // (2×0.5 + 10×0.55)/12
+  const many = blended({ n: 90, w: 27, d: 0, l: 63 }, 0.55); // 30% over 90 games
+  eq(Math.round(many.score * 100), 33, "90 games dominate");
+  S.settings.adv = { k: 2 };
+  eq(Math.round(blended({ n: 2, w: 1, d: 0, l: 1 }, 0.55).score * 1000), 525, "k from settings");
+  S.settings.adv = undefined;
+  eq(blended(null, null), null);
+});
+t("W/D/L as numbers, with the sample size", () => {
+  eq(wdlLine({ w: 48, d: 12, l: 40 }), "W 48% · D 12% · L 40% (n = 100)");
+  eq(peerWdl({ n: 10, w: 6, d: 1, b: 3 }, "black"), { w: 3, d: 1, l: 6, n: 10 });
 });
 
 /* ----- prep books ----- */

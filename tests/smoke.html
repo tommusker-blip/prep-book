@@ -109,16 +109,23 @@ f.onload = () => {
       L("sections: " + [...d.querySelectorAll("#sugOut h4")].map(h => h.textContent).join(" / "));
       L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
       d.querySelector('#sugOut [data-sug^="gems"]').click();
-      L("gem opens: " + G("S").build.white.join(" ") + " | table pills: " + [...d.querySelectorAll("#prompt .pill")].map(p => p.closest("tr").querySelector(".chip").textContent + "=" + p.textContent).join(", "));
+      const rowText = () => [...d.querySelectorAll("#prompt .cand")].map(r => r.querySelector(".crow").textContent.replace(/\s+/g, " ").trim()).join(" | ");
+      L("gem opens: " + G("S").build.white.join(" ") + " | rows: " + rowText());
       L("arrows at 1.e4 e5: " + [...d.querySelectorAll("#board .arw")].map(a => a.getAttribute("class").split(" ")[1] + ":" + (+a.querySelector("line").getAttribute("stroke-width")).toFixed(2)).join(" "));
       d.querySelector("#back").click();
       L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
-      L("opp table after 1.e4: " + [...d.querySelectorAll("#prompt tbody tr")].map(tr => tr.querySelector(".chip").textContent + " " + tr.cells[1].textContent + " " + tr.querySelector(".pill").textContent).join(", "));
-      // "Your moves here": what I played in my games from 1.e4 e5
-      w.eval(`S.games = [["e4 e5 Nf3 Nc6","1-0"],["e4 e5 Nf3 d6","0-1"],["e4 e5 Bc4 Nf6","1-0"]].map(([m, r], i) => ({ id: "y" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" }))`);
-      d.querySelector('#line [data-jump="2"]') ? d.querySelector('#line [data-jump="2"]').click() : null;
+      L("opponent rows after 1.e4: " + rowText());
+      // My own games from 1.e4 e5 (G1 stats need the game keys worked out first)
+      w.eval(`S.games = [["e4 e5 Nf3 Nc6","1-0"],["e4 e5 Nf3 d6","0-1"],["e4 e5 Bc4 Nf6","1-0"]].map(([m, r], i) => ({ id: "y" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" })); S.games.forEach(gameKeys)`);
       w.eval('S.build.white = ["e4","e5"]; renderBuild()');
-      L("your moves here: " + [...d.querySelectorAll("#prompt table")[0].querySelectorAll("tbody tr")].map(tr => [...tr.cells].map(c => c.textContent.replace(/\s+/g, " ").trim()).join(" / ")).join(" || "));
+      L("summary: " + (d.querySelector("#prompt .possum") || {}).textContent);
+      L("rows with my games: " + rowText());
+      // Tap the Nf3 row (not the move) to expand it
+      d.querySelector('#prompt .cand[data-cand="Nf3"] .cpeer').click();
+      const det = d.querySelector('#prompt .cand[data-cand="Nf3"] .cdetail');
+      L("expanded Nf3: " + (det ? det.textContent.replace(/\s+/g, " ").trim() : "not expanded") + " | still at: " + G("S").build.white.join(" "));
+      const bar = det && det.querySelector("[data-tip]");
+      if (bar) { bar.click(); L("tap tip: " + ((d.getElementById("tip") || {}).textContent || "none")); }
       // Auto-play the most common reply after my move
       w.eval('S.settings.autoOpp = "common"; S.build.white = []; renderBuild()');
       play("#board", "e2", "e4");

@@ -6,6 +6,7 @@
 const out = [], L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
 const report = () => fetch("/report", { method: "POST", body: "== perf " + (location.hash || "") + "\n" + out.join("\n") }).catch(() => {});
 window.onerror = m => { L("ERR " + m); report(); };
+window.addEventListener("unhandledrejection", e => { L("REJ " + (e.reason && e.reason.stack || e.reason)); report(); });
 localStorage.clear(); localStorage.setItem("pb_local_only", "true");
 const f = document.createElement("iframe"); f.style.cssText = "width:420px;height:900px;border:0"; f.src = "../index.html"; document.body.append(f);
 f.onload = () => setTimeout(async () => {
@@ -39,7 +40,7 @@ f.onload = () => setTimeout(async () => {
   time("  renderGaps", () => G("renderGaps")());
   time("  renderSuggest", () => G("renderSuggest")());
   time("  analysis (memoised)", () => G("analysis")("white"));
-  time("  yourMovesTable", () => G("yourMovesTable")(G("fenAfter")(G("START"), ["e4", "e5"]), G("K")(G("fenAfter")(G("START"), ["e4", "e5"])), G("rep")("white").pos[G("K")(G("fenAfter")(G("START"), ["e4", "e5"]))], ["e4", "e5"]));
+  time("  candRows (the Build move rows)", () => G("candRows")(G("fenAfter")(G("START"), ["e4", "e5"]), G("K")(G("fenAfter")(G("START"), ["e4", "e5"])), G("rep")("white").pos[G("K")(G("fenAfter")(G("START"), ["e4", "e5"]))], ["e4", "e5"]));
   time("tap a move on the board (select + move + render)", () => {
     S.build.white = "e4 e5".split(" "); G("renderBuild")();
     d.querySelector('#board [data-sq="g1"]').click(); d.querySelector('#board [data-sq="f3"]').click();
