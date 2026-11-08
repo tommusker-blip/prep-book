@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>Prep Book puzzle test</title><pre id="out">running…</pre>
+<!-- End-to-end test of mistake review (NOTES item 9) with the real engine. Serve over HTTP and
+     open tests/puzzles.html; under a test server with POST /report the results go there too.
+     Uses local-only mode with one game (the Blackburne Shilling, me as White, two mistakes). -->
+<body><script>
+const out = [], L = m => { out.push(m); document.getElementById("out").textContent = out.join("\n"); };
+const report = () => fetch("/report", { method: "POST", body: "== puzzles\n" + out.join("\n") }).catch(() => {});
+window.onerror = m => { L("ERR " + m); report(); };
+window.addEventListener("unhandledrejection", e => { L("REJ " + (e.reason && e.reason.stack || e.reason)); report(); });
+const ok = (c, name, detail = "") => L((c ? "ok   " : "FAIL ") + name + (detail ? " — " + detail : ""));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+localStorage.clear(); localStorage.setItem("pb_local_only", "true");
+const f = document.createElement("iframe"); f.style.cssText = "width:420px;height:900px;border:0"; f.src = "../index.html"; document.body.append(f);
+f.onload = () => setTimeout(async () => {
+  const w = f.contentWindow, d = f.contentDocument, G = n => w.eval(n);
+  w.onerror = m => { L("APPERR " + m); report(); };
+  w.eval(`S.games = [{ id: "bs", my: "white", tc: "rapid", tcs: "600+0", date: "2026-11-01", white: "me", black: "Opp", result: "0-1",
+      moves: "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+", clk: [598, 597, 590, 585, 580, 575, 560, 550, 540, 530, 520, 510] }];
+    S.acc = { bs: { v: 2, d: 10, ev: [30, 30, 30, 30, 30, 30, 60, -150, -160, -500, -520, -520, -540], bm: Array(13).fill("") } };
+    S.games.forEach(gameKeys);`);
+  d.querySelector('[data-nav="train"]').click();
+  for (let i = 0; i < 60 && !d.querySelector("#pzStart"); i++) await sleep(100);
+  L("card: " + d.querySelector("#mistakeBody").textContent.replace(/\s+/g, " ").trim().slice(0, 200));
+  ok(/2 puzzles from 2 mistakes/.test(d.querySelector("#mistakeBody").textContent), "the card finds both punished mistakes");
+  d.querySelector("#pzStart").click();
+  const T = G("T"), until = async (cond, ms = 30000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(100); };
+  await until(() => T.phase === "move");
+  ok(G("T").path.join(" ") === "e4 e5 Nf3 Nc6 Bc4 Nd4", "puzzle 1 starts before 4.Nxe5", T.path.join(" "));
+  // A good alternative: castling
+  const play = (a, b) => { d.querySelector(`#tBoard [data-sq="${a}"]`).click(); d.querySelector(`#tBoard [data-sq="${b}"]`).click(); };
+  play("e1", "g1");
+  await until(() => d.querySelector('#tPrompt [data-pz]'));
+  const txt = d.querySelector("#tPrompt").textContent.replace(/\s+/g, " ");
+  L("after O-O: " + txt.slice(0, 260));
+  ok(/^Good: 4\. O-O/.test(txt.trim()), "castling is judged a good move (engine, within 0.5)");
+  ok(/you played 4. Nxe5/.test(txt) && /punished it: 4… Qg5/.test(txt), "shows what was played and the punishment, numbered");
+  d.querySelector('#tPrompt [data-pz="keep"]').click();
+  ok(G("S").puzzles.map["bs:6"].st === "keep" && G("S").puzzles.map["bs:6"].c.reps === 1, "Keep schedules it (solved first time)");
+  // Puzzle 2: play the game's own blunder again
+  await until(() => T.phase === "move");
+  play("e5", "f7");
+  await until(() => d.querySelector('#tPrompt [data-pz]'));
+  const t2 = d.querySelector("#tPrompt").textContent.replace(/\s+/g, " ");
+  L("after Nxf7 again: " + t2.slice(0, 200));
+  ok(/^Not quite/.test(t2.trim()), "repeating the mistake is marked wrong");
+  ok(/Suggested: Keep/.test(t2), "a failed puzzle suggests Keep");
+  d.querySelector('#tPrompt [data-pz="later"]').click();
+  await until(() => T.state !== "run", 5000);
+  L("summary: " + d.querySelector("#tSummary").textContent.trim());
+  ok(G("S").puzzles.map["bs:8"].st === "later", "Later is remembered");
+  report();
+}, 6000);
+</script>

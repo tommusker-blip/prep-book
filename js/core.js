@@ -40,6 +40,7 @@ const S = {
   token: lsGet("pb_token", ""),
   games: [],
   acc: {},
+  puzzles: { map: {} }, // mistake review: puzzle id -> {st, c, n, ok} (puzzles.js)
   view: "build",
   build: { white: [], black: [] }, // current path per colour
   storeMode: "local",
@@ -51,4 +52,8 @@ let EVALC = lsGet("pb_eval", {}); // key -> {cp, best}
 function moveLabel(path, san) {
   const n = Math.floor(path.length / 2) + 1;
   return path.length % 2 === 0 ? `${n}. ${san}` : `${n}… ${san}`;
+}
+// Moves with move numbers, starting at ply `ply` (0 = White's first move): "4… Qg5 5. Nxf7 Qxg2"
+function numbered(ply, sans) {
+  return sans.map((s, i) => { const p = ply + i, n = Math.floor(p / 2) + 1; return p % 2 === 0 ? `${n}. ${s}` : i === 0 ? `${n}… ${s}` : s; }).join(" ");
 }

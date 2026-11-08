@@ -107,6 +107,10 @@
       <p class="help" id="tRoot"></p>
       <div class="row" style="margin:0"><button type="button" class="btn" id="tLines">Practise 10 lines</button><button type="button" class="btn ghost" id="tRootReset" hidden>Start from the beginning instead</button></div>
     </div>
+    <div class="card" id="mistakeCard" style="display:flex;flex-direction:column;gap:8px">
+      <h3>Mistake review <span class="info" role="button" tabindex="0" aria-label="About mistake review" data-tip="Puzzles from your own games: moves that lost at least the mistake size (Settings > Advanced) or threw away a result, and that your opponent actually punished. Moves under time pressure, positions that were already lost, recaptures and only-moves are left out. Find any good move; then see what you played and how it was punished, and choose Keep (it comes back on a schedule), Seen it, or Later.">i</span></h3>
+      <div id="mistakeBody"></div>
+    </div>
   </div>
   <div id="trainRun" hidden>
     <div class="layout">
@@ -268,6 +272,7 @@
 <script src="js/rows.js"></script>
 <script src="js/gaps.js"></script>
 <script src="js/practice.js"></script>
+<script src="js/puzzles.js"></script>
 <script src="js/updates.js"></script>
 <script src="js/app.js"></script>
 </body>

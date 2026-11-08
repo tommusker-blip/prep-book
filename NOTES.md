@@ -191,7 +191,11 @@ they're done.
   Use colour to flag where the sources disagree, for example a move the engine
   likes but the user scores badly with. Keep the three sources visually
   distinct. Each part fills in independently as it loads.
-- [ ] **9. Mistake review (new section, separate from openings).** Turn the
+- [x] **9. Mistake review (new section, separate from openings).** (Done 2026-11-09:
+  Train > Mistake review, logic in `js/puzzles.js`. Added rules: positions where I was still
+  clearly winning (+3) after the move are skipped too, and 'punished' also needs me to stay at
+  least half the mistake size worse. Recurring = same position, or 3+ in the same opening family
+  and phase.) Turn the
   user's real mistakes into puzzles, using the game analysis.
 
   **What becomes a puzzle:**

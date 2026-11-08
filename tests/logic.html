@@ -21,6 +21,7 @@
 <script src="../js/rows.js"></script>
 <script src="../js/gaps.js"></script>
 <script src="../js/practice.js"></script>
+<script src="../js/puzzles.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -268,7 +269,7 @@ t("loading several books keeps them apart and opens the saved one", () => {
   eq(S.book, "b2"); eq(rep("white").pos[K(START)].m, ["d4"]);
   eq(S.books.main.white.pos[K(START)].m, ["e4"]);
   eq(bookList().map(b => b.name), ["My prep", "Queen's pawn"]);
-  eq(allDocNames().sort(), ["acc", "black", "black@b2", "games", "settings", "white", "white@b2"]);
+  eq(allDocNames().sort(), ["acc", "black", "black@b2", "games", "puzzles", "settings", "white", "white@b2"]);
   const snap = localSnapshot();
   eq(Object.keys(snap.white.pos).length > 0 && Object.keys(snap["white@b2"].pos).length > 0, true);
 });
@@ -440,6 +441,54 @@ t("follow-ups: count good replies from MultiPV, and how often peers find one", (
   S.settings.adv = { good: 150 };
   eq(followups(fen, "Ng5").label, "Several", "a wider margin counts more replies as good");
   S.settings.adv = undefined; delete MPV[K(p1)];
+});
+
+/* ----- mistake review: which mistakes become puzzles (item 9) ----- */
+// Me as White: 4.Nxe5? (ply 6) and 5.Nxf7?? (ply 8) in the Blackburne Shilling, both punished
+const shilling = () => ({
+  g: { id: "bs", my: "white", tcs: "600+0", result: "0-1", moves: "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+",
+       clk: [598, 597, 590, 585, 580, 575, 560, 550, 540, 530, 520, 510] },
+  a: { v: 2, d: 10, ev: [30, 30, 30, 30, 30, 30, 60, -150, -160, -500, -520, -520, -540], bm: Array(13).fill("") },
+});
+t("mistakes: punished mistakes become puzzles, with phase and clock", () => {
+  S.settings.adv = undefined; // mistake 1.5, good 0.5, clock 30 s
+  const { g, a } = shilling(), ms = gameMistakes(g, a, null);
+  eq(ms.map(m => [m.ply, m.played, m.loss, m.reasons.join(",")]), [[6, "Nxe5", 210, ""], [8, "Nxf7", 340, ""]]);
+  eq([ms[0].phase, ms[0].clock], ["opening", 580]);
+});
+t("mistakes: under the time-pressure cut-off, not a puzzle", () => {
+  const { g, a } = shilling(); g.clk[4] = 20; // 20 s left when making move 4 (ply 6)
+  eq(gameMistakes(g, a, null)[0].reasons, ["clock"]);
+});
+t("mistakes: already lost, or still winning, not a puzzle", () => {
+  let { g, a } = shilling(); a.ev[6] = -350; a.ev[7] = -600;
+  eq(gameMistakes(g, a, null)[0].reasons.includes("lost"), true);
+  ({ g, a } = shilling()); a.ev[6] = 900; a.ev[7] = 600; a.ev[8] = 600;
+  eq(gameMistakes(g, a, null)[0].reasons.includes("winning"), true);
+});
+t("mistakes: not punished by the opponent, not a puzzle", () => {
+  const { g, a } = shilling(); a.ev[8] = 40; // Black's reply gave it back
+  eq(gameMistakes(g, a, null)[0].reasons, ["unpunished"]);
+});
+t("mistakes: a draw thrown into a loss counts even below the mistake size", () => {
+  const { g, a } = shilling(); a.ev[6] = -120; a.ev[7] = -230; a.ev[8] = -240; // loss 1.1, draw -> loss
+  eq(gameMistakes(g, a, null)[0].loss, 110);
+});
+t("mistakes: a recapture on the square just captured on is skipped", () => {
+  const g = { id: "rc", my: "white", result: "0-1", moves: "e4 e5 d4 exd4 Qxd4 Nc6", clk: null };
+  const a = { v: 2, ev: [30, 30, 30, 30, 30, -200, -210], bm: Array(7).fill("") };
+  eq(gameMistakes(g, a, null)[0].reasons.includes("recapture"), true);
+});
+t("puzzles: queue order is due kept ones, then new, then later; seen ones are retired", () => {
+  S.puzzles = { map: {} }; MIST.byGame.clear();
+  const { g, a } = shilling(); S.games = [g]; S.acc = { bs: a };
+  MIST.byGame.set("bs", gameMistakes(g, a, null));
+  eq(puzzleQueue().map(puzzleId), ["bs:6", "bs:8"]);
+  S.puzzles.map["bs:6"] = { st: "later" }; S.puzzles.map["bs:8"] = { st: "keep", c: { due: Date.now() - 1 } };
+  eq(puzzleQueue().map(puzzleId), ["bs:8", "bs:6"]);
+  S.puzzles.map["bs:6"] = { st: "seen" };
+  eq(puzzleQueue().map(puzzleId), ["bs:8"]);
+  S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear();
 });
 
 /* ----- line practice: choosing replies (items 2 and 3) ----- */

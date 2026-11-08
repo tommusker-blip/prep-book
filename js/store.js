@@ -2,7 +2,7 @@
 /* ---------- storage: Claude db inside Claude, Supabase when hosted, else this browser ---------- */
 const SB_URL = "https://serjfzitcbixkhnuxhol.supabase.co";
 const SB_KEY = "sb_publishable_sCOcKwpCMuAIbLvPtfmcUw_i6n7FZVF";
-const DOCS = ["white", "black", "settings", "games", "acc"]; // always present; extra books add more
+const DOCS = ["white", "black", "settings", "games", "acc", "puzzles"]; // always present; extra books add more
 
 /* ----- prep books -----
    Each book has its own White and Black repertoire (positions, training cards, misplay flags).
@@ -25,7 +25,7 @@ function openBook(id) {
 }
 // Every doc this app saves, including one pair per book
 function allDocNames() {
-  const names = ["settings", "games", "acc"];
+  const names = ["settings", "games", "acc", "puzzles"];
   for (const id of Object.keys(S.books)) names.push(repDoc("white", id), repDoc("black", id));
   return names;
 }
@@ -54,12 +54,13 @@ function applyData(d) {
   if (d.settings) Object.assign(S.settings, d.settings);
   if (d.games && d.games.list) S.games = d.games.list;
   if (d.acc && d.acc.map) S.acc = d.acc.map;
+  if (d.puzzles && d.puzzles.map) S.puzzles = { map: d.puzzles.map };
   openBook(S.settings.book || S.book || "main");
 }
 // Everything, for the browser copy (pb_data)
 function localSnapshot() {
   // Games and their analysis live in IndexedDB (games.js) once that works on this device
-  const d = Games.idb ? { settings: S.settings } : { settings: S.settings, games: { list: S.games }, acc: { map: S.acc } };
+  const d = Games.idb ? { settings: S.settings, puzzles: S.puzzles } : { settings: S.settings, puzzles: S.puzzles, games: { list: S.games }, acc: { map: S.acc } };
   for (const id of Object.keys(S.books)) { d[repDoc("white", id)] = S.books[id].white; d[repDoc("black", id)] = S.books[id].black; }
   return d;
 }
@@ -177,6 +178,7 @@ const Store = {
   docFor(name) {
     if (name === "games") return { list: S.games };
     if (name === "acc") return { map: S.acc };
+    if (name === "puzzles") return { map: S.puzzles.map || {} };
     if (name === "settings") return { ...S.settings };
     const r = parseRepDoc(name);
     if (r && S.books[r.id]) return S.books[r.id][r.color];

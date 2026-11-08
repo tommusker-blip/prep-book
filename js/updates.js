@@ -5,6 +5,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09a", date: "9 Nov 2026", title: "Mistake review: puzzles from your own games",
+    items: [
+      "Train → Mistake review turns your real mistakes into puzzles: moves that lost 1.5 pawns or more (or threw away a win or a draw) and that your opponent actually punished.",
+      "Moves made with under 30 seconds left, positions that were already lost, recaptures and only-moves are left out.",
+      "The game replays up to the moment; find any good move. Then you see what you played and how it was punished.",
+      "Choose Keep (it comes back on a schedule), Seen it, or Later. The app suggests one.",
+      "An overview counts all your mistakes by game phase and by time left on the clock.",
+      "The thresholds are in Settings → Advanced.",
+    ],
+  },
+  {
     id: "2026-11-08c", date: "8 Nov 2026", title: "Tighter Build on the phone, and an installable app",
     items: [
       "The opening name and the moves sit above the board, one line each; swipe the moves sideways.",

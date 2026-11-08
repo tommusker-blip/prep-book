@@ -104,6 +104,22 @@ when it loads; the others just define things.
   one line each; the moves line scrolls sideways. On phones the board column is pinned under the header
   (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
   control row has Start, Back, Next, Explore, Gap and Practise (lines from this position).
+- `js/puzzles.js` (item 9, mistake review):
+  - `gameMistakes()` finds mistakes in a game's v2 analysis, with the reasons
+    one isn't a puzzle: `lost`, `winning`, `clock`, `recapture`, `forced`,
+    `unpunished`
+  - `scanMistakes()` scans the games in the background, cached per game in
+    `MIST`
+  - `puzzleQueue()` builds a session: due kept puzzles, then new ones, then
+    "later"
+  - `suggestKeep()` picks the suggested choice
+  - `mistakeOverview()` counts mistakes by phase and by clock
+  - Keep / Seen / Later state is in `S.puzzles.map` (the `puzzles` doc in
+    `prep_data`, so it syncs), with an SM-2 card for kept ones
+  - The UI is in `app.js`: `renderMistakeCard()` and `startPuzzles()` through
+    `onPuzzleChoice()`. A puzzle reuses the Train board and run-up, and judges
+    any move within the good margin at depth 12 as correct.
+- `js/updates.js`: the Updates ("What's new") page
 - `js/app.js`: chess.com importer, engine game analysis, board component, the
   four views (Build, Train, Games, Settings), `renderBg()` for the header's
   background-job marker, and `boot()`

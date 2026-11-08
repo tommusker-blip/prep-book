@@ -683,7 +683,9 @@ function renderTrainHome() {
   if (T.state === "summary") {
     const missed = T.done - T.right;
     $("#tSummary").hidden = false;
-    $("#tSummary").innerHTML = T.mode === "lines"
+    $("#tSummary").innerHTML = T.mode === "puzzles"
+      ? `<p>Reviewed <b>${T.done} mistake${T.done === 1 ? "" : "s"}</b>: <b>${T.right}</b> solved first time. Kept ones come back on a schedule.</p>`
+      : T.mode === "lines"
       ? `<p>Practised <b>${Math.min(T.lineNo, T.lines)} line${T.lineNo === 1 ? "" : "s"}</b>: <b>${T.right} of ${T.done}</b> of your moves right first time.${missed ? ` The ${missed === 1 ? "position you missed comes" : `${missed} positions you missed come`} back for review in about 10 minutes.` : ""}</p>`
       : `<p><b>${T.right} of ${T.done}</b> right first time.${missed ? ` You went back over ${missed === 1 ? "the one you missed" : `the ${missed} you missed`} until you had ${missed === 1 ? "it" : "them"}, and ${missed === 1 ? "it comes" : "they come"} back for review in about 10 minutes.` : ""}</p>`;
   } else $("#tSummary").hidden = true;
@@ -694,6 +696,7 @@ function renderTrainHome() {
     : `Starting from the beginning. To practise one part of your repertoire, open a position in Build and choose "Practise from here".`;
   $("#tRootReset").hidden = !root.length;
   $("#tLines").disabled = !cards.length;
+  renderMistakeCard();
 }
 function startTraining() {
   let q = dueCards();
@@ -726,10 +729,11 @@ function nextCard() {
 }
 function renderTrainCard() {
   $("#trainHome").hidden = true; $("#trainRun").hidden = false;
-  TB.flip = S.color === "black";
+  TB.flip = T.mode === "puzzles" && T.pzGame ? T.pzGame.my === "black" : S.color === "black";
   $("#tLine").innerHTML = lineHtml(T.path, false);
   const op = openingFor(T.path);
   $("#tOpening").textContent = op ? `${op.eco} ${op.name}` : "";
+  if (T.mode === "puzzles") { $("#tProgress").textContent = `Puzzle ${T.i + 1} / ${T.queue.length}`; $("#tProgress").dataset.tip = `${T.right} of ${T.done} solved first time`; return; }
   if (T.mode === "lines") {
     $("#tProgress").textContent = `Line ${Math.min(T.lineNo + 1, T.lines)} / ${T.lines}${T.retryLine ? " · retry" : ""}`;
     $("#tProgress").dataset.tip = `${T.done} moves so far, ${T.right} right first time${T.retry.length ? `; ${T.retry.length} to retry` : ""}`;
@@ -748,7 +752,7 @@ function cardPrompt() {
 // Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
 function playLine() {
   const frames = T.frames;
-  if (frames.length <= 1 || reduceMotion()) return T.mode === "lines" ? stepLine() : showPosition();
+  if (frames.length <= 1 || reduceMotion()) return afterRunup();
   T.phase = "anim"; T.runup = true;
   TB.locked = true;
   $("#tPrompt").innerHTML = `<p class="lbl">Playing the line</p><p class="muted">Tap the board to skip.</p>`;
@@ -757,7 +761,7 @@ function playLine() {
   const step = () => {
     TB.set(frames[i].fen, { last: frames[i].last });
     i++;
-    if (i < frames.length) later(step, ms); else later(() => { T.runup = false; if (T.mode === "lines") stepLine(); else showPosition(); }, ms);
+    if (i < frames.length) later(step, ms); else later(() => { T.runup = false; afterRunup(); }, ms);
   };
   step();
 }
@@ -769,7 +773,115 @@ function showPosition() {
   TB.set(f.fen, { last: f.last });
   $("#tPrompt").innerHTML = cardPrompt();
 }
-function skipLine() { if (T.phase === "anim" && T.runup) { T.runup = false; if (T.mode === "lines") stepLine(); else showPosition(); } }
+function skipLine() { if (T.phase === "anim" && T.runup) { T.runup = false; afterRunup(); } }
+// After the replay up to the position: lines go on, puzzles ask for a move, cards wait for one
+function afterRunup() { if (T.mode === "lines") stepLine(); else if (T.mode === "puzzles") showPuzzle(); else showPosition(); }
+
+/* ----- mistake review (NOTES item 9; the logic is in puzzles.js) ----- */
+function renderMistakeCard() {
+  const box = $("#mistakeBody");
+  if (!box) return;
+  const analysed = S.games.filter(g => S.acc[g.id] && S.acc[g.id].v === 2).length;
+  if (!analysed) { box.innerHTML = `<p class="help">Run Analyse all on the Games tab first: puzzles come from the engine's view of your games.</p>`; return; }
+  if (MIST.running) { box.innerHTML = `<p class="help" aria-live="polite">Finding your mistakes… ${nOf(MIST.done)} of ${nOf(MIST.total)} games</p><progress max="${MIST.total}" value="${MIST.done}"></progress>`; return; }
+  if (MIST.byGame.size < analysed || MIST.sig !== mistSig()) { scanMistakes(onMistakeTick); return; }
+  const list = puzzleList(), now = Date.now();
+  const kept = list.filter(m => (pzState(puzzleId(m)) || {}).st === "keep");
+  const due = kept.filter(m => pzState(puzzleId(m)).c && pzState(puzzleId(m)).c.due <= now).length;
+  const fresh = list.filter(m => !pzState(puzzleId(m))).length, q = puzzleQueue().length;
+  const o = mistakeOverview(), bar = (n, max) => `<span class="mbar"><i style="width:${max ? Math.round((100 * n) / max) : 0}%"></i></span>`;
+  const pmax = Math.max(...Object.values(o.phase), 1), cmax = Math.max(...o.clock.map(c => c.n), 1);
+  box.innerHTML = `<p class="possum"><b>${nOf(list.length)}</b> puzzles from ${nOf(o.total)} mistakes in ${nOf(o.games)} games · ${fresh} new · ${kept.length} kept${due ? `, <b>${due} due</b>` : ""}</p>
+    <div class="mgrid"><div><p class="lbl">By phase</p>${["opening", "middlegame", "endgame"].map(p => `<div class="mrow"><span>${p[0].toUpperCase() + p.slice(1)}</span>${bar(o.phase[p], pmax)}<span class="num">${o.phase[p]}</span></div>`).join("")}</div>
+      <div><p class="lbl">By time left ${info("Time on your clock when you made the move. Moves with less than " + adv().clock + " seconds left don't become puzzles (Settings > Advanced).", "About time left")}</p>${o.clock.map(c => `<div class="mrow"><span>${c.label}</span>${bar(c.n, cmax)}<span class="num">${c.n}</span></div>`).join("")}</div></div>
+    <div class="row" style="margin:0"><button type="button" class="btn" id="pzStart" ${q ? "" : "disabled"}>${q ? `Review ${q} mistake${q === 1 ? "" : "s"}` : "Nothing to review"}</button></div>`;
+  $("#pzStart").onclick = startPuzzles;
+}
+function onMistakeTick() { if (S.view === "train" && T.state !== "run") renderMistakeCard(); }
+function startPuzzles() {
+  stopTraining();
+  Object.assign(T, { mode: "puzzles", state: "run", queue: puzzleQueue(10), i: 0, done: 0, right: 0, retries: 0, graded: new Set() });
+  nextPuzzle();
+}
+function nextPuzzle() {
+  stopTraining();
+  if (T.i >= T.queue.length) return endSession();
+  const m = T.pz = T.queue[T.i], g = S.games.find(x => x.id === m.gid);
+  if (!g) { T.i++; return nextPuzzle(); }
+  T.pzGame = g;
+  T.path = g.moves.split(" ").slice(0, m.ply);
+  T.frames = framesTo(T.path);
+  T.tries = 0;
+  renderTrainCard();
+  playLine();
+}
+function showPuzzle() {
+  clearTimeout(T.timer);
+  const f = T.frames[T.frames.length - 1], g = T.pzGame, opp = g.my === "white" ? g.black : g.white;
+  T.phase = "move"; TB.locked = false;
+  TB.set(f.fen, { last: f.last });
+  $("#tPrompt").innerHTML = `<p class="lbl">${pzState(puzzleId(T.pz)) ? '<span class="pill">Again</span> ' : ""}Find a good move</p>
+    <p class="muted">You went wrong here against ${esc(opp)} (${esc(g.date)}). Any good move counts.</p>`;
+}
+// Is my move good? The engine's best move is; otherwise compare with the best at depth 12
+async function judgePuzzleMove(fen, mv) {
+  const uci = mv.from + mv.to + (mv.promotion || "");
+  if (T.pz.bestUci && uci.slice(0, 4) === T.pz.bestUci.slice(0, 4)) return { ok: true };
+  if (mv.san === T.pz.played) { // the game's own mistake: wrong, but still find the best move to show
+    if (T.pz.bestUci) return { ok: false };
+    try { const b = await Engine.analyse(fen, 12, { prio: PRIO.now }); return { ok: false, best: b.best }; } catch (e) { return { ok: false }; }
+  }
+  try {
+    const after = fenAfter(fen, [mv.san]);
+    const [b, a] = await Promise.all([Engine.analyse(fen, 12, { prio: PRIO.now }), Engine.analyse(after, 12, { prio: PRIO.now })]);
+    const loss = Math.max(0, b.cp + a.cp); // a.cp is from the opponent's side
+    return { ok: loss <= adv().good, loss, best: b.best };
+  } catch (e) { return { ok: false }; }
+}
+async function onPuzzleMove(mv) {
+  const fen = T.frames[T.frames.length - 1].fen, m = T.pz, first = T.tries === 0;
+  T.phase = "checking"; TB.locked = true; T.tries++;
+  $("#tPrompt").innerHTML = `<p class="lbl">Checking ${esc(mv.san)}…</p>`;
+  const tok = T.token, r = await judgePuzzleMove(fen, mv);
+  if (tok !== T.token || T.state !== "run") return;
+  if (first) { T.done++; if (r.ok) T.right++; }
+  T.pzSolved = first && r.ok;
+  const bestSan = uciToSan(fen, m.bestUci || r.best || ""), c = new Chess(fen), good = bestSan ? c.move(bestSan) : null;
+  TB.set(fen, r.ok ? { last: [mv.from, mv.to] } : { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null, animate: false });
+  const g = T.pzGame, moves = g.moves.split(" "), punish = moves.slice(m.ply, m.ply + 4);
+  const opp = g.my === "white" ? g.black : g.white;
+  $("#tPrompt").innerHTML = `<p class="lbl ${r.ok ? "ok" : "warn"}">${r.ok ? `Good: ${esc(moveLabel(T.path, mv.san))}` : `Not quite. Better was ${esc(moveLabel(T.path, bestSan))}`}</p>
+    <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(m.before)} → ${pawns(m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, punish.slice(1)) || "…")}</span></p>`;
+  // Then play out what happened in the game: my move and the punishment
+  later(() => playPunish(fen, punish), r.ok ? 1100 : 1600);
+}
+function playPunish(fen, moves) {
+  const c = new Chess(fen), frames = [];
+  for (const s of moves) { const mv = c.move(s); if (!mv) break; frames.push({ fen: c.fen(), last: [mv.from, mv.to] }); }
+  let i = 0;
+  const step = () => {
+    if (i < frames.length) { TB.set(frames[i].fen, { last: frames[i].last }); i++; later(step, reduceMotion() ? 0 : 650); }
+    else puzzleChoice();
+  };
+  TB.set(fen, {}); // back to the puzzle position, then play the game's moves from there
+  later(step, 300);
+}
+function puzzleChoice() {
+  const keep = suggestKeep(T.pz, T.pzSolved);
+  const b = (v, label, hint) => `<button type="button" class="btn${(v === "keep") === keep && v !== "later" ? "" : " ghost"}" data-pz="${v}" aria-label="${esc(label + ": " + hint)}">${label}</button>`;
+  $("#tPrompt").innerHTML += `<p class="help" style="margin-top:6px">${keep ? (T.pzSolved ? "Suggested: Keep (this kind of mistake recurs, or it's from your prep)" : "Suggested: Keep, to see it again") : "Suggested: Seen it (a one-off you solved)"}</p>
+    <div class="row" style="margin:4px 0 0">${b("keep", "Keep", "comes back on a schedule")}${b("seen", "Seen it", "retire it")}${b("later", "Later", "show it again in a later session")}</div>`;
+}
+function onPuzzleChoice(choice) {
+  const id = puzzleId(T.pz), st = pzState(id) || {};
+  if (choice === "keep") {
+    const card = st.c || newCard();
+    grade(card, T.pzSolved);
+    setPuzzle(id, { st: "keep", c: card, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0) });
+  } else setPuzzle(id, { st: choice, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0) });
+  T.i++;
+  nextPuzzle();
+}
 
 /* ----- practise lines (NOTES items 2 and 3) -----
    Whole lines from a starting position (the start, or one picked in Build): I play my moves,
@@ -820,6 +932,7 @@ function stepLine() {
 function onTrainMove(mv) {
   if (T.phase !== "move") return;
   if (T.mode === "lines") return onLineMove(mv);
+  if (T.mode === "puzzles") return onPuzzleMove(mv);
   const n = rep().pos[T.key];
   const card = rep().cards[T.key];
   const fenBefore = T.frames[T.frames.length - 1].fen;
@@ -1137,6 +1250,7 @@ async function boot() {
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
+    else if (d.pz) onPuzzleChoice(d.pz);
     else if ("practicehere" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: curPath().slice() }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.nextgap) jumpToGap(d.nextgap);
     else if (d.gapmode) { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); }

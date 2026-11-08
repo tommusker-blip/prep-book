@@ -339,3 +339,10 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .upd h3{margin:2px 0 6px}
 .upd ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px;font-size:.9rem}
 .newmark{border:0;background:var(--accent);color:var(--accent-ink);font:600 .66rem/1 var(--f-body);padding:3px 7px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+/* mistake review overview */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.mgrid{grid-template-columns:1fr}}
+.mrow{display:grid;grid-template-columns:7.2em 1fr 3em;gap:6px;align-items:center;font-size:.82rem;padding:2px 0}
+.mrow .num{text-align:right}
+.mbar{height:7px;border-radius:4px;background:var(--line);overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--accent)}
