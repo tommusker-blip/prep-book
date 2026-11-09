@@ -29,6 +29,11 @@
 <script src="../js/addopening.js"></script>
 <script src="../js/structures.js"></script>
 <script src="../js/idealines.js"></script>
+<script src="../js/focus.js"></script>
+<script src="../js/treeview.js"></script>
+<script src="../js/covermap.js"></script>
+<script src="../js/similar.js"></script>
+<script src="../js/transpose.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -491,6 +496,57 @@ t("catalogue: groups the tree by named lines and main splits, with numbers for e
   eq(every.every(c => c.depth <= CAT_DEPTH && typeof c.comment === "string" && c.stats.cover >= 0 && c.stats.cover <= 1), true);
   eq(every.some(c => c.children.length === 1 && c.children[0].named && c.children[0].reach >= 0.9 * c.reach && c.named), false, "single named children are folded");
 });
+t("gaps: move by move ranks every common gap at move 2 before any at move 3 (v0.9.24)", () => {
+  reset(); resetEx(); S.color = "white"; S.settings.gapRank = undefined; S.settings.gapFloor = undefined;
+  line("white", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4"); line("white", "e4 c5");
+  setEx("e4", 1000, 400, 100, 500, [mv("e5", 500, 200, 50, 250), mv("c5", 300, 120, 30, 150), mv("e6", 200, 80, 20, 100)]);
+  setEx("e4 e5 Nf3 Nc6 Bb5 a6 Ba4", 1000, 400, 100, 500, [mv("Nf6", 900, 360, 90, 450), mv("d6", 100, 40, 10, 50)]);
+  eq(gapMode(), "depth", "the default");
+  const big = rankedGaps("white").filter(g => g.freq >= gapFloor()), nos = big.map(gapMoveNo);
+  eq(nos.every((n, i) => !i || nos[i - 1] <= n), true, "move numbers never go down: " + nos.join(","));
+  eq(gapMoveNo(big[0]), 1, "1...e6 (20%) and 2. after 1...c5 come first");
+  S.settings.gapRank = "freq";
+  eq(gapMoveNo(rankedGaps("white")[0]) > 1, true, "most frequent can go deep first");
+  S.settings.gapRank = undefined;
+});
+t("catalogue: coverage counts gaps only up to the chosen move (v0.9.24)", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); S.games = []; S.settings.coverTo = undefined;
+  line("white", "e4 e5 Nf3 Nc6 Bc4 Bc5 c3");
+  const root = catalogueStats(buildCatalogue("white"), "white"), it = root.children[0];
+  eq(it.stats.curve.length, COVER_MOVES);
+  eq(it.stats.curve[2], 1, "all prepared up to move 3");
+  eq(it.stats.curve[3], 0.5, "the line stops after 4. c3 (no data: counts half)");
+  S.settings.coverTo = 3;
+  eq(catalogueStats(buildCatalogue("white"), "white").children[0].stats.cover, 1, "counted to move 3: fully covered");
+  S.settings.coverTo = undefined;
+});
+t("transpositions: routes into a position from other lines in my tree (v0.9.24)", () => {
+  reset(); S.color = "white"; trMemo.clear();
+  line("white", "d4 Nf6 c4 e6");
+  const path = "c4 e6 Nc3 Nf6 d4".split(" "), fen = fenAfter(START, path);
+  const r = findRoutesInto(fen, path, "white");
+  eq(r[0] && r[0].path.join(" ") + " | " + r[0].moves.join(" "), "d4 Nf6 c4 e6 | Nc3");
+  // once saved, that route isn't offered again
+  addMove("d4 Nf6 c4 e6".split(" "), "Nc3", "white"); walk("white"); trMemo.clear();
+  eq(findRoutesInto(fen, path, "white").some(x => x.moves.join(" ") === "Nc3"), false);
+});
+t("spot the difference: look-alike positions with different moves (v0.9.24)", () => {
+  reset(); S.color = "white"; S.settings.practiceRoot = {};
+  line("white", "e4 e5 Nf3 Nc6 Bc4"); line("white", "e4 e5 Nf3 d6 d4");
+  const p = similarPairs("white"), ka = K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" "))), kb = K(fenAfter(START, "e4 e5 Nf3 d6".split(" ")));
+  eq(p.some(x => [x.a, x.b].sort().join() === [ka, kb].sort().join()), true, JSON.stringify(p.map(x => x.d)));
+  const pr = p.find(x => x.a === ka || x.b === ka), txt = pr.a === ka ? simDiffText(pr.aArr, pr.bArr, "white") : simDiffText(pr.bArr, pr.aArr, "white");
+  eq(/their knight on c6/.test(txt) && /their pawn on d6/.test(txt), true, txt);
+});
+t("my lines: notation from a position, with transpositions marked (v0.9.24)", () => {
+  reset(); S.color = "white";
+  line("white", "d4 d5 c4 e6 Nc3"); line("white", "d4 e6 c4 d5");
+  rep("white").notes = { [K(fenAfter(START, ["d4", "d5", "c4"]))]: "Queen's Gambit" };
+  const t = treeHtml(K(START), [], "white").html;
+  eq(/= transposes/.test(t), true, t);
+  eq(/data-tgo="d4 d5 c4 e6 Nc3"/.test(t), true);
+  eq(/class="tc">Queen&#39;s Gambit|class="tc">Queen's Gambit/.test(t), true, "the note shows after 2. c4");
+});
 t("structures: common pawn structures are recognised", () => {
   const at = l => { const f = fenAfter(START, l.split(" ")); const s = structureOf(f); return s ? s.id : null; };
   eq(at("e4 e6 d4 d5 e5 c5 c3 Nc6"), "french");
@@ -634,17 +690,17 @@ t("data signatures: caches notice new games and redone analysis, not just new co
   eq(catSig("white") !== before, true, "catalogue sees the new analysis");
   S.games = []; S.acc = {};
 });
-t("rows: masters' figures under the peers', and masters' moves join the list", () => {
+t("rows: masters' figures beside the peers', and masters' moves join the list", () => {
   reset(); resetEx(); S.color = "white"; S.settings.mastersRows = undefined;
   const fen = fenAfter(START, ["e4", "e5"]), key = K(fen);
   setEx("e4 e5", 1000, 400, 100, 500, [mv("Nf3", 800, 320, 80, 400), mv("Bc4", 200, 80, 20, 100)]);
   EXPL[key + "|masters"] = { total: 100, w: 40, d: 40, b: 20, moves: [mv("Nf3", 70, 30, 30, 10), mv("Nc3", 30, 10, 15, 5)] };
   const html = candRows(fen, key, rep("white").pos[key], ["e4", "e5"]);
   eq(/data-cand="Nc3"/.test(html), true, "Nc3 (30% of master games) is listed although peers don't play it");
-  eq(html.includes("M 70%"), true, "Nf3: masters play it 70% of the time");
-  eq(html.includes("M 64%"), true, "and White scores 64% (30 wins and 30 draws in 70 games)");
+  eq(html.includes("masters play it: 70%"), true, "Nf3: masters play it 70% of the time");
+  eq(html.includes("masters' score: 64%"), true, "and White scores 64% (30 wins and 30 draws in 70 games)");
   S.settings.mastersRows = false;
-  eq(candRows(fen, key, rep("white").pos[key], ["e4", "e5"]).includes("M 70%"), false, "switched off");
+  eq(candRows(fen, key, rep("white").pos[key], ["e4", "e5"]).includes("masters play it"), false, "switched off");
   S.settings.mastersRows = undefined; delete EXPL[key + "|masters"];
 });
 t("rows: named lines, and the moves I usually play", () => {
@@ -669,15 +725,15 @@ t("gaps: rating impact can rank a rare losing position above a common fine one",
   // Peers score 50% after c5 but only ~33% after d5; and I've lost all 6 of my games after d5.
   S.games = Array.from({ length: 6 }, (_, i) => ({ id: "d" + i, my: "white", result: "0-1", moves: "e4 d5 exd5 Qxd5" }));
   S.games.forEach(gameKeys);
-  S.settings.gapMode = "freq";
+  S.settings.gapRank = "freq";
   const byFreq = rankedGaps("white").filter(g => g.opp).map(g => g.opp);
-  S.settings.gapMode = "impact";
+  S.settings.gapRank = "impact";
   const byImpact = rankedGaps("white").filter(g => g.opp).map(g => g.opp);
   eq(byFreq.slice(0, 2), ["c5", "d5"], "frequency: c5 first");
   eq(byImpact[0], "d5", "rating impact: d5 first");
   const d5 = rankedGaps("white").find(g => g.opp === "d5");
   eq([d5.basis, Math.round(d5.expected * 100)], ["your 6 games + peer data", 21]); // (6×0 + 10×0.33)/16 ≈ 0.21
-  S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
+  S.settings.gapRank = undefined; S.games = []; GAMEKEYS.clear();
 });
 t("gaps: adding the move clears the gap in both ranking modes", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
@@ -685,16 +741,16 @@ t("gaps: adding the move clears the gap in both ranking modes", () => {
   S.games = Array.from({ length: 5 }, (_, i) => ({ id: "w" + i, my: "white", result: i ? "0-1" : "1/2-1/2", moves: "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5" }));
   S.games.forEach(gameKeys);
   for (const mode of ["impact", "freq"]) {
-    S.settings.gapMode = mode;
+    S.settings.gapRank = mode;
     eq(rankedGaps("white").some(g => g.opp === "Nf6"), true, mode + ": Nf6 is a gap");
   }
   line("white", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5");
   for (const mode of ["impact", "freq"]) {
-    S.settings.gapMode = mode;
+    S.settings.gapRank = mode;
     const list = rankedGaps("white");
     eq(list.some(g => g.opp === "Nf6" || g.text === "Your move is missing"), false, mode + ": " + JSON.stringify(list.map(g => g.text)));
   }
-  S.settings.gapMode = undefined; S.games = []; GAMEKEYS.clear();
+  S.settings.gapRank = undefined; S.games = []; GAMEKEYS.clear();
 });
 t("gaps: Next gap steps through the list and wraps round", () => {
   const list = [{ id: "a" }, { id: "b" }, { id: "c" }];

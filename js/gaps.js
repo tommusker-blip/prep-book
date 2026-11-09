@@ -1,7 +1,7 @@
 "use strict";
 /* ---------- gaps in the repertoire, and the "Next gap" button (NOTES item 4) ----------
    A gap is: my move missing in a position I reach, an opponent reply I haven't prepared, or a
-   line that stops. Two ways to rank them (Settings: S.settings.gapMode):
+   line that stops. Three ways to rank them (Settings: S.settings.gapRank; "depth", below, is the default):
      "freq"   - how often I'll reach it: reach (product of peer move frequencies along the path)
                 × the reply's frequency
      "impact" - rating impact: how often × how far my expected score there falls below an even
@@ -44,17 +44,25 @@ function findGaps(color = S.color) {
   }
   return gaps;
 }
-const gapMode = () => (S.settings.gapMode === "impact" ? "impact" : "freq");
+const gapMode = () => (["impact", "freq"].includes(S.settings.gapRank) ? S.settings.gapRank : "depth");
+/* "depth" (v0.9.24, the default): move by move. Every gap at move 2 that you'd meet in at least
+   gapFloor() of games comes before any at move 3, and so on, biggest first within a move, so the
+   tree grows evenly: all the common openings 2 moves deep, then 3, then 4. Rarer gaps follow,
+   biggest first. */
+const gapFloor = () => (S.settings.gapFloor != null ? S.settings.gapFloor : 2) / 100;
+const gapMoveNo = g => Math.floor(g.path.length / 2) + 1; // the move where it's missing
 function rankedGaps(color = S.color) {
-  const k = gapMode();
-  return findGaps(color).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
+  const k = gapMode(), list = findGaps(color);
+  if (k !== "depth") return list.sort((a, b) => b[k] - a[k] || b.freq - a.freq);
+  const fl = gapFloor(), big = g => g.freq >= fl;
+  return list.sort((a, b) => big(b) - big(a) || (big(a) ? gapMoveNo(a) - gapMoveNo(b) : 0) || b.freq - a.freq);
 }
 // What the button says about a gap, in the current ranking mode
 function gapLabel(g) {
   const where = g.opp ? moveLabel(g.path, g.opp) : (g.path.length ? `after ${g.path.slice(-1)[0]}` : "first move");
   const freq = g.f != null ? `${Math.round(g.f * 100)}% of games` : g.g ? `faced ${g.g}× in your games` : g.detail || "";
   const score = g.basis === "no data yet" ? "no results yet" : `you'd score about ${Math.round(g.expected * 100)}% (${g.basis})`;
-  return { where, line: gapMode() === "impact" ? `${score}${freq ? " · " + freq : ""}` : freq };
+  return { where, line: gapMode() === "impact" ? `${score}${freq ? " · " + freq : ""}` : gapMode() === "depth" ? `move ${gapMoveNo(g)}${freq ? " · " + freq : ""}` : freq };
 }
 let gapLast = null; // id of the gap the button last jumped to; the next tap goes to the one after
 function nextGapTarget(list) {
@@ -78,4 +86,4 @@ function jumpToGap(id, list = rankedGaps()) {
 }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
-onClick("gapmode", d => { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });
+onClick("gapmode", d => { S.settings.gapRank = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.23">
+<link rel="stylesheet" href="css/app.css?v=0.9.24">
 </head>
 <body>
 
@@ -67,12 +67,15 @@
       </div>
     </div>
     <div class="panel">
+      <div id="focusBuild"></div>
       <div class="ptabs" role="tablist" aria-label="Build sections">
         <button type="button" role="tab" data-ptab="moves" aria-selected="true">Moves</button>
+        <button type="button" role="tab" data-ptab="tree" aria-selected="false">My lines</button>
         <button type="button" role="tab" data-ptab="ideas" aria-selected="false">Ideas here</button>
       </div>
       <div class="card" data-pane="moves" id="prompt" role="tabpanel"></div>
       <div class="card" data-pane="ideas" id="ideasCard" role="tabpanel" hidden></div>
+      <div class="card" data-pane="tree" id="treeCard" role="tabpanel" hidden></div>
     </div>
   </div>
 </section>
@@ -80,13 +83,14 @@
 <section data-view="openings" hidden>
   <div class="stack">
     <div class="settingshead"><h2 id="catHead">Your openings</h2><span class="info" role="button" tabindex="0" aria-label="About the catalogue" data-tip="Your repertoire grouped by key moves: where the opening name changes, or where the line splits into main branches. Covered: how much of what you'll meet at your level is prepared. Score and accuracy come from your own games through that position. Tap an opening to open its branches; Build opens it on the board, and Train this line practises just that branch.">i</span></div>
-    <div class="otabs" role="tablist" aria-label="Openings sections"><button type="button" role="tab" data-otab="cat" aria-selected="true">Your openings</button><button type="button" role="tab" data-otab="sug" aria-selected="false">Suggestions</button></div>
+    <div class="otabs" role="tablist" aria-label="Openings sections"><button type="button" role="tab" data-otab="cat" aria-selected="true">Your openings</button><button type="button" role="tab" data-otab="map" aria-selected="false">Map</button><button type="button" role="tab" data-otab="sug" aria-selected="false">Suggestions</button></div>
     <div data-opane="cat" class="stack">
       <div class="row" style="margin:0"><button type="button" class="btn" id="addOpenBtn" data-aotoggle aria-expanded="false" aria-controls="addOpenBox">Add an opening</button></div>
       <div class="card" id="addOpenBox" hidden></div>
       <div id="catProg"></div>
       <div id="catBody"></div>
     </div>
+    <div class="card" data-opane="map" id="coverMap" hidden></div>
     <div class="card" data-opane="sug" id="suggest" hidden>
       <h3>Suggestions across your tree <span class="info" role="button" tabindex="0" aria-label="About suggestions" data-tip="Goes through every position in your repertoire and lists the best finds, each with a button to open it in Build. It uses Lichess rapid games at your rating bands, so Scan my tree first to fetch data for every position (about one a second). Easy to remember and Practical tricks come from Find ideas across my tree, which runs Build's Ideas here check everywhere in the background. Hidden gems are rarely played but score well; better-scoring alternatives are one move away from yours; transpositions lead into lines you already have; same pawn structure lists other openings whose plans carry over.">i</span></h3>
       <p class="help">A review of your whole repertoire for the colour above. For the position on the board, use Ideas here in Build.</p>
@@ -119,6 +123,7 @@
 <section data-view="train" hidden>
   <div id="trainHome" class="stack">
     <h2>Train <span class="info" role="button" tabindex="0" aria-label="About training" data-tip="Spaced repetition on your own moves. Positions you misplayed in real games come first; ones you know well come back less often.">i</span></h2>
+    <div id="focusTrain"></div>
     <div class="tiles" id="tStats"></div>
     <div id="tSummary" class="card" hidden></div>
     <div class="card" style="display:flex;flex-direction:column;gap:8px">
@@ -129,6 +134,11 @@
       <h3>Practise lines <span class="info" role="button" tabindex="0" aria-label="About practising lines" data-tip="Whole lines: you play your moves and the app plays your opponent's, mixing the branches by how often they're played, which ones need work, and which you haven't had yet. To practise one part of your repertoire, open a position in Build and tap Practise under the board.">i</span></h3>
       <p class="help" id="tRoot"></p>
       <div class="row" style="margin:0"><button type="button" class="btn" id="tLines">Practise 10 lines</button><button type="button" class="btn ghost" id="tRootReset" hidden>From the start instead</button></div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:8px">
+      <h3>Spot the difference <span class="info" role="button" tabindex="0" aria-label="About spot the difference" data-tip="Positions from your repertoire that look almost the same but need a different move from you, one straight after the other. After each pair you see what's different between them. Graded like Review positions.">i</span></h3>
+      <p class="help" id="simInfo"></p>
+      <div><button type="button" class="btn" id="simStart">Start</button></div>
     </div>
     <div class="card" id="mistakeCard" style="display:flex;flex-direction:column;gap:8px">
       <h3>Mistake review <span class="info" role="button" tabindex="0" aria-label="About mistake review" data-tip="Puzzles from your own games: moves that lost at least the mistake size (Settings > Advanced) or threw away a result, and that your opponent actually punished. Moves under time pressure, positions that were already lost, recaptures and only-moves are left out. Find any good move; then see what you played and how it was punished, and choose Keep (it comes back on a schedule), Seen it, or Later.">i</span></h3>
@@ -255,12 +265,15 @@
     <div class="card" id="buildingCard" style="display:flex;flex-direction:column;gap:14px">
       <h3>Building your tree</h3>
       <div class="field"><span class="lbl" style="margin:0">Gap › in Build goes to</span>
-        <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="freq" aria-pressed="true">Most frequent</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
-        <p class="help">A gap is a position you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. Most frequent goes to the one you'll meet most often. Rating impact weighs that by how far below 50% you'd score there, from your own games blended with peer data.</p></div>
+        <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="depth" aria-pressed="true">Move by move</button><button type="button" data-gapmode="freq" aria-pressed="false">Most frequent</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
+        <p class="help">A gap is a position you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. <b>Move by move</b> grows the tree evenly: every gap at move 2 first, then move 3, then 4, biggest first within a move. <b>Most frequent</b> goes to the one you'll meet most often, wherever it is, so it can go deep down a popular line. <b>Rating impact</b> weighs that by how far below 50% you'd score there, from your own games blended with peer data.</p>
+        <label for="gapFloor" class="help">Move by move skips gaps you'd meet in under <input type="number" id="gapFloor" inputmode="decimal" min="0" max="20" step="0.5" style="width:4.5em"> % of games until the bigger ones are done.</label></div>
+      <div class="field"><label for="coverTo">Count coverage on the Openings page up to move</label><input type="number" id="coverTo" inputmode="numeric" min="2" max="15" step="1" style="width:5em">
+        <p class="help">Every line has to stop somewhere, so gaps after this move don't count against an opening. Covered then means: the share of games at your level through that opening that are still in your prep after this move.</p></div>
       <div class="field"><label for="autoOpp">After you add a move in Build, play the opponent's reply</label>
         <select id="autoOpp"><option value="gap">The biggest gap (a reply I haven't prepared)</option><option value="off">Don't: I'll choose</option><option value="common">Most common reply at my level</option><option value="weak">My weakest spot (unprepared or worst-scoring reply)</option></select>
         <p class="help">Lets you build a line quickly by only playing your own moves. Needs the Lichess token.</p></div>
-      <label class="check"><input type="checkbox" id="setMasters"> In Build's move rows, show masters' figures next to your peers' (70%/80%)</label>
+      <label class="check"><input type="checkbox" id="setMasters"> In Build's move rows, show masters' figures next to your peers' and yours</label>
       <div class="field"><span class="lbl" style="margin:0">From your games</span>
         <div class="row" style="margin:0"><button type="button" class="btn ghost" data-goab>Build my tree from my games…</button></div>
         <p class="help">Adds the moves you play often and score well with, and the replies you meet often. You see the list first. It's on the Games tab.</p></div>
@@ -314,35 +327,40 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.23"></script>
-<script src="js/openings.js?v=0.9.23"></script>
-<script src="js/book.js?v=0.9.23"></script>
-<script src="js/store.js?v=0.9.23"></script>
-<script src="js/games.js?v=0.9.23"></script>
-<script src="js/evals.js?v=0.9.23"></script>
-<script src="js/rep.js?v=0.9.23"></script>
-<script src="js/jobs.js?v=0.9.23"></script>
-<script src="js/engine.js?v=0.9.23"></script>
-<script src="js/explore.js?v=0.9.23"></script>
-<script src="js/ideas.js?v=0.9.23"></script>
-<script src="js/rows.js?v=0.9.23"></script>
-<script src="js/gaps.js?v=0.9.23"></script>
-<script src="js/practice.js?v=0.9.23"></script>
-<script src="js/puzzles.js?v=0.9.23"></script>
-<script src="js/report.js?v=0.9.23"></script>
-<script src="js/autobuild.js?v=0.9.23"></script>
-<script src="js/catalogue.js?v=0.9.23"></script>
-<script src="js/addopening.js?v=0.9.23"></script>
-<script src="js/structures.js?v=0.9.23"></script>
-<script src="js/idealines.js?v=0.9.23"></script>
-<script src="js/updates.js?v=0.9.23"></script>
-<script src="js/importer.js?v=0.9.23"></script>
-<script src="js/board.js?v=0.9.23"></script>
-<script src="js/build.js?v=0.9.23"></script>
-<script src="js/suggest.js?v=0.9.23"></script>
-<script src="js/train.js?v=0.9.23"></script>
-<script src="js/gamesview.js?v=0.9.23"></script>
-<script src="js/settings.js?v=0.9.23"></script>
-<script src="js/app.js?v=0.9.23"></script>
+<script src="js/core.js?v=0.9.24"></script>
+<script src="js/openings.js?v=0.9.24"></script>
+<script src="js/book.js?v=0.9.24"></script>
+<script src="js/store.js?v=0.9.24"></script>
+<script src="js/games.js?v=0.9.24"></script>
+<script src="js/evals.js?v=0.9.24"></script>
+<script src="js/rep.js?v=0.9.24"></script>
+<script src="js/jobs.js?v=0.9.24"></script>
+<script src="js/engine.js?v=0.9.24"></script>
+<script src="js/explore.js?v=0.9.24"></script>
+<script src="js/ideas.js?v=0.9.24"></script>
+<script src="js/rows.js?v=0.9.24"></script>
+<script src="js/gaps.js?v=0.9.24"></script>
+<script src="js/practice.js?v=0.9.24"></script>
+<script src="js/puzzles.js?v=0.9.24"></script>
+<script src="js/report.js?v=0.9.24"></script>
+<script src="js/autobuild.js?v=0.9.24"></script>
+<script src="js/catalogue.js?v=0.9.24"></script>
+<script src="js/addopening.js?v=0.9.24"></script>
+<script src="js/structures.js?v=0.9.24"></script>
+<script src="js/idealines.js?v=0.9.24"></script>
+<script src="js/focus.js?v=0.9.24"></script>
+<script src="js/treeview.js?v=0.9.24"></script>
+<script src="js/covermap.js?v=0.9.24"></script>
+<script src="js/similar.js?v=0.9.24"></script>
+<script src="js/transpose.js?v=0.9.24"></script>
+<script src="js/updates.js?v=0.9.24"></script>
+<script src="js/importer.js?v=0.9.24"></script>
+<script src="js/board.js?v=0.9.24"></script>
+<script src="js/build.js?v=0.9.24"></script>
+<script src="js/suggest.js?v=0.9.24"></script>
+<script src="js/train.js?v=0.9.24"></script>
+<script src="js/gamesview.js?v=0.9.24"></script>
+<script src="js/settings.js?v=0.9.24"></script>
+<script src="js/app.js?v=0.9.24"></script>
 </body>
 </html>

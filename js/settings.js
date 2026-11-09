@@ -18,6 +18,8 @@ function renderSettings() {
   renderBooks();
   renderLook();
   renderGaps(); // Gap › ranking buttons
+  const gf = $("#gapFloor"); gf.value = Math.round(gapFloor() * 1000) / 10; gf.onchange = () => { const v = parseFloat(gf.value); S.settings.gapFloor = isFinite(v) ? Math.max(0, Math.min(20, v)) : 2; gapLast = null; Store.save("settings"); };
+  const ct = $("#coverTo"); ct.value = coverTo(); ct.onchange = () => { const v = parseInt(ct.value, 10); S.settings.coverTo = isFinite(v) ? Math.max(2, Math.min(COVER_MOVES, v)) : 10; ct.value = coverTo(); Store.save("settings"); };
   const ms = $("#setMasters"); ms.checked = mastersOn(); ms.onchange = () => { S.settings.mastersRows = ms.checked; Store.save("settings"); };
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;

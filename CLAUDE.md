@@ -169,10 +169,45 @@ when it loads; the others just define things.
   warning; two shown, all in words when expanded); it replaced the Rep count, which is in the
   expanded row. `rowsLegend()` is a `<details>` Key, open state in `pb_legend`.
 - Masters in the rows (v0.9.20, `mastersOn()`, `S.settings.mastersRows`, on by default): Build fetches
-  the masters explorer for the position too (`PRIO.soon`); `mastCell()` adds a grey "M x%" line
-  under Played and Score, the expanded row a Masters bar, and masters' moves with 5%+ join the
-  candidates (`c.mast`). v0.9.23: the peer figure is labelled "P" (`pfx()`), the masters line "M"
-  (a one-line "70%/80%" version was tried in v0.9.22 and rolled back at the user's request).
+  the masters explorer for the position too (`PRIO.soon`); the expanded row has a Masters bar, and
+  masters' moves with 5%+ join the candidates (`c.mast`). v0.9.24: the number columns are a grid,
+  `statsHead()` / `statCells()`: Played % and Score %, each with Peers, Masters (grey) and You
+  (`statCols()`; masters off drops that column, `.crow.c7` vs `.c9`). One weight for every number,
+  a thin bar under Played, faint for small samples (peers/masters < 20 games, me < 3). The labels
+  are only in the two-level header. (Earlier tries: "P"/"M" prefixes in v0.9.23, one-line "70%/80%"
+  in v0.9.22; both replaced at the user's request.)
+- v0.9.24 additions:
+  - Gap ranking (`gaps.js`, `S.settings.gapRank`, was `gapMode`): default `depth` = move by move:
+    gaps you'd meet in at least `gapFloor()` (Settings, default 2%) of games, lowest move number
+    (`gapMoveNo()`) first, then biggest; rarer ones after. `freq` and `impact` as before. The user
+    expected the tree to grow 2, 3, 4 moves deep evenly; `freq` went deep down popular lines.
+  - Coverage (`catalogue.js`): counted to move `coverTo()` (Settings, default 10; `COVER_MOVES` 15).
+    `stats.curve[m-1]` = share still in prep after move m; `stats.exits` = my games through the entry
+    by the move they left prep (`{n, s}`). Uses `coverShare()`: reach, but my own options split evenly
+    too, so 1.e4 + 1.d4 don't double-count. `indexTree()` now splits reach evenly between prepared
+    replies that have no Lichess data. Memo format `v: 2`; `catSig` includes `coverTo()`.
+  - Catalogue layout: compact (name | Covered | Score under one `.cathead`), child labels drop the
+    parent's name (`short()`), buttons Build / Train set the focus.
+  - `js/focus.js`: focus on one opening = `S.settings.practiceRoot[color]` (synced). `focusBar()` on
+    Build (`#focusBuild`) and Train (`#focusTrain`); `inFocus()`, `focusGaps()` (Gap ›), `focusCard()`
+    (Review positions); ⏮ goes to the focus root first. Practise under the board sets it too.
+  - `js/covermap.js`: Openings > Map (`S.otab = "map"`). Rows from the catalogue memo (redrawn when
+    it finishes; `renderCoverMap(fromCat)` avoids a loop), cells per move 1–12, Coverage or Results.
+    `noteProgress()` keeps one overall coverage entry a day in `R.hist` (repertoire doc, synced).
+  - `js/treeview.js`: Build > My lines (`S.ptab = "tree"`): `treeHtml()` writes my saved lines from the
+    position as notation (owner pass: a shared position is written in the main line, side lines say
+    "= transposes"), `data-tgo` jumps. Notes per position in `R.notes[key]` (repertoire doc;
+    `normRep()` keeps `notes` and `hist`), shown on the Moves tab and after a correct Train answer.
+  - `js/transpose.js`: routes into the Build position from other tree positions ≤ `TR_PLIES` behind:
+    cheap filters (side to move, piece counts, squares different), then a search that only moves a
+    piece onto its target square. Memoised; drawn after the rows (`routesBox()`), Show / Add
+    (`RepUndo` kind "tr"). Routes where a piece moves twice are missed.
+  - `js/similar.js`: Train > Spot the difference: `similarPairs()` (≤ 4 squares differ, no shared
+    move, closest then neediest), `simDiffText()`. The session is a cards session with `T.sim`.
+  - Train: after a miss, `missThen()` asks Stockfish (depth 12) if my move is within `good` of the
+    repertoire move; if so it waits with Compare in Build (`leaveToBuild()`, both rows open) or Carry
+    on. A practised line's end has Build from here / Next line (auto-advance after 2.5 s).
+  - `tests/smoke.html#focus` covers the map, focus, My lines, notes, routes and spot the difference.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
@@ -459,7 +494,7 @@ and accuracy into their own table, with one row per game.
 - Explorer data comes only from positions I visit, or from "Scan my tree" (one
   colour at a time). Gap ranking and *reach* are the product of opponent move
   frequencies along the path. A move missing from the data counts as 1%, and
-  a position with no data counts as 100%, so scan first.
+  a position with no data counts as 100% (prepared replies without data share it evenly since v0.9.24), so scan first.
 - The explorer cache is in `localStorage`, alongside `pb_data` (games are
   about 850 KB). If storage runs out, `lsSet` fails silently. Consider
   IndexedDB for the caches.

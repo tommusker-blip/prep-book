@@ -9,7 +9,7 @@ const DOCS = ["white", "black", "settings", "games", "acc", "puzzles"]; // alway
    The first book, "main", keeps the original doc names "white" and "black"; other books are
    saved as "white@<id>" and "black@<id>". The list of books ({id, name}) and the open book
    live in settings, so they sync too. */
-const emptyRep = () => ({ pos: {}, cards: {}, flagged: [] });
+const emptyRep = () => ({ pos: {}, cards: {}, flagged: [], notes: {}, hist: [] });
 const repDoc = (color, id = S.book) => (id === "main" ? color : `${color}@${id}`);
 const parseRepDoc = name => { const m = /^(white|black)(?:@(.+))?$/.exec(name); return m ? { color: m[1], id: m[2] || "main" } : null; };
 function ensureBook(id) { return S.books[id] || (S.books[id] = { white: emptyRep(), black: emptyRep() }); }
@@ -33,7 +33,8 @@ function allDocNames() {
 // Re-key a stored repertoire with the current K() (older builds kept every en-passant
 // square). Positions that now share a key are merged; walk() tidies up afterwards.
 function normRep(r) {
-  const out = { pos: {}, cards: {}, flagged: r.flagged }; // undefined flagged -> migrated in flagMisplays()
+  const out = { pos: {}, cards: {}, flagged: r.flagged, notes: {}, hist: Array.isArray(r.hist) ? r.hist : [] }; // undefined flagged -> migrated in flagMisplays()
+  for (const [k, t] of Object.entries(r.notes || {})) if (t) out.notes[K(k)] = String(t); // v0.9.24: my comments per position (tree browser)
   for (const [k, n] of Object.entries(r.pos || {})) {
     const nk = K(k), have = out.pos[nk];
     if (!have) { out.pos[nk] = { ...n, m: (n.m || []).slice() }; continue; }

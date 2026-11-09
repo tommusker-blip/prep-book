@@ -101,8 +101,9 @@ async function boot() {
     const path = curPath(); const key = K(fenAfter(START, path)); const n = rep().pos[key];
     if (n && n.m.length) { path.push(n.m[0]); renderBuild(); }
   };
-  $("#toStart").onclick = () => { S.build[S.color] = []; renderBuild(); };
-  $("#quickGap").onclick = () => { const list = rankedGaps(), t = nextGapTarget(list); if (t) { S.ptab = "moves"; jumpToGap(t.id, list); } else toast("No gaps found in the positions checked so far."); };
+  // ⏮: with a focus (focus.js), back to where the opening starts; from there, the very start
+  $("#toStart").onclick = () => { const f = focusPath(), p = curPath().join(" "); S.build[S.color] = f.length && p !== f.join(" ") && inFocus(p) ? f.slice() : []; renderBuild(); };
+  $("#quickGap").onclick = () => { const list = focusGaps(rankedGaps()), t = nextGapTarget(list); if (t) { S.ptab = "moves"; jumpToGap(t.id, list); } else toast(focusOn() ? `No gaps found in ${focusName()} so far. Clear the focus to look everywhere.` : "No gaps found in the positions checked so far."); };
   // Build rows (rows.js): tap a row to expand it; the move button inside plays the move
   Tip.init();
   // Keep --hdr at the header's height, so the pinned Build board sits just under it
@@ -122,6 +123,7 @@ async function boot() {
   $("#repCopyJSON").onclick = () => { if (coachReport) copyText(JSON.stringify(coachReport, null, 1), "The report"); };
   $("#repDownload").onclick = () => { if (!coachReport) return; const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(coachReport, null, 1)], { type: "application/json" })); a.download = `prep-book-report-${coachReport.generated}.json`; a.click(); };
   $("#tLines").onclick = startLines;
+  $("#simStart").onclick = startSimilar;
   $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;

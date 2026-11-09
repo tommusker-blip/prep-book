@@ -17,7 +17,8 @@ function renderTrainHome() {
   const R = rep();
   walk();
   const cards = Object.values(R.cards);
-  const due = dueCards();
+  const due = dueCards().filter(focusCard); // with a focus (focus.js), only inside it
+  drawFocusBars();
   const flagged = Object.values(R.cards).filter(c => c.flag).length;
   const learned = cards.filter(c => c.reps >= 2).length;
   $("#trainHome").hidden = false; $("#trainRun").hidden = true;
@@ -26,7 +27,10 @@ function renderTrainHome() {
     <div><b class="big num">${flagged}</b><span>misplayed in games</span></div>
     <div><b class="big num">${learned}<small>/${cards.length}</small></b><span>moves learned</span></div>`;
   $("#tStart").disabled = !cards.length;
-  $("#tStart").textContent = due.length ? `Train ${Math.min(due.length, 20)} position${due.length === 1 ? "" : "s"}` : cards.length ? "Nothing due: practise 10 anyway" : "Add moves in Build first";
+  $("#tStart").textContent = due.length ? `Train ${Math.min(due.length, 20)} position${due.length === 1 ? "" : "s"}${focusOn() ? " in " + focusName() : ""}` : cards.length ? "Nothing due: practise 10 anyway" : "Add moves in Build first";
+  const sp = cards.length ? similarPairs() : [];
+  $("#simInfo").textContent = sp.length ? `${sp.length} pair${sp.length === 1 ? "" : "s"} of look-alike positions where your move is different${focusOn() ? `, with at least one in ${focusName()}` : ""}.` : "No look-alike positions with different moves in your repertoire yet.";
+  $("#simStart").disabled = !sp.length;
   if (T.state === "summary") {
     const missed = T.done - T.right;
     $("#tSummary").hidden = false;
@@ -47,13 +51,66 @@ function renderTrainHome() {
   renderIdeaCard();
 }
 function startTraining() {
-  let q = dueCards();
+  let q = dueCards().filter(focusCard);
   if (!q.length) {
     const R = rep();
-    q = Object.entries(R.cards).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
+    q = Object.entries(R.cards).filter(([k]) => focusCard(k)).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
   }
-  Object.assign(T, { mode: "cards", queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run" });
+  Object.assign(T, { mode: "cards", queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run", sim: null });
   nextCard();
+}
+// Spot the difference (similar.js): look-alike pairs back to back, graded like review cards.
+// T.sim[key] = {first, other, text}; the second of a pair shows what's different after the answer.
+function startSimilar() {
+  const pairs = similarPairs().slice(0, 8), queue = [], sim = {};
+  for (const p of pairs) {
+    queue.push(p.a, p.b);
+    sim[p.a] = { first: true, other: p.b };
+    sim[p.b] = { first: false, other: p.a, text: simDiffText(p.bArr, p.aArr) };
+  }
+  if (!queue.length) return;
+  Object.assign(T, { mode: "cards", queue, i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run", sim });
+  nextCard();
+}
+// Leave a session for Build at a position (end of a line, or a good move that isn't mine)
+function leaveToBuild(path, open = []) {
+  stopTraining();
+  T.state = T.done ? "summary" : "idle";
+  Store.save(repDoc(S.color));
+  S.build[S.color] = path.slice();
+  const key = K(fenAfter(START, path));
+  open.forEach(san => candOpen.add(key + "|" + san));
+  S.ptab = "moves";
+  setView("build");
+  window.scrollTo({ top: 0 });
+}
+/* A miss with a move that's good anyway (v0.9.24): Stockfish compares my move with the
+   repertoire move (depth 12, both positions after the move). Within the good margin, the
+   session waits and offers Compare in Build (both rows open there), or Carry on. Otherwise
+   it moves on as before; it waits at most 3 s for the engine. */
+async function altGood(fen, played, mine) {
+  if (Engine.failed) return null;
+  try {
+    const [a, b] = await Promise.all([fenAfter(fen, [played]), fenAfter(fen, [mine])].map(f => Engine.analyse(f, 12, { prio: PRIO.now })));
+    const loss = a.cp - b.cp; // both from the opponent's side: higher is worse for me
+    return loss <= adv().good ? { loss: Math.max(0, loss), mineCp: -a.cp } : null;
+  } catch (e) { return null; }
+}
+function missThen(fen, played, repMoves, go) {
+  const tok = T.token, t0 = Date.now(), path = T.path.slice();
+  let state = "pending";
+  altGood(fen, played, repMoves[0]).then(r => {
+    if (tok !== T.token || T.state !== "run") return;
+    if (!r) { state = "no"; return; }
+    state = "good";
+    clearTimeout(T.timer);
+    T.altGo = go; T.altPath = path; T.altOpen = [played, ...repMoves];
+    $("#tPrompt").innerHTML += `<div class="altgood"><p class="lbl ok">${esc(moveLabel(path, played))} is a good move too</p>
+      <p class="muted">Stockfish rates it ${r.loss < 5 ? "as good as" : `within ${(r.loss / 100).toFixed(1)} of`} your repertoire move. Worth a look to decide which one you want to play?</p>
+      <div class="row" style="margin:4px 0 0"><button type="button" class="btn" data-altbuild>Compare in Build</button><button type="button" class="btn ghost" data-altgo>Carry on</button></div></div>`;
+  });
+  const tick = () => { if (state === "pending" && Date.now() - t0 < 3000) return later(tick, 200); if (state !== "good") go(); };
+  later(tick, 1500);
 }
 function endSession() {
   stopTraining();
@@ -95,7 +152,9 @@ function renderTrainCard() {
 function cardPrompt() {
   const card = rep().cards[T.key], n = rep().pos[T.key];
   const again = T.graded.has(T.key);
-  const tag = again ? '<span class="pill gap">Try again</span> ' : card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : "";
+  const sim = T.mode === "cards" && T.sim && T.sim[T.key];
+  const tag = again ? '<span class="pill gap">Try again</span> ' : sim ? `<span class="pill">Spot the difference ${sim.first ? "1" : "2"} of 2</span> ` : card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : "";
+  if (sim && !sim.first && !again) return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">This looks like the last position, but your move is different. What's changed?</p>`;
   return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">${n && n.m.length > 1 ? `Play one of your repertoire moves (you have ${n.m.length} here).` : "Play the move from your repertoire."}</p>`;
 }
 // Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
@@ -322,8 +381,11 @@ function stepLine() {
   if (!n || !n.m.length) { // the end of this line
     T.session.visited.add(key); T.lineNo++;
     T.phase = "feedback"; TB.locked = true;
-    $("#tPrompt").innerHTML = `<p class="lbl ok">End of the line</p><p class="muted">${T.lineNo < T.lines || T.retry.length ? "Next line…" : "That was the last one."}</p>`;
-    return later(nextLine, 1100);
+    // v0.9.24: Build from here, to extend the line, then come back with Practise it
+    T.endPath = T.path.slice();
+    $("#tPrompt").innerHTML = `<p class="lbl ok">End of the line</p><p class="muted">${T.lineNo < T.lines || T.retry.length ? "Next line in a moment…" : "That was the last one."}</p>
+      <div class="row" style="margin:4px 0 0"><button type="button" class="btn ghost" data-linebuild>Build from here</button><button type="button" class="btn ghost" data-linenext>${T.lineNo < T.lines || T.retry.length ? "Next line" : "Finish"}</button></div>`;
+    return later(nextLine, 2500);
   }
   if (isMine(key, S.color)) { T.key = key; T.phase = "move"; TB.locked = false; $("#tPrompt").innerHTML = cardPrompt(); return; }
   const san = pickReply(fen, key, S.color, T.session, T.info);
@@ -350,16 +412,18 @@ function onTrainMove(mv) {
     const c = new Chess(fenBefore); c.move(mv.san);
     TB.set(c.fen(), { last: [mv.from, mv.to] });
     const others = n.m.filter(m => m !== mv.san);
-    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, mv.san))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}${others.length ? ` Also in your repertoire: ${others.map(esc).join(", ")}.` : ""}</p>`;
-    later(() => { T.i++; nextCard(); }, others.length ? 1300 : 900);
+    const note = noteFor(T.key), sim = T.sim && T.sim[T.key], extra = (sim && sim.text) || note;
+    $("#tPrompt").innerHTML = `<p class="lbl ok">Correct: ${esc(moveLabel(T.path, mv.san))}</p><p class="muted">${first ? `Next review in ${card.iv} day${card.iv === 1 ? "" : "s"}.` : "Got it this time."}${others.length ? ` Also in your repertoire: ${others.map(esc).join(", ")}.` : ""}</p>${sim && sim.text ? `<p class="help">${esc(sim.text)}</p>` : ""}${note ? `<p class="help notel"><b>Your note:</b> ${esc(note)}</p>` : ""}`;
+    later(() => { T.i++; nextCard(); }, extra ? 2600 : others.length ? 1300 : 900);
   } else {
     if (first) { grade(card, false); Store.save(repDoc(S.color)); }
     const c = new Chess(fenBefore); const good = c.move(n.m[0]);
     TB.set(fenBefore, { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null });
-    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")} (the first is highlighted).` : `Your move is ${labels[0]}.`} This position comes back in a few cards.</p>`;
+    const sim = T.sim && T.sim[T.key];
+    $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")} (the first is highlighted).` : `Your move is ${labels[0]}.`} This position comes back in a few cards.</p>${sim && sim.text ? `<p class="help">${esc(sim.text)}</p>` : ""}`;
     T.queue.splice(Math.min(T.queue.length, T.i + 1 + RETRY_GAP), 0, T.key);
     T.retries++;
-    later(() => { T.i++; nextCard(); }, 1500);
+    missThen(fenBefore, mv.san, n.m, () => { T.i++; nextCard(); });
   }
 }
 // My move while practising a line: graded like a single position, then the line goes on
@@ -381,10 +445,14 @@ function onLineMove(mv) {
   $("#tPrompt").innerHTML = `<p class="lbl warn">Not your repertoire move</p><p>You played ${esc(mv.san)}. ${n.m.length > 1 ? `Your moves here are ${labels.join(" or ")}.` : `Your move is ${labels[0]}.`} The line carries on with it, and this position comes back in a later line.</p>`;
   T.retry.push({ path: T.path.slice(), at: T.lineNo + LINE_RETRY_AFTER });
   T.retries++;
-  later(() => { T.path.push(n.m[0]); stepLine(); }, 1500);
+  missThen(fenBefore, mv.san, n.m, () => { T.path.push(n.m[0]); stepLine(); });
 }
 
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("pz", d => onPuzzleChoice(d.pz));
 onClick("pzply", d => pzJump(+d.pzply));
+onClick("altgo", d => { clearTimeout(T.timer); if (T.altGo) { const go = T.altGo; T.altGo = null; go(); } }, true);
+onClick("altbuild", d => { T.altGo = null; leaveToBuild(T.altPath || [], T.altOpen || []); }, true);
+onClick("linenext", d => { clearTimeout(T.timer); if (T.state === "run" && T.mode === "lines") nextLine(); }, true);
+onClick("linebuild", d => leaveToBuild(T.endPath || T.path), true);

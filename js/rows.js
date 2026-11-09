@@ -199,14 +199,12 @@ function candRow(fen, key, c, ex, path) {
   const gambit = isGambit(fen, c.san), peerGem = myTurn && c.peer && ex && ex.total ? judgeMove(c.peer, ex, S.color, (n => (n ? n.m : []))(rep(S.color).pos[key])) : null;
   const tags = rowTags({ weapon, fu, gem: flag === "gem" && !weapon ? flagText : peerGem ? (peerGem === "gem" ? "A hidden gem: rarely played at your level, but it scores well" : "Scores better at your level than your move here") : "", gambit, trans, warn: flag === "warn" ? flagText : "" });
   const mark = moveMark(e, gambit || !!peerGem || flag === "gem");
-  const head = `<div class="crow c5">
+  const head = `<div class="crow c${3 + 2 * statCols().length}">
       ${namedLine(fen, c.san, path)}
       <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${mark.t ? ", " + mark.t : ""}${stateText ? ", " + stateText : ""}">${esc(c.san)}<span class="mark ${mark.k}">${mark.s}</span></button></span>
       <span class="ceng">${engineCell(e)}</span>
-      <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pfx()}${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}${mastCell(fen, c, "f")}</span>
-      <span class="cscore">${c.peer && peerScore != null ? pfx() + pctOf(peerScore) : `<span class="muted">–</span>`}${mastCell(fen, c, "s")}</span>
-      <span class="cyou">${c.mine ? `${c.mine.n}·${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
+      ${statCells(fen, key, c, ex, f, peerScore)}
     </div>`;
   let detail = "";
   if (open) {
@@ -290,7 +288,7 @@ function candRows(fen, key, n, path) {
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} weak move${weak.length === 1 ? "" : "s"}` : `${weak.length} weak move${weak.length === 1 ? "" : "s"} hidden (${weak.map(c => esc(c.san)).join(", ")}): over ${(adv().mistake / 100).toFixed(1)} worse than the best, or leaving you below −${(adv().unplayable / 100).toFixed(1)}`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span${mastersOn() ? ' class="hd2"' : ""}>Played${mastersOn() ? "<small>P · M</small>" : ""}</span><span class="hd2">${mastersOn() ? "Score<small>P · M</small>" : "Peer score"}</span><span>You</span></div>
+      ${statsHead()}
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }
@@ -396,25 +394,45 @@ function rowsLegend(myTurn, ex) {
       <p><span class="tag">🃏</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
       <p class="rk-h">Columns</p>
       <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
-      <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Peer score</b> how your colour scores after it in those games (win 1, draw ½) · <b>You</b> your games · your score</p>
-      ${mastersOn() ? `<p>Played and Score: <b>P</b> your peers (players at your level on Lichess), and under it in grey <b>M</b> masters (the Lichess masters database). Switch masters off in Settings.</p>` : ""}
+      <p><b>Played %</b> how often it's chosen here, with a bar · <b>Score %</b> how your colour scores after it (win 1, draw ½). Each for <b>Peers</b> (players at your level on Lichess${ex ? `: ${srcLine(ex)}` : ""})${mastersOn() ? `, <b>Masters</b> in grey (the Lichess masters database; switch off in Settings)` : ""} and <b>You</b> (your games). Faint figures rest on few games; tap the row for the counts.</p>
       <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
       <p class="rk-h">Arrows on the board</p>
       <p><span class="ksw ksw-a-good"></span>yours <span class="ksw ksw-a-gap"></span>a gap <span class="ksw ksw-gem"></span>gem or better-scoring <span class="ksw ksw-other"></span>other common moves${myTurn ? ` <span class="ksw ksw-games"></span>what you play in your games` : ""}</p>
     </div></details>`;
 }
-/* ----- masters alongside peers (v0.9.20) -----
-   With Settings > Building your tree > masters on (the default), the Played and Score cells get a
-   second, grey line from the Lichess masters database: "M 12%". The data is fetched with the
-   peer data in renderBuild(). */
+/* ----- the numbers: Played and Score for peers, masters and me (v0.9.24) -----
+   Two groups of columns under a two-level header (Played % | Score %, each Peers, Masters, You),
+   plain numbers in one weight; the labels are only in the header. Played has a thin bar. A figure
+   from a small sample (peers or masters under 20 games, me under 3) is greyed. With masters off
+   (Settings > Building your tree) the masters columns go. Masters data is fetched with the peer
+   data in renderBuild(). */
 const mastersOn = () => S.settings.mastersRows !== false;
-// "P " before the peers' figures, to tell them from the masters' (only shown with masters on)
-const pfx = () => (mastersOn() ? `<span class="pfx">P</span> ` : "");
-function mastCell(fen, c, what) {
-  if (!mastersOn()) return "";
-  const exM = cachedExplorer(fen, "masters");
-  if (!exM) return `<span class="mline muted">M …</span>`;
-  if (!c.mast || !exM.total) return `<span class="mline muted">M –</span>`;
-  const v = what === "f" ? c.mast.n / exM.total : scoreFor(c.mast, S.color);
-  return `<span class="mline" aria-label="masters: ${what === "f" ? "played in " : "your colour scores "}${pctOf(v)}${what === "f" ? ` (${nOf(c.mast.n)} games)` : ""}">M ${pctOf(v)}</span>`;
+const statCols = () => (mastersOn() ? ["p", "m", "y"] : ["p", "y"]);
+const STAT_NAMES = { p: ["Peers", "Peer"], m: ["Masters", "Mstr"], y: ["You", "You"] };
+function statsHead() {
+  const cols = statCols(), n = cols.length;
+  const sub = cols.map((k, i) => `<span class="hsub g-${k}${i ? "" : " g0"}"><span class="lg">${STAT_NAMES[k][0]}</span><span class="sm">${STAT_NAMES[k][1]}</span></span>`).join("");
+  return `<div class="crow chead c${3 + 2 * n}"><span class="htop" aria-label="Tags"></span><span class="htop">Move</span><span class="htop">Eval</span><span class="hgrp g0" style="grid-column:span ${n}">Played %</span><span class="hgrp g0" style="grid-column:span ${n}">Score %</span>
+    ${sub}${sub}</div>`;
+}
+// One figure: v 0..1 or null. o: {k, first, bar, thin, n, loading}
+function statCell(v, label, o) {
+  const cls = `cst g-${o.k}${o.first ? " g0" : ""}`;
+  if (o.loading) return `<span class="${cls} muted" aria-label="${label}: loading">…</span>`;
+  if (v == null) return `<span class="${cls} muted" aria-label="${label}: none">–</span>`;
+  const pc = Math.round(v * 100);
+  return `<span class="${cls}${o.thin ? " thin" : ""}" aria-label="${label}: ${pc}%${o.n != null ? ` (${nOf(o.n)} game${o.n === 1 ? "" : "s"})` : ""}">${o.bar ? `<i style="width:${Math.max(3, pc)}%"></i>` : ""}<b>${pc}</b></span>`;
+}
+function statCells(fen, key, c, ex, f, peerScore) {
+  const exM = mastersOn() ? cachedExplorer(fen, "masters") : null, me = c.mine ? myPosStats(key) : null;
+  const small = { p: !!c.peer && c.peer.n < 20, m: !!c.mast && c.mast.n < 20, y: !!c.mine && c.mine.n < 3 };
+  const val = { f: {
+    p: f, m: exM && exM.total && c.mast ? c.mast.n / exM.total : null, y: c.mine && me && me.n ? c.mine.n / me.n : null,
+  }, s: {
+    p: peerScore, m: c.mast ? scoreFor(c.mast, S.color) : null, y: c.mine ? wdlScore(c.mine) : null,
+  } };
+  const names = { f: { p: "peers play it", m: "masters play it", y: "you play it" }, s: { p: "peers' score", m: "masters' score", y: "your score" } };
+  const n = { p: c.peer && c.peer.n, m: c.mast && c.mast.n, y: c.mine && c.mine.n };
+  const group = w => statCols().map((k, i) => statCell(val[w][k], names[w][k], { k, first: !i, bar: w === "f", thin: small[k], n: n[k], loading: k === "m" && !exM })).join("");
+  return group("f") + group("s");
 }

@@ -138,6 +138,7 @@ function indexTree(color = S.color) {
     for (const kid of node.kids) {
       let r = reach;
       if (ex && ex.total) { const mv = ex.moves.find(x => x.san === kid.san); r *= mv ? mv.n / ex.total : 0.01; }
+      else if (!isMine(key, color) && node.kids.length > 1) r /= node.kids.length; // no data yet: prepared replies share it evenly (v0.9.24)
       q.push({ key: kid.key, reach: r });
     }
   }

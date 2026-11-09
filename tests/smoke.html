@@ -38,6 +38,63 @@ f.onload = () => {
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
     if (mode === "explore-mode") runExploreMode();
+    if (mode === "focus") (async () => {
+      // v0.9.24: map, focus on one opening, My lines with a note, routes into a position, spot the difference, Build from here
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const until = async (cond, ms = 15000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(50); return cond(); };
+      w.eval(`S.settings.autoOpp = "off";
+        for (const l of ["e4 e5 Nf3 Nc6 Bc4 Bc5 c3", "e4 e5 Nf3 d6 d4", "e4 c5 Nf3 d6 d4", "d4 Nf6 c4 e6"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+        walk("white");`);
+      d.querySelector('[data-nav="openings"]').click();
+      d.querySelector('[data-otab="map"]').click();
+      await until(() => d.querySelector("#coverMap .maprow:not(.mhead)"));
+      L("map rows: " + [...d.querySelectorAll("#coverMap .maprow:not(.mhead) .mapname")].map(b => b.textContent.trim()).join(" | ") + " | cells per row: " + d.querySelectorAll("#coverMap .maprow:not(.mhead)")[0].querySelectorAll(".mc").length);
+      L("progress: " + ((d.querySelector("#coverMap .possum") || {}).textContent || "none") + " | hist: " + JSON.stringify(G("S").rep.white.hist.map(h => h.c)));
+      d.querySelector('[data-mapmode="res"]').click();
+      L("results view: " + d.querySelector("#coverMap .covmap").className);
+      // focus from the catalogue
+      d.querySelector('[data-otab="cat"]').click();
+      await until(() => d.querySelector("#catBody details.cat"));
+      L("catalogue: " + d.querySelector(".cathead").textContent.replace(/\s+/g, " ").trim() + " | " + [...d.querySelectorAll("#catBody > details.cat > summary")].map(s => s.textContent.replace(/\s+/g, " ").trim()).join(" | "));
+      const it = [...d.querySelectorAll("#catBody details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
+      it.querySelector("[data-focusbuild]").click(); await sleep(50);
+      L("focus bar: " + d.querySelector("#focusBuild").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector("#fwd").click(); d.querySelector("#fwd").click(); await sleep(50);
+      d.querySelector("#toStart").click();
+      L("⏮ goes to: " + G("S").build.white.join(" ") + " | then: " + (d.querySelector("#toStart").click(), G("S").build.white.join(" ") || "start"));
+      // My lines and a note
+      w.eval('S.build.white = ["e4","e5"]; renderBuild()');
+      d.querySelector('[data-ptab="tree"]').click(); await sleep(50);
+      L("my lines: " + d.querySelector("#treeCard .tree").textContent.replace(/\s+/g, " ").trim());
+      const ta = d.querySelector("#tNote"); ta.value = "Play for d4"; ta.dispatchEvent(new w.Event("input"));
+      L("note saved: " + G("S").rep.white.notes[G('K(fenAfter(START, ["e4","e5"]))')]);
+      d.querySelector('#treeCard [data-tgo="e4 e5 Nf3 d6 d4"]').click(); await sleep(50);
+      L("tap a move goes to: " + G("S").build.white.join(" "));
+      d.querySelector('[data-ptab="moves"]').click();
+      w.eval('S.build.white = ["e4","e5"]; renderBuild()');
+      L("note on Moves: " + (d.querySelector("#prompt .notel") || {}).textContent);
+      // routes into a position from another line: 1.c4 e6 2.Nc3 Nf6 3.d4 = 1.d4 Nf6 2.c4 e6 3.Nc3
+      w.eval('S.build.white = "c4 e6 Nc3 Nf6 d4".split(" "); renderBuild()');
+      await until(() => d.querySelector("#prompt .trbox"), 3000);
+      L("routes: " + ((d.querySelector("#prompt .trlist") || {}).textContent || "none").replace(/\s+/g, " ").trim());
+      d.querySelector("#prompt [data-tradd='0']").click(); await sleep(50);
+      L("after Add: Nc3 saved=" + G('rep("white").pos[K(fenAfter(START, "d4 Nf6 c4 e6".split(" ")))].m.join(",")') + " | " + ((d.querySelector("#prompt [data-undo='tr']") || {}).parentNode || { textContent: "no undo" }).textContent.replace(/\s+/g, " ").trim());
+      // spot the difference
+      d.querySelector('[data-nav="train"]').click(); await sleep(50);
+      L("focus on Train: " + d.querySelector("#focusTrain").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector("#focusTrain [data-focusclear]").click(); await sleep(50);
+      L("cleared: " + (d.querySelector("#focusTrain").textContent.trim() || "no bar") + " | sim: " + d.querySelector("#simInfo").textContent);
+      d.querySelector("#simStart").click(); await sleep(50);
+      L("sim session: queue=" + G("T").queue.length + " | " + d.querySelector("#tProgress").textContent);
+      d.querySelector("#tStop").click(); await sleep(50);
+      // a practised line ends: Build from here
+      w.eval('setFocus(["e4","e5","Nf3","d6"]); startLines()');
+      await until(() => d.querySelector("#tPrompt [data-linebuild]") || (G("T").phase === "move" && (play("#tBoard", "d2", "d4"), false)), 8000);
+      const lb = d.querySelector("#tPrompt [data-linebuild]");
+      if (lb) { lb.click(); await sleep(50); }
+      L("Build from here: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
+      L("DONE");
+    })();
     if (mode === "catalogue") (async () => {
       const sleep = ms => new Promise(r => setTimeout(r, ms));
       w.eval(`S.settings.autoOpp = "off";
@@ -56,11 +113,11 @@ f.onload = () => {
       w.eval("renderCatalogue()");
       const again = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
       L("stays open after a redraw: " + again.open);
-      again.querySelector("[data-catbuild]").click();
+      again.querySelector("[data-focusbuild]").click();
       L("Build opens: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
       d.querySelector('[data-nav="openings"]').click(); await sleep(100);
       const it2 = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
-      it2.querySelector("[data-cattrain]").click(); await sleep(100);
+      it2.querySelector("[data-focustrain]").click(); await sleep(100);
       L("Train this line: view=" + G("S").view + " mode=" + G("T").mode + " root=" + G("T").root.join(" "));
       // v0.9.8: kept, so coming back draws at once; Remove takes the line out, Undo brings it back
       d.querySelector('[data-nav="openings"]').click(); await sleep(50);
@@ -377,8 +434,8 @@ f.onload = () => {
       d.querySelector("#quickGap").click();
       L("after Gap ›: at " + (G("S").build.white.join(" ") || "start"));
       d.querySelector('[data-gapmode="impact"]').click();
-      L("rating impact mode: " + G("S").settings.gapMode + " | pressed: " + d.querySelector('[data-gapmode="impact"]').getAttribute("aria-pressed"));
-      d.querySelector('[data-gapmode="freq"]').click();
+      L("rating impact mode: " + G("S").settings.gapRank + " | pressed: " + d.querySelector('[data-gapmode="impact"]').getAttribute("aria-pressed"));
+      d.querySelector('[data-gapmode="depth"]').click();
       // My own games from 1.e4 e5 (G1 stats need the game keys worked out first)
       w.eval(`S.games = [["e4 e5 Nf3 Nc6","1-0"],["e4 e5 Nf3 d6","0-1"],["e4 e5 Bc4 Nf6","1-0"]].map(([m, r], i) => ({ id: "y" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" })); S.games.forEach(gameKeys)`);
       w.eval('S.build.white = ["e4","e5"]; renderBuild()');
@@ -386,7 +443,7 @@ f.onload = () => {
       L("rows with my games: " + rowText());
       L("arrows with my games: " + [...d.querySelectorAll("#board .arw")].map(a => a.getAttribute("class").split(" ")[1]).join(" "));
       // Tap the Nf3 row (not the move) to expand it
-      d.querySelector('#prompt .cand[data-cand="Nf3"] .cpeer').click();
+      d.querySelector('#prompt .cand[data-cand="Nf3"] .cst').click();
       const det = d.querySelector('#prompt .cand[data-cand="Nf3"] .cdetail');
       L("expanded Nf3: " + (det ? det.textContent.replace(/\s+/g, " ").trim() : "not expanded") + " | still at: " + G("S").build.white.join(" "));
       const bar = det && det.querySelector("[data-tip]");

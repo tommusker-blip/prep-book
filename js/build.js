@@ -30,6 +30,7 @@ function renderBuild() {
   BB.el.classList.toggle("exploring", exploring());
   document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(exploring())));
   showPane();
+  drawFocusBars();
   // line strip
   const lineEl = $("#line"); lineEl.innerHTML = lineHtml(path, true); lineEl.scrollLeft = lineEl.scrollWidth; // one line, latest move in view
   // "Practise from here" (item 3): for a position in the tree with my moves below it
@@ -46,6 +47,7 @@ function renderBuild() {
   pr.style.minHeight = ""; pr.dataset.key = key;
   pr.innerHTML = movesPane(fen, key, n, path, mine);
   // Ideas tab: only for positions where it's my move; only built while the tab is open
+  if (S.ptab === "tree") renderTreePane();
   if (S.ptab === "ideas") $("#ideasCard").innerHTML = mine ? ideasPanel(fen, key, n, path) : `<p class="help">Ideas are for positions where it's your move. Play the opponent's reply, or go back one move.</p>`;
   if (!cachedExplorer(fen) && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
   if (mastersOn() && !cachedExplorer(fen, "masters") && S.token && !explorerBlocked) explorer(fen, { src: "masters", prio: PRIO.soon, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
@@ -66,7 +68,9 @@ function movesPane(fen, key, n, path, mine) {
   } else {
     h = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
-  return (exploring() ? exploreBar() : "") + h;
+  // v0.9.24: my note on this position (My lines tab), and routes here from my other lines
+  const note = noteFor(key);
+  return (exploring() ? exploreBar() : "") + (note ? `<p class="help notel"><b>Your note:</b> ${esc(note)}</p>` : "") + h.replace(/<div class="cands">|$/, m => routesBox(fen, key, path) + m);
 }
 function refreshBuild(key) {
   if (autoPending && autoPending === curPath().join(" ")) return; // the reply is on its way
@@ -134,7 +138,7 @@ function quickOppButtons(fen, key, n) {
 //   "common" | "weak": see pickOpp(). "off": I choose.
 const autoOppMode = () => S.settings.autoOpp || "gap";
 function gapReply(path, color = S.color) {
-  const k = gapMode(), here = path.join(" ");
+  const k = gapMode() === "impact" ? "impact" : "freq", here = path.join(" ");
   const list = findGaps(color).filter(g => g.opp && g.path.join(" ") === here).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
   return list.length ? { san: list[0].opp, why: "the biggest gap here" } : null;
 }
@@ -343,7 +347,7 @@ onClick("cancel", d => renderBuild(), true);
 onClick("deep", d => { deepKeys.add(buildState().key); renderBuild(); }, true);
 onClick("showweak", d => { const k = buildState().key; if (showWeak.has(k)) showWeak.delete(k); else showWeak.add(k); renderBuild(); }, true);
 onClick("bmode", d => setBuildMode(exploring() ? "commit" : "explore"));
-onClick("ptab", d => { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas") renderBuild(); });
+onClick("ptab", d => { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "tree") renderBuild(); });
 onClick("exwhole", d => exploreSave(true), true);
 onClick("exhere", d => exploreSave(false), true);
 onClick("exsave", d => { const done = $("#prompt")._exsave; if (done) done(d.exsave); });

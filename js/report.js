@@ -59,14 +59,14 @@ function belowPar(color) {
   return out.sort((x, y) => (y.reach * (y.peerScore - y.expected)) - (x.reach * (x.peerScore - x.expected))).slice(0, 10);
 }
 function gapStats(color, mode) {
-  const keep = S.settings.gapMode;
-  S.settings.gapMode = mode;
+  const keep = S.settings.gapRank;
+  S.settings.gapRank = mode;
   const list = rankedGaps(color).slice(0, 10).map(g => ({
     what: g.opp ? "unprepared reply" : g.text.startsWith("Your move") ? "my move missing" : "line ends",
     line: sanLine(g.opp ? g.path.concat(g.opp) : g.path), reachPct: r1(g.freq || null),
     expectedScore: g.basis === "no data yet" ? null : r1(g.expected), basis: g.basis,
   }));
-  S.settings.gapMode = keep;
+  S.settings.gapRank = keep;
   return list;
 }
 // Training: the positions I get wrong most, and the overall picture

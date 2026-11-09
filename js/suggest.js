@@ -12,10 +12,10 @@ function sidePanes() {
 function sideSoon() { if (!sideTimer && sugShowing()) sideTimer = setTimeout(() => { sideTimer = null; sidePanes(); }, 1500); }
 // The Openings page's two tabs
 function showOpeningsTab() {
-  const tab = S.otab === "sug" ? "sug" : "cat";
+  const tab = ["sug", "map"].includes(S.otab) ? S.otab : "cat";
   document.querySelectorAll("[data-otab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.otab === tab)));
   document.querySelectorAll("[data-opane]").forEach(p => (p.hidden = p.dataset.opane !== tab));
-  if (tab === "sug") renderSuggest(); else { renderAddOpening(); renderCatalogue(); }
+  if (tab === "sug") renderSuggest(); else if (tab === "map") renderCoverMap(); else { renderAddOpening(); renderCatalogue(); }
 }
 
 /* ----- suggestions from Lichess (scan, hidden gems, transpositions, structures, alternatives) ----- */

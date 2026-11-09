@@ -5,6 +5,21 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09y", date: "9 Nov 2026", title: "Focus on an opening, a coverage map, My lines and more",
+    items: [
+      "Build's move rows: Played % and Score % now each have three columns, Peers, Masters and You, labelled once at the top. Every number has the same weight; faint ones rest on only a few games.",
+      "Gap › now goes move by move: every common gap at move 2 first, then move 3, then 4, so the tree grows evenly. Most frequent and Rating impact are still in Settings.",
+      "Covered on the Openings page now counts up to move 10 (Settings). Before, the replies after the last move of every line counted as gaps, so a well-built opening like the King's Gambit could show 0%.",
+      "The Openings list is compact: one line per opening with Covered and Score in columns, and longer names show in full.",
+      "Focus on an opening: tap Build or Train on an opening. Build's ⏮ and Gap › stay inside it, and Train only reviews and practises it. At the end of a practised line, Build from here takes you to extend it.",
+      "New Map tab on the Openings page: every opening move by move, by coverage or by your results, with your progress over time.",
+      "New My lines tab in Build: only your saved moves, written out as notation, with a note for each position.",
+      "In Train, if you play a good move that isn't your repertoire move, you can open both in Build to decide which one you want.",
+      "Spot the difference in Train: look-alike positions where your move is different, one straight after the other.",
+      "On a position you like, Build lists ways to reach it from your other openings, with Add to link them up.",
+    ],
+  },
+  {
     id: "2026-11-09x", date: "9 Nov 2026", title: "P for peers, M for masters",
     items: [
       "Played and Score are back to two lines: your peers on top, labelled P, and masters underneath in grey, labelled M.",

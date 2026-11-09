@@ -8,10 +8,15 @@
    A named entry with a single child that covers nearly all of it is folded into that child (so
    "King's Pawn Game" → "Italian Game" → "Giuoco Piano" doesn't make three nested rows of one).
    At most CAT_DEPTH levels.
-   Each entry gets: coverage (1 − the reach of the gaps under it ÷ its own reach, from
+   Each entry gets: coverage to move coverTo() (1 − the reach of the gaps under it up to that move ÷ its own reach, from
    findGaps()), my score from my games through it, my accuracy in book and just after
    (analysis v2), training cards learned and due, and a one-line comment. */
 const CAT_SPLIT = 0.2, CAT_DEPTH = 5;
+/* Coverage (v0.9.24) is counted up to a move (Settings > Building your tree, default 10): every
+   line has to stop somewhere, so gaps past that move don't count. Before, the replies after the
+   last move of every line counted as gaps, so a deep, complete-looking opening could show 0%. */
+const COVER_MOVES = 15;
+const coverTo = () => Math.max(2, Math.min(COVER_MOVES, S.settings.coverTo || 10));
 const catOpen = new Set(); // paths of expanded entries (this session)
 
 function buildCatalogue(color = S.color) {
@@ -97,11 +102,30 @@ function groupByFamily(root, color) {
    catalogueContext() gathers what all entries share (tree, gaps, games) once; statNode() does
    one entry. The page runs statNode() in small steps with a progress bar, and keeps the result
    until the tree, games, analysis or Lichess data change (catSig). */
+/* Coverage share (v0.9.24): like reach (indexTree()), but where I have several moves the games
+   are split evenly between them too, so a position with 1.e4 and 1.d4 doesn't count every game
+   twice. Gaps are rescaled to it: share(position) ÷ reach(position) × the gap's reach. */
+function coverShare(color = S.color) {
+  const { nodes } = walk(color), idx = indexTree(color), out = {}, q = [[K(START), 1]];
+  while (q.length) {
+    const [key, sh] = q.shift(), node = nodes[key];
+    if (key in out || !node) continue;
+    out[key] = sh;
+    const mine = isMine(key, color), r = idx[key] ? idx[key].reach : 0;
+    for (const kid of node.kids) {
+      const rk = idx[kid.key] ? idx[kid.key].reach : 0;
+      q.push([kid.key, mine ? sh / node.kids.length : r > 0 ? sh * Math.min(1, rk / r) : 0]);
+    }
+  }
+  return out;
+}
 function catalogueContext(color = S.color) {
   return {
     color, R: rep(color), now: Date.now(),
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
-    gaps: findGaps(color).map(g => ({ ps: g.path.join(" "), f: g.freq || 0 })),
+    cr: coverShare(color),
+    gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g) }; }); })(),
+    exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s }])),
     games: ideaGameSets(color),
   };
 }
@@ -109,13 +133,24 @@ const catUnder = (ps, x) => !ps || x === ps || x.startsWith(ps + " ");
 function statNode(c, ctx) {
   const ps = c.path.join(" ");
   const cards = ctx.tree.filter(t => catUnder(ps, t.ps)).map(t => ctx.R.cards[t.key]).filter(Boolean);
-  const gapReach = ctx.gaps.filter(g => catUnder(ps, g.ps)).reduce((s, g) => s + g.f, 0);
+  // Coverage by move (v0.9.24): curve[m] = the share of games at your level through this entry
+  // still in your prep after move m+1 (gaps at that move or before take their share off)
+  const under = ctx.gaps.filter(g => catUnder(ps, g.ps)), curve = [];
+  const share = c.path.length ? (ctx.cr[c.key] != null ? ctx.cr[c.key] : 0) : 1;
+  for (let m = 1; m <= COVER_MOVES; m++) curve.push(share > 0 ? Math.max(0, Math.min(1, 1 - under.filter(g => g.mv <= m).reduce((s, g) => s + g.f, 0) / share)) : null);
+  // My results by the move where my games through it left my prep: [{n, s}] per move
+  const exits = [];
   const me = c.path.length ? myPosStats(c.key, ctx.color) : null;
   const inb = [], post = [];
-  if (c.path.length) for (const x of ctx.games) if (x.a && x.a.v === 2 && x.keys.has(c.key)) { if (x.a.inb) inb.push(...x.a.inb); if (x.a.post) post.push(...x.a.post); }
+  for (const x of ctx.games) {
+    if (c.path.length && !x.keys.has(c.key)) continue;
+    const ex = ctx.exits.get(x.g.id);
+    if (ex && ex.s != null) { const i = Math.min(COVER_MOVES, ex.mv) - 1, e = exits[i] || (exits[i] = { n: 0, s: 0 }); e.n++; e.s += ex.s; }
+    if (c.path.length && x.a && x.a.v === 2) { if (x.a.inb) inb.push(...x.a.inb); if (x.a.post) post.push(...x.a.post); }
+  }
   const avg = a => (a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null);
   c.stats = {
-    cover: c.reach > 0 ? Math.max(0, Math.min(1, 1 - gapReach / c.reach)) : null,
+    cover: curve[coverTo() - 1], curve, exits: Array.from({ length: COVER_MOVES }, (_, i) => exits[i] || null),
     positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= ctx.now).length,
     games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
     accIn: avg(inb), accOut: avg(post),
@@ -154,7 +189,7 @@ function catComment(s) {
    data doesn't trigger that on its own (it arrives all the time): Recalculate does. */
 let catMemo = {}, catJob = null, catLoaded = {};
 const catStoreKey = color => "cat:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local") + ":" + S.book + ":" + color;
-const catSig = color => [S.book, color, walk(color).sig, bandKey(), contentSig()].join("|");
+const catSig = color => [S.book, color, walk(color).sig, bandKey(), contentSig(), coverTo()].join("|");
 const catCurrent = () => catMemo[catStoreKey(S.color)] || null;
 async function renderCatalogue(force) {
   const box = $("#catBody");
@@ -165,11 +200,11 @@ async function renderCatalogue(force) {
   if (!catMemo[sk] && !catLoaded[sk] && typeof IDB !== "undefined") {
     catLoaded[sk] = true;
     if (!box.innerHTML.trim()) box.innerHTML = `<p class="help">Loading your openings…</p>`;
-    try { const saved = await IDB.get(sk); if (saved && saved.v === 1 && saved.root && !catMemo[sk]) catMemo[sk] = saved; } catch (e) { /* worked out below */ }
+    try { const saved = await IDB.get(sk); if (saved && saved.v === 2 && saved.root && !catMemo[sk]) catMemo[sk] = saved; } catch (e) { /* worked out below */ }
     if (S.view !== "openings" || S.color !== color) return;
   }
   const sig = catSig(color), memo = catMemo[sk];
-  if (memo) drawCatalogue(memo.root, memo.targets);
+  if (memo) { drawCatalogue(memo.root, memo.targets); if (S.otab === "map") renderCoverMap(true); }
   if (memo && memo.sig === sig && !force) { catJob = null; drawCatProgress(); return; }
   if (catJob && catJob.sig === sig && catJob.sk === sk && !force) { drawCatProgress(); return; } // already on it
   startCatalogueJob(sig, color, sk);
@@ -193,10 +228,10 @@ function startCatalogueJob(sig, color, sk) {
   drawCatProgress();
   const alive = () => catJob === job;
   const finish = (root, targets) => {
-    const memo = catMemo[sk] = { v: 1, sig, root, targets, at: Date.now() };
+    const memo = catMemo[sk] = { v: 2, sig, root, targets, at: Date.now() };
     catJob = null;
     if (typeof IDB !== "undefined") IDB.set(sk, memo).catch(() => {});
-    if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); }
+    if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); if (S.otab === "map") renderCoverMap(true); }
   };
   const go = () => {
     if (!alive()) return;
@@ -212,6 +247,7 @@ function startCatalogueJob(sig, color, sk) {
       while (i < nodes.length && performance.now() < end) statNode(nodes[i++], ctx);
       job.done = i;
       if (i < nodes.length) { drawCatProgress(); setTimeout(step, 0); return; }
+      statNode(root, ctx); noteProgress(color, root.stats);
       finish(root, ideaTargets(color)); // targets once for every entry's "Typical ideas"
     };
     setTimeout(step, 0);
@@ -221,30 +257,37 @@ function startCatalogueJob(sig, color, sk) {
 function drawCatalogue(root, targets) {
   const box = $("#catBody"), C = S.color === "white" ? "White" : "Black";
   if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet. Add moves in Build, or use Build my tree from my games on the Games tab.</p>`; return; }
-  const info = branchInfo(S.color);
-  const meter = (v, label, cls = "") => `<span class="cmeter ${cls}" aria-label="${label}"><i style="width:${v == null ? 0 : Math.round(v * 100)}%"></i></span>`;
-  const entry = c => {
-    const s = c.stats, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = info[c.key] && info[c.key].cards;
+  const bi = branchInfo(S.color);
+  /* v0.9.24: compact. One line per entry: the name (up to two lines, so long names show), then
+     covered and score in fixed columns under one header; the moves, accuracy, comment and the
+     buttons are inside. Build / Train set the focus (focus.js). */
+  // A child named like its parent shows only the new part ("Accepted: King's Knight's Gambit" under King's Gambit)
+  const short = (label, parent) => {
+    if (!parent) return label;
+    for (const sep of [": ", ", ", " "]) if (label.startsWith(parent + sep) && label.length > parent.length + sep.length) return label.slice(parent.length + sep.length).replace(/^./, x => x.toUpperCase());
+    return label;
+  };
+  const entry = (c, parent) => {
+    const s = c.stats || {}, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = bi[c.key] && bi[c.key].cards;
     const scoreCls = s.score == null || s.games < 3 ? "" : s.score >= 0.55 ? "good" : s.score <= 0.42 ? "bad" : "";
-    return `<details class="cat"${open ? " open" : ""} data-catpath="${esc(ps)}">
+    const covCls = s.cover == null ? "" : s.cover < 0.6 ? "bad" : s.cover >= 0.85 ? "good" : "";
+    const focused = focusOn() && focusPath().join(" ") === ps;
+    return `<details class="cat${focused ? " focused" : ""}"${open ? " open" : ""} data-catpath="${esc(ps)}">
       <summary>
-        <span class="catname">${c.named && c.eco ? `<span class="eco">${esc(c.eco)}</span> ` : ""}${esc(c.label)}</span>
-        <span class="catline mono">${esc(numbered(0, c.path))}</span>
-        <span class="catnums">
-          <span>${meter(s.cover, `coverage ${s.cover == null ? "unknown" : pctOf(s.cover)}`, s.cover != null && s.cover < 0.6 ? "warn" : "")}<b>${s.cover == null ? "–" : pctOf(s.cover)}</b> covered</span>
-          <span class="${scoreCls}"><b>${s.score == null ? "–" : pctOf(s.score)}</b> score${s.games ? ` (${s.games})` : ""}</span>
-          <span><b>${s.accIn ?? "–"}</b> acc.</span>
-        </span>
+        <span class="catname">${esc(short(c.label, parent))}</span>
+        <span class="catn ${covCls}"><i style="width:${s.cover == null ? 0 : Math.round(s.cover * 100)}%"></i><b>${s.cover == null ? "–" : pctOf(s.cover)}</b></span>
+        <span class="catn ${scoreCls}"><b>${s.score == null ? "–" : pctOf(s.score)}</b>${s.games ? `<small>${s.games}</small>` : ""}</span>
       </summary>
       <div class="catbody">
-        <p class="help">${esc(c.comment)}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
-        <div class="row catbtns"><button type="button" class="btn ghost" data-catbuild="${esc(ps)}">Build</button><button type="button" class="btn ghost" data-cattrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train this line</button>${c.path.length && !c.other ? `<button type="button" class="btn ghost danger" data-catremove="${esc(ps)}" data-catlabel="${esc(c.label)}">Remove</button>` : ""}</div>
+        <p class="catline mono">${c.named && c.eco ? `<span class="eco">${esc(c.eco)}</span> ` : ""}${esc(numbered(0, c.path))}</p>
+        <p class="help">${esc(c.comment || "")}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
+        <div class="row catbtns"><button type="button" class="btn" data-focusbuild="${esc(ps)}">Build</button><button type="button" class="btn" data-focustrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train</button>${c.path.length && !c.other ? `<button type="button" class="btn ghost danger" data-catremove="${esc(ps)}" data-catlabel="${esc(c.label)}">Remove</button>` : ""}${info("Build and Train focus on this opening: Build's ⏮ and Gap › stay inside it, and Train's reviews and lines come only from it, until you clear the focus.", "About Build and Train")}</div>
         ${ideaBlock(ps, c.children.map(k => k.path.join(" ")), targets)}
-        ${c.children.length ? `<div class="catkids">${c.children.map(entry).join("")}</div>` : ""}
+        ${c.children.length ? `<div class="catkids">${c.children.map(k => entry(k, c.label)).join("")}</div>` : ""}
       </div>
     </details>`;
   };
-  box.innerHTML = root.children.map(entry).join("");
+  box.innerHTML = `<div class="cathead"><span>Opening</span><span>Covered${info(`To move ${coverTo()}: the share of games at your level through this opening that are still in your prep after move ${coverTo()} (Settings > Building your tree). The Map tab shows it move by move.`, "About covered")}</span><span>Score${info("Your score in your own games through this opening (win 1, draw ½), with the number of games under it.", "About score")}</span></div>` + root.children.map(c => entry(c)).join("");
 }
 /* ----- removing an opening (v0.9.8) -----
    An entry's path can start deeper than the line itself (a folded entry: the French is listed
@@ -275,7 +318,5 @@ function removeCatalogueEntry(ps, label, color = S.color) {
 }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
-onClick("catbuild", d => { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }, true);
 onClick("catremove", d => { if (removeCatalogueEntry(d.catremove, d.catlabel || d.catremove)) { catOpen.delete(d.catremove); renderCatalogue(); } });
 onClick("catrecalc", d => renderCatalogue(true), true);
-onClick("cattrain", d => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }, true);
