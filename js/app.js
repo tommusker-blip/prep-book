@@ -1634,6 +1634,7 @@ async function boot() {
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;
   // Catalogue: remember which entries are open across redraws
+  document.addEventListener("toggle", e => { if (e.target.dataset && "rkey" in e.target.dataset) lsSet("pb_legend", e.target.open ? "open" : "closed"); }, true);
   $("#catBody").addEventListener("toggle", e => { const p = e.target.dataset && e.target.dataset.catpath; if (p == null) return; if (e.target.open) catOpen.add(p); else catOpen.delete(p); }, true);
   $("#addOpenBox").addEventListener("change", e => { const v = e.target.dataset && e.target.dataset.aovar; if (v != null) aoTick(v, e.target.checked); });
   $("#pzBack").onclick = () => pzStep(-1);

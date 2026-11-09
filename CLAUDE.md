@@ -159,6 +159,13 @@ when it loads; the others just define things.
   out also dropped every line after it.
 - Build row columns are sized in `rem`, not `em` (the smaller header font made `em` columns
   narrower than the rows, so its labels overlapped).
+- Build rows (v0.9.11): the row's border and tint show its state (`.cand.prep` blue, `.gapmv` orange,
+  `.trans` dashed blue: not prepared here but it reaches a position in my tree). The move chip is a
+  uniform width and carries a chess mark (`moveMark()`: ! within `good`, ?! beyond `mistake`, ?
+  beyond twice that, !? weak but a gambit or a gem). The last column is Tags (`rowTags()`: ⚔
+  weapon, 💎 gem from `judgeMove()` or the engine-vs-peers flag, 🃏 gambit, ⇄ transposition, ⚠
+  warning; two shown, all in words when expanded); it replaced the Rep count, which is in the
+  expanded row. `rowsLegend()` is a `<details>` Key, open state in `pb_legend`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
   `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,
   beyond = weak (orange). No ✓ marks; `g` tags a weak gambit. The column key is a line

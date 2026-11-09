@@ -5,6 +5,16 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09p", date: "9 Nov 2026", title: "Clearer move rows: a key, marks and symbols",
+    items: [
+      "Each row now shows its state across the whole row: blue for your repertoire or a prepared reply, orange for a gap, and a dashed blue outline for a move that transposes into a position you've already prepared.",
+      "Moves carry chess marks for whoever is moving: ! strong, ?! dubious, ? bad, and !? for a move the engine dislikes that's a gambit or scores well at your level.",
+      "The last column is now Tags: 💎 hidden gem, ⚔ practical weapon, 🃏 gambit, ⇄ transposes into your prep, ⚠ watch out. Tap a row to read them in full.",
+      "The move buttons are all the same size.",
+      "A Key under the rows explains every colour, mark, symbol, column and board arrow. Close it once you know it; it stays closed.",
+    ],
+  },
+  {
     id: "2026-11-09o", date: "9 Nov 2026", title: "Act on suggestions directly",
     items: [
       "Openings → Suggestions: hidden gems, better-scoring alternatives, practical tricks and easy-to-remember moves now have buttons to Replace your move with the suggestion, or Add it as another option, without going to Build.",

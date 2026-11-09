@@ -528,7 +528,7 @@ label.check input{width:18px;height:18px}
 .aomain{width:100%}
 .aovar input{width:20px;height:20px}
 /* v0.9.8: named lines in the Build rows */
-.crow .cname{grid-column:1/-1;font-size:.74rem;line-height:1.2;color:var(--accent-ink);margin-top:-2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .cname{grid-column:1/-1;font-size:.74rem;line-height:1.2;color:var(--accent);font-weight:600;margin-top:-2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crow .cname .eco{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-right:2px}
 /* v0.9.8: moves from my own games on the Build board */
 .arw.games{opacity:.9}
@@ -543,3 +543,31 @@ label.check input{width:18px;height:18px}
 .sugrow{display:flex;flex-direction:column;gap:4px}
 .sugacts{margin:0 0 4px;gap:6px;flex-wrap:wrap}
 .sugin{margin:0 0 4px 8px;color:var(--good)}
+/* v0.9.11: rows show their state across the whole row, marks, tags and a visual key */
+.crow,.crow.c5{grid-template-columns:4.3rem 3.1rem minmax(0,1fr) 2.6rem minmax(0,1fr) 2.6rem}
+.cand{border:2px solid transparent;border-top-color:var(--line);margin-top:3px}
+.cand.prep{border:2px solid var(--good);background:color-mix(in srgb,var(--good) 9%,var(--surface))}
+.cand.gapmv{border:2px solid var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--surface))}
+.cand.trans{border:2px dashed var(--good);background:color-mix(in srgb,var(--good) 5%,var(--surface))}
+.cand.prep.open,.cand.gapmv.open,.cand.trans.open{background:var(--accent-soft)}
+.cand .chip{width:100%;max-width:none;padding:2px 2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:.84rem}
+.mark{font-family:var(--f-mono);font-weight:700;letter-spacing:-.06em}
+.mark.m-good{color:var(--good)} .mark.m-bad{color:var(--bad)} .mark.m-int{color:var(--gem)}
+.ctags{display:flex;gap:1px;justify-content:center;align-items:center;font-size:.9rem;line-height:1}
+.tag{display:inline-block;min-width:1.1em;text-align:center}
+.tag.t-trans{color:var(--good);font-weight:700}
+.tag.t-warn{color:var(--warn)}
+.tag.more{font-size:.7rem;color:var(--muted);font-weight:700}
+.rkey{margin-top:10px;font-size:.78rem;border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--surface)}
+.rkey summary{cursor:pointer;font-weight:600;color:var(--muted);min-height:32px;display:flex;align-items:center}
+.rkeygrid p{margin:3px 0;line-height:1.45;color:var(--ink)}
+.rkeygrid .rk-h{margin-top:8px;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.rkeygrid .tag{margin-right:2px}
+.sw{display:inline-block;width:1.4em;height:.95em;border-radius:4px;vertical-align:-1px;margin:0 5px 0 0;border:2px solid transparent}
+.sw-prep{border-color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--surface))}
+.sw-gap{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+.sw-trans{border:2px dashed var(--good)}
+.sw-gem{background:var(--gem)} .sw-other{background:var(--other)}
+.sw-games{border:0;height:0;border-top:2px dashed var(--ink);vertical-align:3px}
+@media (max-width:420px){.crow,.crow.c5{grid-template-columns:3.6rem 2.75rem minmax(0,.8fr) 2.3rem minmax(0,1.2fr) 1.9rem;gap:3px}.cand .chip{font-size:.8rem}.chead{font-size:.6rem;letter-spacing:0}.ctags{font-size:.8rem}.cyou,.cscore,.cpeer{font-size:.8rem}}
+.sw-a-good{background:var(--good)} .sw-a-gap{background:var(--warn)}

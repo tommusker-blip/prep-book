@@ -70,7 +70,7 @@ const Tip = {
 /* ----- engine evals for the rows (through the job queue) -----
    By default each row gets a quick eval (depth 10: a few hundredths of a second per position on a
    PC), which keeps Build light on a phone. "Deeper analysis" asks for depth 14 for every row and
-   the follow-ups (the Rep column: MultiPV and the Lichess replies after each move). Deeper
+   the follow-ups (the ⚔ tag: MultiPV and the Lichess replies after each move). Deeper
    results already in the cache or the database are always used. */
 const QUICK_DEPTH = 10, DEEP_DEPTH = 14;
 const deepKeys = new Set(); // positions where I asked for deeper analysis (this session)
@@ -170,10 +170,10 @@ function strengthOf(e) {
   return { k: "s-weak", t: "weak" };
 }
 const evalText = e => (e.mate ? (e.white > 0 ? "+M" : "−M") : pawns(e.white));
-function engineCell(e, gambit) {
+function engineCell(e) {
   if (!e) return Engine.failed ? "–" : `<span class="muted">…</span>`;
   const s = strengthOf(e);
-  return `<span class="ev ${s.k}" aria-label="${evalText(e)}${s.t ? ", " + s.t : ""}">${evalText(e)}</span>${gambit ? `<span class="gtag" aria-label="a gambit">g</span>` : ""}`;
+  return `<span class="ev ${s.k}" aria-label="${evalText(e)}${s.t ? ", " + s.t : ""}">${evalText(e)}</span>`;
 }
 function candRow(fen, key, c, ex, path) {
   const myTurn = isMine(key, S.color), e = engineFor(fen, key, c.san);
@@ -188,20 +188,22 @@ function candRow(fen, key, c, ex, path) {
   // Item 7: how many good replies, and how often peers find one
   const fu = myTurn ? followups(fen, c.san) : null, weapon = isWeapon(fu, e);
   if (weapon && !flag) { flag = "gem"; flagText = `A practical weapon: only ${fu.good.join(" or ")} keep${fu.count === 1 ? "s" : ""} your opponent level, and players at your level find ${fu.count === 1 ? "it" : "one"} ${pctOf(fu.find)} of the time`; }
-  // One line per row: Prepared / Yours / Gap is the chip's colour, and on my turn the number of
-  // good replies has its own narrow column (purple for a practical weapon)
-  const state = c.prep ? "prep" : !myTurn ? "gapmv" : "";
-  const stateText = c.prep ? (myTurn ? "in your repertoire" : "prepared") : !myTurn ? "not prepared (a gap)" : "";
-  const rep = !myTurn ? "" : fu && fu.label
-    ? `<span class="crep${weapon ? " weapon" : ""}" aria-label="${esc(fu.label)}: ${fu.count} good repl${fu.count === 1 ? "y" : "ies"}">${fu.count >= MPV_N ? MPV_N + "+" : fu.count}</span>`
-    : `<span class="crep muted">${!Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX ? "…" : "–"}</span>`;
-  const head = `<div class="crow${myTurn ? " c5" : ""}">
-      <span class="cmove"><button type="button" class="chip ${state}" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${stateText ? ", " + stateText : ""}">${esc(c.san)}</button></span>
-      <span class="ceng">${engineCell(e, myTurn && strengthOf(e).k === "s-weak" && isGambit(fen, c.san))}</span>
+  /* v0.9.11: the whole row shows its state (blue: in my repertoire or prepared; orange: a gap;
+     dashed blue: not linked here but it transposes into a position I've prepared), the move
+     carries a chess mark (moveMark()), and the Tags column has symbols (rowTags()). */
+  const after = fenAfter(fen, [c.san]), trans = !c.prep && !!after && !!walk(S.color).nodes[K(after)];
+  const state = c.prep ? "prep" : trans ? "trans" : !myTurn ? "gapmv" : "";
+  const stateText = c.prep ? (myTurn ? "in your repertoire" : "prepared") : trans ? "transposes into your prep" : !myTurn ? "not prepared (a gap)" : "";
+  const gambit = isGambit(fen, c.san), peerGem = myTurn && c.peer && ex && ex.total ? judgeMove(c.peer, ex, S.color, (n => (n ? n.m : []))(rep(S.color).pos[key])) : null;
+  const tags = rowTags({ weapon, fu, gem: flag === "gem" && !weapon ? flagText : peerGem ? (peerGem === "gem" ? "A hidden gem: rarely played at your level, but it scores well" : "Scores better at your level than your move here") : "", gambit, trans, warn: flag === "warn" ? flagText : "" });
+  const mark = moveMark(e, gambit || !!peerGem || flag === "gem");
+  const head = `<div class="crow c5">
+      <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${mark.t ? ", " + mark.t : ""}${stateText ? ", " + stateText : ""}">${esc(c.san)}<span class="mark ${mark.k}">${mark.s}</span></button></span>
+      <span class="ceng">${engineCell(e)}</span>
       <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}</span>
       <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
-      <span class="cyou">${c.mine ? `${c.mine.n} · ${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
-      ${rep}
+      <span class="cyou">${c.mine ? `${c.mine.n}·${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
+      <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       ${namedLine(fen, c.san, path)}
     </div>`;
   let detail = "";
@@ -222,7 +224,7 @@ function candRow(fen, key, c, ex, path) {
     ].filter(Boolean).join(" · ");
     detail = `<div class="cdetail">
       <p class="help cfull">${full}</p>
-      ${flagText ? `<p class="flagtext">${esc(flagText)}</p>` : ""}
+      ${tags.words.length ? tags.words.map(w => `<p class="flagtext">${w}</p>`).join("") : ""}
       <div class="cbars"><span class="lbl">Peers</span>${c.peer ? barFor(peerWdl(c.peer), "Peers at your level") + `<span class="help">${wdlLine(peerWdl(c.peer))}</span>` : `<span class="help">No peer games with this move</span>`}</div>
       <div class="cbars"><span class="lbl">You</span>${c.mine ? barFor(c.mine, "Your games") + `<span class="help">${wdlLine(c.mine)}</span>` : `<span class="help">Not in your games</span>`}</div>
       ${b ? `<p class="help">Expected score for you: <b>${pctOf(b.score)}</b> (${esc(b.basis)})</p>` : ""}
@@ -231,7 +233,7 @@ function candRow(fen, key, c, ex, path) {
       ${fu && fu.good ? `<p class="help">Good replies for your opponent (within ${(adv().good / 100).toFixed(1)} of their best): <b>${fu.good.map(esc).join(", ")}</b> (${fu.label.toLowerCase()})${fu.find != null ? ` · players at your level find one ${pctOf(fu.find)} of the time (n = ${nOf(fu.exA.total)})` : ""}</p>` : ""}
     </div>`;
   }
-  return `<div class="cand${open ? " open" : ""}${flag ? " " + flag : ""}" data-cand="${esc(c.san)}" role="button" tabindex="0" aria-expanded="${open}">${head}${detail}</div>`;
+  return `<div class="cand${open ? " open" : ""}${state ? " " + state : ""}" data-cand="${esc(c.san)}" role="button" tabindex="0" aria-expanded="${open}">${head}${detail}</div>`;
 }
 // The summary line for the position (item 5): my result here against the peers', and the engine
 function positionSummary(fen, key, ex) {
@@ -280,19 +282,17 @@ function candRows(fen, key, n, path) {
   const lossOf = c => { const e = engineFor(fen, key, c.san); return e && e.loss != null ? e.loss : null; };
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
-  // Column key: written out under the rows rather than behind an ⓘ in the header
-  const legend = `<p class="help legend"><b>Eval</b> + good for White, − for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); colour compares the move with the best here: <span class="ev s-good">strong</span>, <span class="ev s-ok">playable</span>, <span class="ev s-weak">weak</span>${myTurn ? "; g a gambit" : ""}. <b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""}. <b>Score</b> your colour's score after it. <b>You</b> your games · score.${myTurn ? " <b>Rep</b> good replies left for your opponent; purple is a practical weapon." : ""} Outline: blue ${myTurn ? "in your repertoire" : "prepared"}${myTurn ? "" : ", orange not prepared"}. Names in blue: the move reaches a named opening line.${myTurn ? " Dashed arrows on the board: what you usually play here in your games." : ""} Tap a row for all its numbers.</p>`;
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
+      <div class="crow chead c5"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span><span>Tags</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
-    </div>${weakRow}${deepRow(fen, key, all, myTurn)}${legend}`;
+    </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }
 // Under the rows: the "Deeper analysis" button, or progress while it runs
 function deepRow(fen, key, list, myTurn) {
   if (Engine.failed) return "";
   const pending = rowsPending(fen, key, list);
   if (deepKeys.has(key)) return pending ? `<p class="help deeprow" aria-live="polite">Analysing deeper…</p>` : "";
-  return `<div class="row deeprow"><button type="button" class="btn ghost" data-deep>Deeper analysis</button>${info(`Each move gets a quick engine check (depth ${QUICK_DEPTH}) so Build stays fast. Deeper analysis checks every move at depth ${DEEP_DEPTH}${myTurn ? " and works out the Rep column: how many good replies your opponent has after each of your top moves, and how often players at your level find them" : ""}. It takes a few seconds, longer on a phone.`, "About deeper analysis")}</div>`;
+  return `<div class="row deeprow"><button type="button" class="btn ghost" data-deep>Deeper analysis</button>${info(`Each move gets a quick engine check (depth ${QUICK_DEPTH}) so Build stays fast. Deeper analysis checks every move at depth ${DEEP_DEPTH}${myTurn ? " and looks for practical weapons (⚔): how many good replies your opponent has after each of your top moves, and how often players at your level find them" : ""}. It takes a few seconds, longer on a phone.`, "About deeper analysis")}</div>`;
 }
 /* ----- "Fits your prep" for a candidate of mine (v0.9.7) -----
    The synergy score from ideas.js (memorability()): the chance of transposing into my lines
@@ -342,4 +342,63 @@ function gameMovesHere(key, color = S.color) {
   if (!mv) return [];
   const list = Object.entries(mv).map(([san, s]) => ({ san, n: s.n })), total = list.reduce((s, x) => s + x.n, 0);
   return list.filter(x => x.n >= 2 && x.n / total >= 0.15).sort((a, b) => b.n - a.n).slice(0, 3).map(x => ({ ...x, f: x.n / total }));
+}
+/* ----- marks and tags (v0.9.11) -----
+   The mark on the move is the chess annotation for whoever is moving, from the engine loss
+   against the best move: ! strong (within the good margin), none for playable, ?! weak (beyond
+   the mistake margin), ? bad (beyond twice that), and !? for a move the engine rates weak that
+   is a gambit or scores well at my level. */
+function moveMark(e, interesting) {
+  if (!e || e.loss == null) return { s: "", k: "", t: "" };
+  const a = adv();
+  if (e.loss <= a.good) return { s: "!", k: "m-good", t: "strong" };
+  if (e.loss <= a.mistake) return { s: "", k: "", t: "playable" };
+  if (interesting) return { s: "!?", k: "m-int", t: "interesting: weak for the engine, but a gambit or it scores well" };
+  return e.loss > 2 * a.mistake ? { s: "?", k: "m-bad", t: "bad" } : { s: "?!", k: "m-bad", t: "dubious" };
+}
+// The Tags column: ⚔ practical weapon, 💎 hidden gem / scores well, 🃏 gambit, ⇄ transposes
+// into my prep, ⚠ the sources disagree against me. At most two symbols in the row; all of them,
+// in words, in the expanded row.
+const TAGS = {
+  weapon: { s: "⚔", t: "Practical weapon" }, gem: { s: "💎", t: "Hidden gem" }, gambit: { s: "🃏", t: "Gambit" },
+  trans: { s: "⇄", t: "Transposes into your prep" }, warn: { s: "⚠", t: "Watch out" },
+};
+function rowTags(o) {
+  const list = [];
+  if (o.weapon) list.push(["weapon", `⚔ A practical weapon: only ${o.fu.good.map(esc).join(" or ")} keep${o.fu.count === 1 ? "s" : ""} your opponent level, and players at your level find ${o.fu.count === 1 ? "it" : "one"} ${pctOf(o.fu.find)} of the time.`]);
+  if (o.gem) list.push(["gem", `💎 ${esc(o.gem)}.`]);
+  if (o.warn) list.push(["warn", `⚠ ${esc(o.warn)}.`]);
+  if (o.trans) list.push(["trans", "⇄ Leads into a position you've already prepared, by another move order."]);
+  if (o.gambit) list.push(["gambit", "🃏 A gambit: material for time or attack."]);
+  const shown = list.slice(0, 2);
+  return {
+    html: shown.map(([k]) => `<span class="tag t-${k}" aria-label="${TAGS[k].t}">${TAGS[k].s}</span>`).join("") + (list.length > 2 ? `<span class="tag more" aria-label="more tags">+</span>` : ""),
+    words: list.map(x => x[1]),
+  };
+}
+// The key under the rows: open by default, and remembered when closed
+function rowsLegend(myTurn, ex) {
+  const a = adv(), p = x => (x / 100).toFixed(1);
+  const open = lsGet("pb_legend", "open") === "open";
+  return `<details class="rkey"${open ? " open" : ""} data-rkey><summary>Key</summary>
+    <div class="rkeygrid">
+      <p class="rk-h">Rows</p>
+      <p><span class="sw sw-prep"></span>${myTurn ? "In your repertoire" : "A reply you've prepared"}</p>
+      ${myTurn ? "" : `<p><span class="sw sw-gap"></span>A gap: a reply you haven't prepared</p>`}
+      <p><span class="sw sw-trans"></span>Transposes into a position you've prepared</p>
+      <p class="rk-h">Marks on the move (for whoever is moving)</p>
+      <p><b class="mark m-good">!</b> strong: within ${p(a.good)} of the best · no mark: playable</p>
+      <p><b class="mark m-bad">?!</b> dubious: over ${p(a.mistake)} worse · <b class="mark m-bad">?</b> bad: over ${p(2 * a.mistake)} worse</p>
+      <p><b class="mark m-int">!?</b> interesting: weak for the engine, but a gambit or it scores well</p>
+      <p class="rk-h">Tags</p>
+      ${myTurn ? `<p><span class="tag">💎</span> hidden gem: rarely played, or the engine likes it less, but it scores well at your level</p>
+      <p><span class="tag">⚔</span> practical weapon: your opponent has only 1 or 2 good replies and often misses them (after Deeper analysis)</p>` : ""}
+      <p><span class="tag">🃏</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
+      <p class="rk-h">Columns</p>
+      <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
+      <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Score</b> your colour's score after it · <b>You</b> your games · your score</p>
+      <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
+      <p class="rk-h">Arrows on the board</p>
+      <p><span class="sw sw-a-good"></span>yours <span class="sw sw-a-gap"></span>a gap <span class="sw sw-gem"></span>gem or better-scoring <span class="sw sw-other"></span>other common moves${myTurn ? ` <span class="sw sw-games"></span>what you play in your games` : ""}</p>
+    </div></details>`;
 }

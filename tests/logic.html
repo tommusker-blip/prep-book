@@ -600,6 +600,20 @@ t("catalogue: removing an entry takes out its line, and Undo puts it back", () =
     eq(undoCatalogueRemove(), false, "only once");
   } finally { window.confirm = keep; }
 });
+t("rows: marks on the move, tags, and transpositions", () => {
+  reset(); resetEx(); S.color = "white"; S.settings.adv = undefined;
+  eq(moveMark({ loss: 20 }).s, "!"); eq(moveMark({ loss: 100 }).s, ""); eq(moveMark({ loss: 200 }).s, "?!");
+  eq(moveMark({ loss: 400 }).s, "?"); eq(moveMark({ loss: 200 }, true).s, "!?", "weak but a gambit or a gem");
+  eq(rowTags({ gambit: true, trans: true, weapon: false }).html.includes("🃏"), true);
+  line("white", "e4 e5 Nf3"); line("white", "Nf3 e5");
+  // After 1.Nf3 e5 I have no move yet, but 2.e4 reaches 1.e4 e5 2.Nf3, which is in my tree
+  const fen = fenAfter(START, ["Nf3", "e5"]), key = K(fen);
+  setEx("Nf3 e5", 1000, 400, 100, 500, [mv("e4", 500, 200, 50, 250), mv("d4", 300, 120, 30, 150)]);
+  const html = candRows(fen, key, rep("white").pos[key], ["Nf3", "e5"]);
+  eq(/class="cand trans" data-cand="e4"/.test(html), true, "2.e4 transposes");
+  eq(/class="cand" data-cand="d4"/.test(html), true, "2.d4 doesn't");
+  eq(html.includes("⇄"), true);
+});
 t("rows: named lines, and the moves I usually play", () => {
   reset(); S.color = "white";
   const fen = fenAfter(START, ["e4"]);
