@@ -493,3 +493,6 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .ideablock{margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--line)}
 .ideablock .gaplist{margin:4px 0 6px}
 #ideaBody .gaplist,.ideablock .gaplist{display:flex;flex-direction:column;gap:6px;padding:0;list-style:none}
+.warnt{color:var(--warn);font-weight:600}
+label.check{display:flex;align-items:center;gap:8px;font-size:.88rem}
+label.check input{width:18px;height:18px}

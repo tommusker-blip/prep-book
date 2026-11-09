@@ -148,6 +148,8 @@ when it loads; the others just define things.
   `maxLoss` cp at depth 12; on the opponent's turn, every reply seen `minGames` times.
   Existing moves are kept and followed. The plan is previewed, then `applyAutoBuild()`.
   Options in `S.settings.autobuild`.
+  Since v0.9.6 a poor score only flags the move (`poor`) unless `strictScore`: leaving it
+  out also dropped every line after it.
 - Build row columns are sized in `rem`, not `em` (the smaller header font made `em` columns
   narrower than the rows, so its labels overlapped).
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
@@ -166,6 +168,11 @@ when it loads; the others just define things.
   labelled by its moves, and nesting stops at `CAT_DEPTH`. `catalogueStats()` adds coverage
   (1 − gap reach ÷ reach), score, accuracy in and after book, cards, and `catComment()`.
   Build and Train this line (practice root) buttons per entry.
+  v0.9.6: the top level is grouped by family (`groupByFamily()`): generic names in
+  `CAT_GENERIC` (King's Pawn Game…) are replaced by their children, entries of one family share
+  a group starting where their moves part, and children drop the parent's name prefix. The page
+  is cached (`catMemo`, keyed by `catSig()`: book, colour, tree, games, analysis, explorer
+  data) and built in steps (`statNode()`) with a progress bar; idea targets are worked out once.
 - Idea lines (v0.9.5), an add-on kept out of the repertoire and cards:
   - `js/structures.js`: about 20 pawn structures matched on pawns alone (`structureOf()`,
     first match wins), each with plans for both sides and its break squares.

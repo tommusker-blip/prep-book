@@ -1,17 +1,19 @@
 "use strict";
 /* ---------- auto-build the repertoire from my games (v0.9.1) ----------
    Walks my games for one colour, move by move from the start, and proposes a tree:
-   - my turn: the moves I've played there at least `minGames` times. One is added if my score
-     with it is at least `minScore` and Stockfish (depth AB_DEPTH) says it gives up at most
-     `maxLoss` centipawns against the best move. If several pass, the most played one. Moves
-     that fail are listed with the reason. Where the repertoire already has a move of mine, it's
-     kept and followed (nothing is replaced).
+   - my turn: the moves I've played there at least `minGames` times. The most played one that
+     Stockfish (depth AB_DEPTH) says gives up at most `maxLoss` centipawns against the best
+     move is added. If my score with it is under `minScore` it's still added but flagged
+     (`poor`), since leaving it out would also drop every line after it (v0.9.6); with
+     `strictScore` it's left out instead, as before. Moves that are left out are listed with
+     the reason. Where the repertoire already has a move of mine, it's kept and followed
+     (nothing is replaced).
    - the opponent's turn: every reply that came up at least `minGames` times.
    It stops after `plies` half-moves, or when fewer than `minGames` games reach a position.
    The result is a plan to preview; applyAutoBuild() adds it. Games are followed by their move
    order, so a transposition in my games counts under the order it was played in. */
 const AB_DEPTH = 12;
-const abDefaults = () => ({ minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+const abDefaults = () => ({ minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20, strictScore: false });
 const abOpts = () => ({ ...abDefaults(), ...(S.settings.autobuild || {}) });
 const AB = { running: false, stop: false, checks: 0, plan: null, color: null };
 
@@ -51,12 +53,15 @@ async function planAutoBuild(color, opts = abOpts(), onTick = () => {}) {
       }
       for (const [s, a] of often) {
         const score = scoreOf(a);
-        if (score != null && score < opts.minScore) { plan.skipped.push({ path, san: s, games: a.length, score, why: "results" }); continue; }
+        const poor = score != null && score < opts.minScore;
+        // Poor results only rule a move out when asked (strictScore): ruling it out also drops every
+        // line after it, and the score of a whole game says little about one early move
+        if (poor && opts.strictScore) { plan.skipped.push({ path, san: s, games: a.length, score, why: "results" }); continue; }
         const loss = await moveLoss(fen, s);
         onTick(plan);
         if (AB.stop) break;
         if (loss != null && loss > opts.maxLoss) { plan.skipped.push({ path, san: s, games: a.length, score, loss, why: "engine" }); continue; }
-        plan.adds.push({ mine: true, path, san: s, games: a.length, score, loss });
+        plan.adds.push({ mine: true, path, san: s, games: a.length, score, loss, poor });
         queue.push({ path: [...path, s], gs: a });
         break; // one move of mine per position
       }

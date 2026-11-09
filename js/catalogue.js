@@ -50,41 +50,83 @@ function buildCatalogue(color = S.color) {
   fold(root);
   // A child named the same as its parent (the dataset reuses names) is labelled by its moves
   const relabel = c => c.children.forEach(k => {
-    if (k.label === c.label) { k.label = numbered(c.path.length, k.path.slice(c.path.length)); k.named = false; }
+    if (k.named && k.name === c.name) { k.label = numbered(c.path.length, k.path.slice(c.path.length)); k.named = false; }
+    else if (k.named && c.name && (k.name.startsWith(c.name + ": ") || k.name.startsWith(c.name + ", "))) k.label = k.name.slice(c.name.length + 2); // "Sicilian Defence: Open" under "Sicilian Defence" reads "Open"
     relabel(k);
   });
   relabel(root);
+  groupByFamily(root, color);
   const sortKids = c => { c.children.sort((a, b) => b.reach - a.reach); c.children.forEach(sortKids); };
   sortKids(root);
   return root;
 }
+/* ----- top level by opening family (v0.9.6) -----
+   The tree starts from the first move, so on its own everything sits under "King's Pawn Game"
+   or "Queen's Pawn Game". Generic move-order names like those are skipped (their entries are
+   replaced by their children), then the top level is grouped by family, the part of the name
+   before the colon: "Sicilian Defence: Open" and "Sicilian Defence: Alapin" go under one
+   "Sicilian Defence" entry, starting where their moves part. Lines of mine left only in a
+   generic entry are kept as "<name>: other lines". */
+const CAT_GENERIC = /^(King's Pawn Game|Queen's Pawn Game|King's Knight Opening|Queen's Knight Opening|Indian Defence|Zukertort Opening|Van't Kruijs Opening|Mieses Opening)$/;
+const familyOf = c => { const n = c.named ? c.name : ((openingFor(c.path) || {}).name || ""); return n.split(":")[0].trim(); };
+function groupByFamily(root, color) {
+  const { nodes } = walk(color);
+  // Line ends (leaves of the tree) under a path: a generic entry keeps an "other lines" entry
+  // only for lines that end outside all of its children, not for the moves leading into them
+  const endsUnder = ps => Object.values(nodes).filter(v => { const p = v.path.join(" "); return !v.kids.length && (p === ps || p.startsWith(ps + " ")); }).length;
+  const promote = list => list.flatMap(c => {
+    if (!CAT_GENERIC.test(familyOf(c)) || !c.children.length) return [c];
+    const kids = promote(c.children), own = endsUnder(c.path.join(" ")) - c.children.reduce((s, k) => s + endsUnder(k.path.join(" ")), 0);
+    return own > 0 ? [...kids, { ...c, children: [], label: `${familyOf(c)}: other lines` }] : kids;
+  });
+  const top = promote(root.children), fams = new Map();
+  for (const c of top) { const f = familyOf(c) || c.label; if (!fams.has(f)) fams.set(f, []); fams.get(f).push(c); }
+  root.children = [...fams.entries()].map(([f, list]) => {
+    if (list.length === 1) return list[0];
+    // several entries of one family: a group starting where their moves part
+    let n = 0;
+    while (list.every(c => c.path.length > n && c.path[n] === list[0].path[n])) n++;
+    const path = list[0].path.slice(0, n), key = K(fenAfter(START, path));
+    const b = bookName(key);
+    list.forEach(c => { if (c.label.startsWith(f + ": ")) c.label = c.label.slice(f.length + 2); });
+    return { path, key, label: f, name: f, eco: (b && b.eco) || list[0].eco, named: true, reach: list.reduce((s, c) => s + c.reach, 0), children: list, depth: 1 };
+  });
+}
 
-// Numbers for every entry, worked out once per render
-function catalogueStats(root, color = S.color) {
-  const R = rep(color), idx = indexTree(color), now = Date.now();
-  const tree = Object.entries(idx).map(([key, v]) => ({ key, ps: v.path.join(" ") }));
-  const gaps = findGaps(color).map(g => ({ ps: g.path.join(" "), f: g.freq || 0 }));
-  const games = S.games.filter(g => g.my === color).map(g => ({ g, keys: new Set(gameKeys(g)), a: S.acc[g.id] }));
-  const under = (ps, x) => !ps || x === ps || x.startsWith(ps + " ");
-  const stat = c => {
-    const ps = c.path.join(" ");
-    const pos = tree.filter(t => under(ps, t.ps));
-    const cards = pos.map(t => R.cards[t.key]).filter(Boolean);
-    const gapReach = gaps.filter(g => under(ps, g.ps)).reduce((s, g) => s + g.f, 0);
-    const me = c.path.length ? myPosStats(c.key, color) : null;
-    const inb = [], post = [];
-    if (c.path.length) for (const x of games) if (x.a && x.a.v === 2 && x.keys.has(c.key)) { if (x.a.inb) inb.push(...x.a.inb); if (x.a.post) post.push(...x.a.post); }
-    const avg = a => (a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null);
-    c.stats = {
-      cover: c.reach > 0 ? Math.max(0, Math.min(1, 1 - gapReach / c.reach)) : null,
-      positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= now).length,
-      games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
-      accIn: avg(inb), accOut: avg(post),
-    };
-    c.comment = catComment(c.stats);
-    c.children.forEach(stat);
+/* ----- numbers for every entry -----
+   catalogueContext() gathers what all entries share (tree, gaps, games) once; statNode() does
+   one entry. The page runs statNode() in small steps with a progress bar, and keeps the result
+   until the tree, games, analysis or Lichess data change (catSig). */
+function catalogueContext(color = S.color) {
+  return {
+    color, R: rep(color), now: Date.now(),
+    tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
+    gaps: findGaps(color).map(g => ({ ps: g.path.join(" "), f: g.freq || 0 })),
+    games: ideaGameSets(color),
   };
-  root.children.forEach(stat);
+}
+const catUnder = (ps, x) => !ps || x === ps || x.startsWith(ps + " ");
+function statNode(c, ctx) {
+  const ps = c.path.join(" ");
+  const cards = ctx.tree.filter(t => catUnder(ps, t.ps)).map(t => ctx.R.cards[t.key]).filter(Boolean);
+  const gapReach = ctx.gaps.filter(g => catUnder(ps, g.ps)).reduce((s, g) => s + g.f, 0);
+  const me = c.path.length ? myPosStats(c.key, ctx.color) : null;
+  const inb = [], post = [];
+  if (c.path.length) for (const x of ctx.games) if (x.a && x.a.v === 2 && x.keys.has(c.key)) { if (x.a.inb) inb.push(...x.a.inb); if (x.a.post) post.push(...x.a.post); }
+  const avg = a => (a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null);
+  c.stats = {
+    cover: c.reach > 0 ? Math.max(0, Math.min(1, 1 - gapReach / c.reach)) : null,
+    positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= ctx.now).length,
+    games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
+    accIn: avg(inb), accOut: avg(post),
+  };
+  c.comment = catComment(c.stats);
+}
+const catNodes = root => { const out = [], walkC = c => { out.push(c); c.children.forEach(walkC); }; root.children.forEach(walkC); return out; };
+// All at once (tests, and small trees)
+function catalogueStats(root, color = S.color) {
+  const ctx = catalogueContext(color);
+  catNodes(root).forEach(c => statNode(c, ctx));
   return root;
 }
 // One plain sentence about an entry
@@ -104,18 +146,55 @@ function catComment(s) {
   return parts.join("; ").replace(/^./, x => x.toUpperCase()) + "." + (advice ? " " + advice : "");
 }
 
-/* ----- the page ----- */
+/* ----- the page -----
+   Kept until the tree, games, analysis or Lichess data change (catSig), so coming back to the
+   page is instant. Otherwise it's worked out in small steps with a progress bar. */
+let catMemo = { sig: "", root: null, targets: [] }, catJob = null;
+const catSig = color => [S.book, color, repSig(color), S.games.length, Object.keys(S.acc).length, explVer].join("|");
 function renderCatalogue() {
   const box = $("#catBody");
   if (!box) return;
   const C = S.color === "white" ? "White" : "Black";
   $("#catHead").textContent = `Your ${C} openings · ${prepBookName()}`;
-  if (warming || S.games.some(g => !GAMEKEYS.has(g.id))) { // game positions first (like the report)
-    box.innerHTML = `<p class="help">Reading your games…</p>`;
-    warmGameKeys(() => { if (S.view === "openings") renderCatalogue(); });
-    return;
-  }
-  const root = catalogueStats(buildCatalogue(S.color), S.color);
+  const sig = catSig(S.color);
+  if (catMemo.sig === sig && catMemo.root) { drawCatalogue(catMemo.root, catMemo.targets); return; }
+  if (catJob && catJob.sig === sig) { drawCatProgress(); return; } // already on it
+  startCatalogueJob(sig, S.color);
+}
+function drawCatProgress() {
+  const box = $("#catBody"), j = catJob;
+  if (!box || !j || S.view !== "openings") return;
+  box.innerHTML = `<p class="help" aria-live="polite">${esc(j.step)}${j.total ? ` ${j.done} of ${j.total}` : ""}</p><progress max="${j.total || 1}" value="${j.done}"></progress>`;
+}
+function startCatalogueJob(sig, color) {
+  const job = catJob = { sig, step: "Reading your games…", done: 0, total: 0 };
+  drawCatProgress();
+  const alive = () => catJob === job;
+  const go = () => {
+    if (!alive()) return;
+    const root = buildCatalogue(color), nodes = catNodes(root);
+    if (!nodes.length) { catMemo = { sig, root, targets: [] }; catJob = null; if (S.view === "openings") drawCatalogue(root, []); return; }
+    const ctx = catalogueContext(color);
+    Object.assign(job, { step: "Working out your openings…", done: 0, total: nodes.length });
+    drawCatProgress();
+    let i = 0;
+    const step = () => {
+      if (!alive()) return;
+      const end = performance.now() + 25;
+      while (i < nodes.length && performance.now() < end) statNode(nodes[i++], ctx);
+      job.done = i;
+      if (i < nodes.length) { drawCatProgress(); setTimeout(step, 0); return; }
+      const targets = ideaTargets(color); // once for every entry's "Typical ideas"
+      catMemo = { sig, root, targets };
+      catJob = null;
+      if (S.view === "openings" && S.color === color) drawCatalogue(root, targets);
+    };
+    setTimeout(step, 0);
+  };
+  if (warming || S.games.some(g => !GAMEKEYS.has(g.id))) warmGameKeys(() => setTimeout(go, 0)); else setTimeout(go, 0);
+}
+function drawCatalogue(root, targets) {
+  const box = $("#catBody"), C = S.color === "white" ? "White" : "Black";
   if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet. Add moves in Build, or use Build my tree from my games on the Games tab.</p>`; return; }
   const info = branchInfo(S.color);
   const meter = (v, label, cls = "") => `<span class="cmeter ${cls}" aria-label="${label}"><i style="width:${v == null ? 0 : Math.round(v * 100)}%"></i></span>`;
@@ -124,7 +203,7 @@ function renderCatalogue() {
     const scoreCls = s.score == null || s.games < 3 ? "" : s.score >= 0.55 ? "good" : s.score <= 0.42 ? "bad" : "";
     return `<details class="cat"${open ? " open" : ""} data-catpath="${esc(ps)}">
       <summary>
-        <span class="catname">${c.named ? `<span class="eco">${esc(c.eco)}</span> ` : ""}${esc(c.label)}</span>
+        <span class="catname">${c.named && c.eco ? `<span class="eco">${esc(c.eco)}</span> ` : ""}${esc(c.label)}</span>
         <span class="catline mono">${esc(numbered(0, c.path))}</span>
         <span class="catnums">
           <span>${meter(s.cover, `coverage ${s.cover == null ? "unknown" : pctOf(s.cover)}`, s.cover != null && s.cover < 0.6 ? "warn" : "")}<b>${s.cover == null ? "–" : pctOf(s.cover)}</b> covered</span>
@@ -135,7 +214,7 @@ function renderCatalogue() {
       <div class="catbody">
         <p class="help">${esc(c.comment)}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
         <div class="row catbtns"><button type="button" class="btn ghost" data-catbuild="${esc(ps)}">Build</button><button type="button" class="btn ghost" data-cattrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train this line</button></div>
-        ${ideaBlock(ps, c.children.map(k => k.path.join(" ")))}
+        ${ideaBlock(ps, c.children.map(k => k.path.join(" ")), targets)}
         ${c.children.length ? `<div class="catkids">${c.children.map(entry).join("")}</div>` : ""}
       </div>
     </details>`;

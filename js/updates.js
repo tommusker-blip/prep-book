@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09k", date: "9 Nov 2026", title: "Faster Openings tab, grouped by name",
+    items: [
+      "The Openings tab is kept once worked out, so coming back to it is instant. When something has changed, a progress bar shows while it updates.",
+      "The top level is now grouped by opening name (Italian Game, Ruy Lopez, Sicilian Defence…) instead of starting with 1.e4. Variations sit under their family, without repeating its name.",
+      "Build my tree from my games no longer drops a line because you score badly with an early move: the move is added and flagged in orange, so the prep after it is kept. Run it again to fill in what was missed. A tick box brings back the old behaviour.",
+    ],
+  },
+  {
     id: "2026-11-09j", date: "9 Nov 2026", title: "Idea lines: deeper lines with the plan behind them",
     items: [
       "New on the Train page, Ideas worth learning: deeper model lines from where your prep ends, in the lines your games actually reach, worst accuracy after book first.",

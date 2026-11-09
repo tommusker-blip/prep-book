@@ -1312,7 +1312,7 @@ function renderAutoBuild() {
   const p = AB.plan && AB.plan.color === S.color ? AB.plan : null;
   if (p) {
     const myAdds = p.adds.filter(a => a.mine), opp = p.adds.length - myAdds.length;
-    const row = a => `<li><span class="mono">${esc(numbered(0, a.path.concat(a.san)))}</span> <span class="help">${a.games} games · you score ${a.score == null ? "–" : pctOf(a.score)}${a.loss != null ? ` · engine −${(a.loss / 100).toFixed(1)}` : ""}${a.why ? ` · ${a.why === "engine" ? "dubious for the engine" : "results too poor"}` : ""}</span></li>`;
+    const row = a => `<li><span class="mono">${esc(numbered(0, a.path.concat(a.san)))}</span> <span class="help">${a.games} games · you score ${a.score == null ? "–" : pctOf(a.score)}${a.loss != null ? ` · engine −${(a.loss / 100).toFixed(1)}` : ""}${a.poor ? ` · <span class="warnt">you score under ${Math.round(abOpts().minScore * 100)}% with it: worth a look</span>` : ""}${a.why ? ` · ${a.why === "engine" ? "dubious for the engine" : "results too poor"}` : ""}</span></li>`;
     box.innerHTML = `<p class="possum">${p.stopped ? "Stopped early. " : ""}<b>${myAdds.length}</b> of your moves and <b>${opp}</b> opponent replies to add to your ${C} repertoire (${esc(prepBookName())}).</p>
       ${myAdds.length ? `<p class="lbl" style="margin-top:8px">Your moves</p><ol class="ablist">${myAdds.map(row).join("")}</ol>` : ""}
       ${p.skipped.length ? `<details style="margin-top:6px"><summary class="help">${p.skipped.length} move${p.skipped.length === 1 ? "" : "s"} left out</summary><ol class="ablist">${p.skipped.map(row).join("")}</ol></details>` : ""}
@@ -1325,14 +1325,15 @@ function renderAutoBuild() {
   box.innerHTML = `<p class="help">For your <b>${C}</b> repertoire, from ${nOf(mine)} games as ${C}. Switch colour at the top.</p>
     <div class="gemgrid abopts">
       ${num("abGames", "Played at least # times", o.minGames, 'inputmode="numeric" min="1" max="100"')}
-      ${num("abScore", "You score at least # %", Math.round(o.minScore * 100), 'inputmode="numeric" min="0" max="100"')}
+      ${num("abScore", "Flag moves you score under # %", Math.round(o.minScore * 100), 'inputmode="numeric" min="0" max="100"')}
       ${num("abLoss", "Engine: gives up at most # pawns", (o.maxLoss / 100).toFixed(1), 'inputmode="decimal" min="0.1" max="5" step="0.1"')}
       ${num("abPlies", "Up to move #", Math.round(o.plies / 2), 'inputmode="numeric" min="2" max="20"')}
     </div>
+    <label class="check" style="margin-top:6px"><input type="checkbox" id="abStrict" ${o.strictScore ? "checked" : ""}> Leave those moves out instead (this also drops every line after them)</label>
     <button type="button" class="btn" id="abRun" style="margin-top:8px" ${mine ? "" : "disabled"}>${mine ? "Find moves to add" : `Import games first`}</button>`;
   const save = () => {
     const v = id => +$("#" + id).value;
-    S.settings.autobuild = { minGames: Math.max(1, Math.round(v("abGames")) || 3), minScore: Math.min(1, Math.max(0, v("abScore") / 100)), maxLoss: Math.max(10, Math.round(v("abLoss") * 100) || 70), plies: Math.max(4, Math.round(v("abPlies") * 2) || 20) };
+    S.settings.autobuild = { minGames: Math.max(1, Math.round(v("abGames")) || 3), minScore: Math.min(1, Math.max(0, v("abScore") / 100)), maxLoss: Math.max(10, Math.round(v("abLoss") * 100) || 70), plies: Math.max(4, Math.round(v("abPlies") * 2) || 20), strictScore: $("#abStrict").checked };
     Store.save("settings");
   };
   box.querySelectorAll("input").forEach(i => (i.onchange = save));

@@ -425,7 +425,11 @@ async function jobTests() {
         ...["1-0", "1-0", "1-0"].map((r, i) => mk("e4 c5 Qh5 Nc6", r, 10 + i)),
         ...["0-1", "0-1", "0-1"].map((r, i) => mk("e4 e6 d3 d5", r, 20 + i)),
       ];
-      const plan = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+      // default: poor results are flagged, not left out, so the lines after them are kept
+      const loose = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+      eq(loose.adds.filter(a => a.mine && a.poor).map(a => a.path.concat(a.san).join(" ")), ["e4 e6 d3"]);
+      eq(loose.skipped.map(s => s.why), ["engine"]);
+      const plan = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20, strictScore: true });
       const str = a => a.path.concat(a.san).join(" ");
       eq(plan.adds.filter(a => a.mine).map(str), ["e4", "e4 e5 Nf3", "e4 e5 Nf3 Nc6 Bc4"]);
       eq(plan.adds.filter(a => !a.mine).map(str), ["e4 e5", "e4 c5", "e4 e6", "e4 e5 Nf3 Nc6"]);
@@ -433,7 +437,7 @@ async function jobTests() {
       applyAutoBuild(plan);
       eq(rep("white").pos[K(fenAfter(START, ["e4", "e5", "Nf3", "Nc6"]))].m, ["Bc4"]);
       // Run again: what's in the tree is kept and followed, so only new things are proposed
-      const again = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+      const again = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20, strictScore: true });
       eq(again.adds.length, 0);
     } finally { Engine.analyse = real.analyse; Engine.failed = real.failed; S.games = []; }
   });
@@ -475,6 +479,9 @@ t("catalogue: groups the tree by named lines and main splits, with numbers for e
   results.push("     " + lines.join("\n     "));
   const all = lines.join("\n");
   eq(/Italian Game/.test(all) && /Ruy Lopez/.test(all) && /Sicilian/.test(all) && /French/.test(all), true, all);
+  // the top level is by opening family, not "King's Pawn Game" (1.e4)
+  eq(root.children.map(c => c.label).sort(), ["French Defence", "Italian Game", "Ruy Lopez", "Sicilian Defence"]);
+  eq(root.children.find(c => c.label === "Sicilian Defence").children.map(c => c.label).sort(), ["2. Nf3 d6 3. d4", "Open"]);
   const flat = c => [c, ...c.children.flatMap(flat)], every = root.children.flatMap(flat);
   eq(every.every(c => c.depth <= CAT_DEPTH && typeof c.comment === "string" && c.stats.cover >= 0 && c.stats.cover <= 1), true);
   eq(every.some(c => c.children.length === 1 && c.children[0].named && c.children[0].reach >= 0.9 * c.reach && c.named), false, "single named children are folded");

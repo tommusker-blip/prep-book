@@ -37,6 +37,8 @@ f.onload = () => setTimeout(async () => {
   time("board redraw only", () => G("BB").draw());
   time("refreshBuild (what a background result now costs)", () => G("refreshBuild")(G("K")(G("fenAfter")(G("START"), ["e4", "e5"]))));
   // the parts of a Build redraw
+  time("catalogue: build + every entry's numbers (now once, then cached)", () => G("catalogueStats")(G("buildCatalogue")("white"), "white"), 3);
+  time("catalogue: idea targets (now once per build, was once per entry)", () => G("ideaTargets")("white"), 3);
   time("  walk (tidy the tree)", () => G("walk")("white"));
   time("  renderGaps", () => G("renderGaps")());
   time("  renderSuggest", () => G("renderSuggest")());

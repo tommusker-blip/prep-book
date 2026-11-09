@@ -250,9 +250,11 @@ function renderIdeaCard() {
     ${need || (todo.length ? `<div class="row"><button type="button" class="btn${lines.length ? " ghost" : ""}" data-ilfind="train">Find ${todo.length} idea line${todo.length === 1 ? "" : "s"}</button></div><p class="help">About ${todo.length * 20} seconds: Lichess is asked about once a second.</p>` : lines.length ? "" : `<p class="help">None yet: idea lines are for where your prep ends in lines your games reach at least 3 times.</p>`)}`;
 }
 // Only the lines whose most specific entry this is (not under one of its children)
-function ideaBlock(ps, kids = []) {
+// targets: ideaTargets() for the whole colour, worked out once by the caller (else per entry)
+function ideaBlock(ps, kids = [], targets = null) {
   const lines = ideaLinesFor(S.color, ps).filter(l => !kids.some(k => { const lp = l.path.join(" "); return lp === k || lp.startsWith(k + " "); }));
-  const todo = ideaTargets(S.color, ps).filter(t => !IDEAL[ideaId(S.color, t.path)]).slice(0, 3);
+  const inside = t => { const p = t.path.join(" "); return !ps || p === ps || p.startsWith(ps + " "); };
+  const todo = (targets ? targets.filter(inside) : ideaTargets(S.color, ps)).filter(t => !IDEAL[ideaId(S.color, t.path)]).slice(0, 3);
   if (!lines.length && !(todo.length && (S.token || IL.running))) return ""; // nothing to list or to do here
   return `<div class="ideablock"><p class="lbl">Typical ideas</p>${lines.length ? `<div class="gaplist">${lines.map(ideaRow).join("")}</div>` : ""}
     ${IL.running ? `<p class="help">Building idea lines… ${IL.done} of ${IL.total}</p>` : todo.length && S.token ? `<button type="button" class="btn ghost" data-ideafind="${esc(ps)}">Find ideas for this line</button>` : ""}</div>`;
