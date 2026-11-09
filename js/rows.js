@@ -290,7 +290,7 @@ function candRows(fen, key, n, path) {
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} weak move${weak.length === 1 ? "" : "s"}` : `${weak.length} weak move${weak.length === 1 ? "" : "s"} hidden (${weak.map(c => esc(c.san)).join(", ")}): over ${(adv().mistake / 100).toFixed(1)} worse than the best, or leaving you below −${(adv().unplayable / 100).toFixed(1)}`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span${mastersOn() ? ' class="hd2"' : ""}>Played${mastersOn() ? "<small>peers · M</small>" : ""}</span><span class="hd2">${mastersOn() ? "Score<small>peers · M</small>" : "Peer score"}</span><span>You</span></div>
+      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span${mastersOn() ? ' class="hd2"' : ""}>Played${mastersOn() ? "<small>peers/M</small>" : ""}</span><span class="hd2">${mastersOn() ? "Score<small>peers/M</small>" : "Peer score"}</span><span>You</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }
@@ -397,7 +397,7 @@ function rowsLegend(myTurn, ex) {
       <p class="rk-h">Columns</p>
       <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
       <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Peer score</b> how your colour scores after it in those games (win 1, draw ½) · <b>You</b> your games · your score</p>
-      ${mastersOn() ? `<p>The grey <b>M</b> line under Played and Score: the same for masters (the Lichess masters database). Switch it off in Settings.</p>` : ""}
+      ${mastersOn() ? `<p>Played and Score show <b>peers/masters</b>, for example 70%/80%: the smaller grey figure is from the Lichess masters database. Switch it off in Settings.</p>` : ""}
       <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
       <p class="rk-h">Arrows on the board</p>
       <p><span class="ksw ksw-a-good"></span>yours <span class="ksw ksw-a-gap"></span>a gap <span class="ksw ksw-gem"></span>gem or better-scoring <span class="ksw ksw-other"></span>other common moves${myTurn ? ` <span class="ksw ksw-games"></span>what you play in your games` : ""}</p>
@@ -411,8 +411,8 @@ const mastersOn = () => S.settings.mastersRows !== false;
 function mastCell(fen, c, what) {
   if (!mastersOn()) return "";
   const exM = cachedExplorer(fen, "masters");
-  if (!exM) return `<span class="mline muted">M …</span>`;
-  if (!c.mast || !exM.total) return `<span class="mline muted">M –</span>`;
+  if (!exM) return `<span class="mline">/…</span>`;
+  if (!c.mast || !exM.total) return `<span class="mline">/–</span>`;
   const v = what === "f" ? c.mast.n / exM.total : scoreFor(c.mast, S.color);
-  return `<span class="mline" aria-label="masters: ${what === "f" ? "played in " : "your colour scores "}${pctOf(v)}${what === "f" ? ` (${nOf(c.mast.n)} games)` : ""}">M ${pctOf(v)}</span>`;
+  return `<span class="mline" aria-label="masters: ${what === "f" ? "played in " : "your colour scores "}${pctOf(v)}${what === "f" ? ` (${nOf(c.mast.n)} games)` : ""}">/${pctOf(v)}</span>`;
 }

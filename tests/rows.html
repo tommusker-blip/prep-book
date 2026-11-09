@@ -1,0 +1,6 @@
+<!doctype html><meta charset="utf-8"><title>Build rows at phone widths</title>
+<!-- Build's move rows (tests/rows-frame.html, made-up data) at 360 and 412 px wide, for checking
+     the layout. Screenshot it with headless Chrome, for example:
+       chrome --headless=new --allow-file-access-from-files --virtual-time-budget=8000 \
+         --window-size=800,520 --screenshot=rows.png file:///C:/git/prep-book/tests/rows.html -->
+<body style="margin:0;display:flex;gap:10px"><iframe src="rows-frame.html" style="width:360px;height:520px;border:0"></iframe><iframe src="rows-frame.html" style="width:412px;height:520px;border:0"></iframe></body>

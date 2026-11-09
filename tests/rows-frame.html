@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="../css/app.css"></head><body style="--hdr:-200px"><div class="card" id="prompt"></div><div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/openings.js"></script>
+<script src="../js/book.js"></script>
+<script src="../js/store.js"></script>
+<script src="../js/games.js"></script>
+<script src="../js/evals.js"></script>
+<script src="../js/rep.js"></script>
+<script src="../js/explore.js"></script>
+<script src="../js/jobs.js"></script>
+<script src="../js/engine.js"></script>
+<script src="../js/ideas.js"></script>
+<script src="../js/rows.js"></script>
+<script src="../js/gaps.js"></script>
+<script src="../js/practice.js"></script>
+<script src="../js/puzzles.js"></script>
+<script src="../js/report.js"></script>
+<script src="../js/autobuild.js"></script>
+<script src="../js/catalogue.js"></script>
+<script src="../js/openlines.js"></script>
+<script src="../js/addopening.js"></script>
+<script src="../js/structures.js"></script>
+<script src="../js/idealines.js"></script>
+<script>
+"use strict";
+// Build's move rows with made-up data (peers, masters, evals, my games), for screenshots at phone
+// widths: tests/rows.html shows this page at 360 and 412 px. No engine or network is used.
+var notHere = () => () => true, rowsChanged = () => {}; Engine.analyse = () => new Promise(() => {}); Engine.multi = () => new Promise(() => {}); explorer = () => new Promise(() => {});
+S.color = "white"; S.token = "x";
+const fenOf = l => fenAfter(START, l ? l.split(" ") : []);
+const mv = (san, n, w, d, b) => ({ san, n, w, d, b });
+const setEx = (line, total, w, d, b, moves, src = bandKey()) => { EXPL[K(fenOf(line)) + "|" + src] = { total, w, d, b, moves }; };
+for (const l of ["e4 e5 Nf3 Nc6 Bc4", "d4 e5"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+walk("white");
+S.games = [["e4 e5 Nf3",1],["e4 e5 Nf3",1],["e4 e5 Nf3",0],["e4 e5 Bc4",1]].map(([m,r],i)=>({id:"g"+i,my:"white",result:r?"1-0":"0-1",moves:m,white:"me",black:"x"})); S.games.forEach(gameKeys);
+const fen = fenOf("e4 e5"), key = K(fen);
+setEx("e4 e5", 10000, 4000, 1000, 5000, [mv("Nf3", 7000, 2800, 700, 3500), mv("Nc3", 1300, 600, 100, 600), mv("Bc4", 500, 260, 40, 200), mv("f4", 400, 190, 20, 190), mv("d4", 300, 120, 30, 150), mv("Qh5", 200, 70, 20, 110)]);
+setEx("e4 e5", 1000000, 330000, 400000, 270000, [mv("Nf3", 800000, 270000, 330000, 200000), mv("Nc3", 90000, 30000, 36000, 24000), mv("Bc4", 50000, 16000, 20000, 14000), mv("f4", 30000, 11000, 9000, 10000)], "masters");
+EVALC[key] = { cp: 35, d: 14 };
+const set = (san, cp) => (EVALC[K(fenAfter(fen, [san]))] = { cp, d: 14 });
+set("Nf3", -35); set("Nc3", -20); set("Bc4", -10); set("f4", 70); set("d4", 30); set("Qh5", 120);
+document.getElementById("prompt").innerHTML = candRows(fen, key, rep("white").pos[key], ["e4", "e5"]);
+</script></body></html>

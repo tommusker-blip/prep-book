@@ -171,7 +171,10 @@ when it loads; the others just define things.
 - Masters in the rows (v0.9.20, `mastersOn()`, `S.settings.mastersRows`, on by default): Build fetches
   the masters explorer for the position too (`PRIO.soon`); `mastCell()` adds a grey "M x%" line
   under Played and Score, the expanded row a Masters bar, and masters' moves with 5%+ join the
-  candidates (`c.mast`).
+  candidates (`c.mast`). Since v0.9.22 the cells read peers/masters on one line ("70%/80%", the
+  masters part smaller and grey; `.cpeer`/`.cscore` are baseline-aligned flex).
+- `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
+  (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
   `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,
   beyond = weak (orange). No ✓ marks; `g` tags a weak gambit. The column key is a line

@@ -5,6 +5,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09w", date: "9 Nov 2026", title: "Peers and masters on one line",
+    items: [
+      "Played and Score now read peers/masters on one line, for example 70%/80%, with the masters' figure smaller and grey.",
+    ],
+  },
+  {
     id: "2026-11-09v", date: "9 Nov 2026", title: "Fewer pop-ups in Build",
     items: [
       "The dark messages at the bottom of Build are gone for things you can already see: going to a gap, removing a move, saving an explored line, every reply being prepared, and the rating bands following your chess.com rating.",
