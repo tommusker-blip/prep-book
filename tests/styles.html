@@ -1,0 +1,109 @@
+<!doctype html><meta charset="utf-8"><pre id="log"></pre>
+<!-- Style comparison for CSS refactors: loads ../index.html twice, once with the current
+     css/app.css and once with an older copy (default css/app.old.css, or #old=<path>), puts both
+     through the same screens at phone and desktop widths, and compares the computed style of
+     every element (and its ::before/::after). Any difference is listed; "0 differences" means the
+     two stylesheets render the same for everything these screens show. Hover and focus states
+     aren't covered. Run in a throwaway profile (it clears localStorage), with file access:
+       chrome --headless=new --allow-file-access-from-files --virtual-time-budget=120000 \
+         --dump-dom file:///C:/git/prep-book/tests/styles.html -->
+<script>
+"use strict";
+const L = m => (document.getElementById("log").textContent += m + "\n");
+window.onerror = (m, s, l) => L("ERR " + m + " @" + s + ":" + l);
+const OLD = (location.hash.match(/old=([^&]+)/) || [])[1] || "css/app.old.css";
+localStorage.clear(); localStorage.setItem("pb_local_only", "true");
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function frame(width, css) {
+  return new Promise(res => {
+    const f = document.createElement("iframe");
+    f.style.cssText = `width:${width}px;height:1600px;border:0`;
+    f.src = "../index.html";
+    f.onload = async () => {
+      const d = f.contentDocument, w = f.contentWindow;
+      w.onerror = (m, s, l) => L("APPERR " + m + " @" + s + ":" + l);
+      w.fetch = () => Promise.reject(new Error("offline in the style test"));
+      if (css) {
+        const link = d.querySelector('link[rel="stylesheet"][href^="css/app.css"]');
+        await new Promise(r => { link.onload = r; link.onerror = () => { L("can't load " + css); r(); }; link.href = css; });
+      }
+      await sleep(1500); // boot
+      // Results that arrive in the background (engine, Lichess) would land at different times
+      w.eval(`Engine.analyse = () => new Promise(() => {}); Engine.multi = () => new Promise(() => {}); explorer = () => new Promise(() => {}); Engine.failed = false;`);
+      res({ f, w, d });
+    };
+    document.body.append(f);
+  });
+}
+// The same data in both copies: a small White tree, Lichess data, evals and games
+const SETUP = `
+  S.color = "white"; S.token = "x"; S.settings.autoOpp = "off"; S.settings.bandAuto = false; S.settings.band = [1600, 1800];
+  for (const l of ["e4 e5 Nf3 Nc6 Bc4 Bc5 c3", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4", "e4 c5 Nf3 d6 d4", "e4 e6 d4 d5", "Nf3 e5"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+  walk("white");
+  const fenOf = l => fenAfter(START, l ? l.split(" ") : []), mv = (san, n, w, d, b) => ({ san, n, w, d, b });
+  const setEx = (l, total, w, d, b, moves) => { EXPL[K(fenOf(l)) + "|" + bandKey()] = { total, w, d, b, moves }; };
+  setEx("e4 e5", 10000, 4000, 1000, 5000, [mv("Nf3", 7000, 2800, 700, 3500), mv("Nc3", 1300, 600, 100, 600), mv("Bc4", 500, 260, 40, 200), mv("f4", 400, 190, 20, 190), mv("d4", 300, 120, 30, 150), mv("Qh5", 200, 70, 20, 110)]);
+  setEx("e4", 10000, 4500, 800, 4700, [mv("e5", 4000, 1800, 300, 1900), mv("c5", 3000, 1300, 300, 1400), mv("e6", 1500, 700, 100, 700), mv("Nf6", 300, 160, 20, 120)]);
+  const ev = (l, cp) => (EVALC[K(fenOf(l))] = { cp, d: 14 });
+  ev("e4 e5", 35); ev("e4 e5 Nf3", -35); ev("e4 e5 Nc3", -20); ev("e4 e5 Bc4", -10); ev("e4 e5 f4", 70); ev("e4 e5 d4", 30); ev("e4 e5 Qh5", 120);
+  ev("e4", -30); ev("e4 e5", 30); ev("e4 c5", 35); ev("e4 e6", 40); ev("e4 Nf6", 110);
+  S.games = Array.from({ length: 6 }, (_, i) => ({ id: "s" + i, my: "white", tc: "rapid", date: "2026-01-0" + (i + 1), url: "", white: "me", black: "x", welo: 1500, belo: 1500, result: i < 4 ? "1-0" : "0-1", moves: "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6" }));
+  S.acc = Object.fromEntries(S.games.map(g => [g.id, { v: 2, d: 10, ev: Array(9).fill(20), bm: Array(9).fill(""), inb: [88], post: [70] }]));
+  S.games.forEach(gameKeys);
+`;
+const STATES = [
+  ["build: my turn, a row open", `S.build.white = ["e4","e5"]; candOpen.add(K(fenAfter(START, ["e4","e5"])) + "|Nf3"); setView("build"); renderBuild();`],
+  ["build: opponent's turn", `S.build.white = ["e4"]; renderBuild();`],
+  ["build: explore mode", `setBuildMode("explore"); renderBuild();`],
+  ["build: ideas tab", `setBuildMode("commit"); S.ptab = "ideas"; S.build.white = ["e4","e5"]; renderBuild(); showPane();`],
+  ["openings", `S.ptab = "moves"; setView("openings");`, 1500, `const x = document.querySelector("#catBody details.cat"); if (x) x.open = true;`],
+  ["openings: add an opening", `document.querySelector("#addOpenBtn").click();`, 800, `const i = document.querySelector("#aoSearch"); i.value = "benko"; i.dispatchEvent(new Event("input", { bubbles: true }));`, 300, `document.querySelector("#addOpenBox [data-aopick]").click();`],
+  ["openings: suggestions", `S.otab = "sug"; showOpeningsTab();`],
+  ["train", `S.otab = "cat"; setView("train");`],
+  ["games", `setView("games");`],
+  ["settings", `setView("settings");`],
+  ["updates", `setView("updates");`],
+  ["build, dark", `document.documentElement.dataset.theme = "dark"; S.build.white = ["e4","e5"]; setView("build"); renderBuild();`],
+];
+const sameDom = (a, b) => a.length === b.length && a.every((e, i) => e.tagName === b[i].tagName);
+const label = e => e.tagName.toLowerCase() + (e.id ? "#" + e.id : "") + (e.className && typeof e.className === "string" ? "." + e.className.trim().split(/\s+/).join(".") : "");
+function compare(w1, d1, w2, d2, where) {
+  const A = [...d1.querySelectorAll("*")], B = [...d2.querySelectorAll("*")];
+  if (!sameDom(A, B)) { const k = A.findIndex((e, i) => !B[i] || e.tagName !== B[i].tagName); L(`${where}: the pages differ (${A.length} vs ${B.length} elements), first at ${k}: ${A[k] ? label(A[k]) + " in " + label(A[k].parentElement) : "-"} vs ${B[k] ? label(B[k]) + " in " + label(B[k].parentElement) : "-"}`); const st = w => w.eval("JSON.stringify([bandKey(), S.settings.arrows, !!cachedExplorer(buildState().fen), S.build.white, Object.keys(EXPL).length, S.games.length, S.storeMode])"); L("  old: " + st(w1) + "  new: " + st(w2)); return 1; }
+  let n = 0;
+  for (let i = 0; i < A.length; i++) for (const pseudo of [null, "::before", "::after"]) {
+    if (A[i].closest("#toast, #tip")) continue; // timing: shown in one copy and not the other
+    const animated = A[i].matches(".savestate i, .bgstate i, .pc"); // caught mid-pulse or mid-slide
+    const s1 = w1.getComputedStyle(A[i], pseudo), s2 = w2.getComputedStyle(B[i], pseudo);
+    for (let j = 0; j < s1.length; j++) {
+      const p = s1[j], v1 = s1.getPropertyValue(p), v2 = s2.getPropertyValue(p);
+      if (v1 !== v2 && !(animated && (p === "opacity" || p === "transform"))) { if (++n <= 40) L(`${where}: ${label(A[i])}${pseudo || ""} ${p}: ${v1}  →  ${v2}`); }
+    }
+  }
+  return n;
+}
+(async () => {
+  let total = 0;
+  const only = location.hash.match(/w=([0-9]+)/);
+  for (const width of (only ? [+only[1]] : [360, 1100])) {
+    const a = await frame(width, OLD), b = await frame(width, null);
+    await sleep(3000); // both finish loading (games come from IndexedDB after the first render)
+    for (const x of [a, b]) x.w.eval(SETUP);
+    for (const [name, ...steps] of STATES) {
+      for (const s of steps) {
+        if (typeof s === "number") { await sleep(s); continue; }
+        for (const x of [a, b]) { try { x.w.eval(s); } catch (e) { L(`${name}: ${e.message}`); } }
+        await sleep(200);
+      }
+      await sleep(400);
+      const n = compare(a.w, a.d, b.w, b.d, `${width}px ${name}`);
+      L(`${width}px ${name}: ${n} difference${n === 1 ? "" : "s"} (${a.d.querySelectorAll("*").length} elements)`);
+      total += n;
+    }
+    a.f.remove(); b.f.remove();
+  }
+  L(`TOTAL ${total}`);
+  L("DONE");
+})();
+</script>

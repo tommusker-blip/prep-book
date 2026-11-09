@@ -559,6 +559,11 @@ Stockfish's choice:
 
 - Git: commit through GitHub Desktop or the terminal. Pushing to `main` updates
   the Pages site within a minute or two.
+- **Styles (v0.9.15):** `css/app.css` has one rule per selector, grouped by area, with the layout media
+  queries at the end (phones first). Change a rule where it is; don't append overrides. For a CSS
+  refactor, copy the old file to `css/app.old.css` and run `tests/styles.html` (it compares the
+  computed style of every element on 12 screens at 360 px and 1100 px; expect `TOTAL 0`), then
+  delete the copy. Hover and focus states aren't covered.
 - **Cache busting (v0.9.14):** `index.html` loads `css/app.css` and every `js/*.js` with `?v=<version>`.
   Bump it on every release (`sed -i "s/?v=OLD/?v=NEW/g" index.html`), or phones can mix new
   HTML with cached old scripts or styles (Pages caches for about 10 minutes).

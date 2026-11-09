@@ -382,9 +382,9 @@ function rowsLegend(myTurn, ex) {
   return `<details class="rkey"${open ? " open" : ""} data-rkey><summary>Key</summary>
     <div class="rkeygrid">
       <p class="rk-h">Rows</p>
-      <p><span class="sw sw-prep"></span>${myTurn ? "In your repertoire" : "A reply you've prepared"}</p>
-      ${myTurn ? "" : `<p><span class="sw sw-gap"></span>A gap: a reply you haven't prepared</p>`}
-      <p><span class="sw sw-trans"></span>Transposes into a position you've prepared</p>
+      <p><span class="ksw ksw-prep"></span>${myTurn ? "In your repertoire" : "A reply you've prepared"}</p>
+      ${myTurn ? "" : `<p><span class="ksw ksw-gap"></span>A gap: a reply you haven't prepared</p>`}
+      <p><span class="ksw ksw-trans"></span>Transposes into a position you've prepared</p>
       <p class="rk-h">Mark</p>
       <p><b class="mark m-int">!?</b> interesting: the engine likes it less, but it's a gambit or it scores well at your level${myTurn ? ". Weaker moves of yours are hidden (Show brings them back)" : ""}</p>
       <p class="rk-h">Tags</p>
@@ -396,6 +396,6 @@ function rowsLegend(myTurn, ex) {
       <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Peer score</b> how your colour scores after it in those games (win 1, draw ½) · <b>You</b> your games · your score</p>
       <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
       <p class="rk-h">Arrows on the board</p>
-      <p><span class="sw sw-a-good"></span>yours <span class="sw sw-a-gap"></span>a gap <span class="sw sw-gem"></span>gem or better-scoring <span class="sw sw-other"></span>other common moves${myTurn ? ` <span class="sw sw-games"></span>what you play in your games` : ""}</p>
+      <p><span class="ksw ksw-a-good"></span>yours <span class="ksw ksw-a-gap"></span>a gap <span class="ksw ksw-gem"></span>gem or better-scoring <span class="ksw ksw-other"></span>other common moves${myTurn ? ` <span class="ksw ksw-games"></span>what you play in your games` : ""}</p>
     </div></details>`;
 }
