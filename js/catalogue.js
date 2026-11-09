@@ -288,3 +288,10 @@ function undoCatalogueRemove() {
   catUndo = null;
   return true;
 }
+
+/* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
+onClick("catbuild", d => { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }, true);
+onClick("catremove", d => { if (removeCatalogueEntry(d.catremove, d.catlabel || d.catremove)) { catOpen.delete(d.catremove); renderCatalogue(); } });
+onClick("catundo", d => { if (undoCatalogueRemove()) renderCatalogue(); }, true);
+onClick("catrecalc", d => renderCatalogue(true), true);
+onClick("cattrain", d => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }, true);

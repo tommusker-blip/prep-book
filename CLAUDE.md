@@ -230,9 +230,22 @@ when it loads; the others just define things.
   opening, and practical tricks. `coachPrompt()` adds a short brief. The Coach report page
   (Games) shows it, with Copy for an AI coach, Copy JSON and Download JSON.
 - `js/updates.js`: the Updates ("What's new") page
-- `js/app.js`: chess.com importer, engine game analysis, board component, the
-  four views (Build, Train, Games, Settings), `renderBg()` for the header's
-  background-job marker, and `boot()`
+- The screens (v0.9.17; `app.js` used to hold all of them), loaded after the logic files:
+  - `js/importer.js`: chess.com rating and games import, engine analysis of my games
+  - `js/board.js`: piece sets and board looks, `arrowsSvg()`, piece animation, `Board()`,
+    `BB`/`TB` (the Build and Train boards), `reduceMotion()`
+  - `js/build.js`: the Build screen (`renderBuild()`, `refreshBuild()`, `buildArrows()`,
+    auto-reply, Ideas here, Explore mode, `commitBuildMove()`)
+  - `js/suggest.js`: the Openings page's tabs (`showOpeningsTab()`) and Suggestions (scan,
+    find ideas across the tree, Replace / Add with Undo)
+  - `js/train.js`: review positions, mistake review puzzles, practise lines (`T`)
+  - `js/gamesview.js`: the Games tab, the coach report page, the auto-build panel
+  - `js/settings.js`: Settings, board looks, prep books
+  - `js/app.js`: `setView()`/`render()`, the header (`renderBg()`, save status), the Lichess
+    token, the click listener and `boot()`
+- Buttons: a screen registers its own `data-*` buttons with `onClick(name, fn, any)` (core.js),
+  next to its code; `app.js` has the single click listener (`dispatchClick()`). Don't add
+  branches to a central if/else.
 
 Tests (open in a browser, or run headless Chrome with `--dump-dom`; there's no
 Node on the dev machine):

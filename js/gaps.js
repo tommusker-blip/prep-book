@@ -78,3 +78,6 @@ function jumpToGap(id, list = rankedGaps()) {
   toast(`Gap ${list.indexOf(g) + 1} of ${list.length}${line ? ": " + line : ""}`);
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
 }
+
+/* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
+onClick("gapmode", d => { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });

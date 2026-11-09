@@ -267,3 +267,12 @@ function startIdeaSearch(targets) {
     if (done) toast(IL.stop ? "Stopped." : "Idea lines are ready.");
   });
 }
+
+/* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
+onClick("idea", d => openIdeaLine(d.idea, S.view));
+onClick("ilfind", d => { startIdeaSearch(ideaTargets(S.color).filter(t => t.n >= 3 && !IDEAL[ideaId(S.color, t.path)]).slice(0, 5)); renderIdeaCard(); });
+onClick("ideafind", d => { startIdeaSearch(ideaTargets(S.color, d.ideafind).filter(t => !IDEAL[ideaId(S.color, t.path)]).slice(0, 3)); renderCatalogue(); }, true);
+onClick("ilstop", d => IL.stop = true, true);
+onClick("ilply", d => ideaGo(+d.ilply));
+onClick("iquiz", d => startIdeaQuiz(), true);
+onClick("iquitquiz", d => { IV.mode = "view"; IV.quiz = null; IV.token++; renderIdea(); }, true);

@@ -59,3 +59,17 @@ function moveLabel(path, san) {
 function numbered(ply, sans) {
   return sans.map((s, i) => { const p = ply + i, n = Math.floor(p / 2) + 1; return p % 2 === 0 ? `${n}. ${s}` : i === 0 ? `${n}… ${s}` : s; }).join(" ");
 }
+/* ----- buttons: each screen registers handlers for its own data-* buttons, next to its code;
+   app.js has the one click listener. onClick("go", fn) runs fn(dataset, button) for a button
+   with a non-empty data-go; with any = true, an empty data-go="" counts too. A function in
+   place of the name handles the click itself and returns true if it did (Add an opening). */
+const CLICK = [];
+function onClick(name, fn, any = false) { CLICK.push({ name, fn, any }); }
+function dispatchClick(t) {
+  const d = t.dataset;
+  for (const h of CLICK) {
+    if (typeof h.name === "function") { if (h.name(d, t)) return true; continue; }
+    if (h.any ? h.name in d : d[h.name]) { h.fn(d, t); return true; }
+  }
+  return false;
+}

@@ -149,3 +149,6 @@ function aoShow(sans, ply) {
   $("#aoPrevLine").innerHTML = m.map((s, i) => `${i % 2 === 0 ? `<span class="muted">${i / 2 + 1}.</span>` : ""}<button type="button" class="aoply${i + 1 === AO.ply ? " cur" : ""}" data-aoply="${i + 1}">${esc(s)}</button>`).join(" ");
   document.querySelectorAll("#addOpenBox [data-aoview]").forEach(b => b.classList.toggle("cur", b.dataset.aoview === sans));
 }
+
+/* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
+onClick(onAddOpeningClick); // its own data-ao* buttons
