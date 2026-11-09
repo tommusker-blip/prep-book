@@ -198,12 +198,12 @@ function candRow(fen, key, c, ex, path) {
   const tags = rowTags({ weapon, fu, gem: flag === "gem" && !weapon ? flagText : peerGem ? (peerGem === "gem" ? "A hidden gem: rarely played at your level, but it scores well" : "Scores better at your level than your move here") : "", gambit, trans, warn: flag === "warn" ? flagText : "" });
   const mark = moveMark(e, gambit || !!peerGem || flag === "gem");
   const head = `<div class="crow c5">
+      <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${mark.t ? ", " + mark.t : ""}${stateText ? ", " + stateText : ""}">${esc(c.san)}<span class="mark ${mark.k}">${mark.s}</span></button></span>
       <span class="ceng">${engineCell(e)}</span>
       <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}</span>
       <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n}·${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
-      <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       ${namedLine(fen, c.san, path)}
     </div>`;
   let detail = "";
@@ -287,7 +287,7 @@ function candRows(fen, key, n, path) {
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} weak move${weak.length === 1 ? "" : "s"}` : `${weak.length} weak move${weak.length === 1 ? "" : "s"} hidden (${weak.map(c => esc(c.san)).join(", ")}): over ${(adv().mistake / 100).toFixed(1)} worse than the best, or leaving you below −${(adv().unplayable / 100).toFixed(1)}`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead c5"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span><span>Tags</span></div>
+      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }

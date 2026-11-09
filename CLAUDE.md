@@ -164,7 +164,7 @@ when it loads; the others just define things.
   uniform width. One mark only (v0.9.12, `moveMark()`): !? for a move over half the `mistake`
   margin worse than the best that is a gambit or a gem. On my turn `unplayable()` hides moves over
   `mistake` worse than the best or below −`unplayable`, except prepared moves, gambits and gems.
-  The last column is Tags (`rowTags()`: ⚔ weapon, 💎 gem from `judgeMove()` or the engine-vs-peers
+  The first column (v0.9.13; it was the last) is Tags (`rowTags()`: ⚔ weapon, 💎 gem from `judgeMove()` or the engine-vs-peers
   flag, 🎲 gambit, ⇄ transposition, ⚠
   warning; two shown, all in words when expanded); it replaced the Rep count, which is in the
   expanded row. `rowsLegend()` is a `<details>` Key, open state in `pb_legend`.

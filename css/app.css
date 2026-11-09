@@ -571,3 +571,7 @@ label.check input{width:18px;height:18px}
 .sw-games{border:0;height:0;border-top:2px dashed var(--ink);vertical-align:3px}
 @media (max-width:420px){.crow,.crow.c5{grid-template-columns:3.6rem 2.75rem minmax(0,.8fr) 2.3rem minmax(0,1.2fr) 1.9rem;gap:3px}.cand .chip{font-size:.8rem}.chead{font-size:.6rem;letter-spacing:0}.ctags{font-size:.8rem}.cyou,.cscore,.cpeer{font-size:.8rem}}
 .sw-a-good{background:var(--good)} .sw-a-gap{background:var(--warn)}
+/* v0.9.13: Tags are the first column, next to the move */
+.crow,.crow.c5{grid-template-columns:2.2rem 4.3rem 3.1rem minmax(0,1fr) 2.6rem minmax(0,1fr)}
+.ctags{justify-content:flex-end}
+@media (max-width:420px){.crow,.crow.c5{grid-template-columns:1.8rem 3.6rem 2.75rem minmax(0,.8fr) 2.3rem minmax(0,1.2fr)}}
