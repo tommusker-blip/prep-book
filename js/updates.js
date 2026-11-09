@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09s", date: "9 Nov 2026", title: "Fixes found while tidying up",
+    items: [
+      "Your browser's password manager no longer pops up in Settings. The Lichess token box is still hidden as you type, but it isn't a password field any more.",
+      "On a computer, Build shows the board on the left and the moves on the right again (since v0.9.1 they were stacked).",
+      "The Explore button turns orange while Explore mode is on (its text had become invisible).",
+    ],
+  },
+  {
     id: "2026-11-09r", date: "9 Nov 2026", title: "Snappier auto-reply, and the card is back",
     items: [
       "When Build plays your opponent's reply for you, it no longer works out the rows for the position in between. You see “Playing your opponent's reply…” for a moment, and the rows appear once it's your move again.",

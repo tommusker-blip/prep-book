@@ -122,7 +122,7 @@ h4.lbl{font-family:var(--f-body)}
 a.btn{display:inline-flex;align-items:center;text-decoration:none}
 .btn.quick{display:inline-flex;flex-direction:row;align-items:center;gap:5px;text-align:left;padding:4px 10px;min-height:36px;font-weight:500;font-size:.85rem}
 .btn.quick span{font-size:.78rem;font-weight:500;color:var(--muted)}
-.modebtn[aria-pressed="true"]{color:#fff}
+.modebtn[aria-pressed="true"]{background:var(--warn);color:var(--accent-ink);box-shadow:none} /* Explore mode on */
 .linkbtn{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 10px;font-family:var(--f-mono);font-weight:600;cursor:pointer;min-height:34px}
 .chip[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
@@ -139,6 +139,7 @@ label{display:block;font-weight:600;margin-bottom:4px}
 input[type=text],input[type=password],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px}
 input[type=number]{width:6.5em;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:44px}
 input[aria-invalid="true"]{border-color:var(--bad)}
+.secret{-webkit-text-security:disc;text-security:disc} /* the Lichess token: hidden, but not a password field, so password managers leave Settings alone */
 textarea{min-height:120px;font-family:var(--f-mono);font-size:.82rem;resize:vertical}
 details summary{cursor:pointer;font-weight:600;padding:6px 0}
 label.check{display:flex;align-items:center;gap:8px;font-size:.88rem}
@@ -462,7 +463,7 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 /* wide screens */
 @media (min-width:700px){.aopick{grid-template-columns:minmax(0,260px) minmax(0,1fr)}}
 @media (min-width:900px){
-  .layout{align-items:start}
+  .layout{grid-template-columns:minmax(0,500px) minmax(0,1fr);align-items:start} /* board left, panel right */
   .boardcol{position:sticky;top:76px}
   .cdetail{display:grid;grid-template-columns:1fr 1fr}
   .cdetail .flagtext,.cdetail p{grid-column:1/-1}
