@@ -268,7 +268,7 @@ div.gap-row{cursor:default}
 .possum .bad,.cand .bad{color:var(--bad);font-weight:600} .possum .ok,.cand .ok{color:var(--good);font-weight:600}
 /* the candidate rows (rows.js): tags | move | eval | played | peer score | you */
 .cands{display:flex;flex-direction:column;margin-top:6px}
-.crow{display:grid;grid-template-columns:minmax(2.2rem,.6fr) minmax(4.3rem,1.2fr) minmax(3.1rem,1fr) minmax(4.2rem,1.1fr) minmax(4rem,1fr) minmax(3rem,1fr);gap:5px;align-items:center;font-variant-numeric:tabular-nums}
+.crow{display:grid;grid-template-columns:minmax(2.2rem,.6fr) minmax(4.3rem,1.2fr) minmax(3.1rem,1fr) minmax(0,1fr) minmax(2.6rem,.9fr) minmax(0,1fr);gap:5px;align-items:center;font-variant-numeric:tabular-nums}
 .crow>.ceng,.crow>.cpeer,.crow>.cscore,.crow>.cyou,.chead>span:nth-child(n+2){text-align:center;justify-content:center} /* the numbers centred under their headings */
 .chead{font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600;padding:0 4px 4px}
 .chead span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -285,14 +285,14 @@ div.gap-row{cursor:default}
 .cand .chip{width:100%;max-width:none;min-height:30px;padding:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:.84rem}
 .cmove{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:6px;min-width:0}
 .ceng,.cpeer,.cyou{font-family:var(--f-mono);font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cpeer,.cscore{display:flex;align-items:baseline;justify-content:center} /* 70%/80%: the masters part on the same text line */
 .ceng{display:flex;align-items:center;gap:2px}
 .cscore{font-family:var(--f-mono);font-size:.82rem;white-space:nowrap;overflow:hidden}
 .ctags{display:flex;gap:1px;justify-content:flex-end;align-items:center;font-size:.9rem;line-height:1}
-.freq{position:relative;display:inline-block;border-radius:4px;overflow:hidden;padding:1px 4px;font-family:var(--f-mono)}
+.freq{position:relative;display:block;border-radius:4px;overflow:hidden;padding:1px 4px;font-family:var(--f-mono)}
 .freq i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft,color-mix(in srgb,var(--accent) 18%,transparent));border-radius:4px}
 .freq b{position:relative;font-weight:600}
-.mline{font-size:.72em;font-weight:500;color:var(--muted)} /* masters, after the peers' figure: 70%/80% */
+.mline{display:block;font-size:.7rem;font-weight:500;color:var(--muted);line-height:1.15;margin-top:1px} /* masters, under the peers' figure */
+.pfx,.mline .pfx{font-size:.8em;font-weight:500;color:var(--muted)}
 .chead small{display:block;font-size:.85em;font-weight:500;text-transform:none;letter-spacing:0}
 /* eval: blue strong, plain playable, orange weak, with a matching dot */
 .ev{font-family:var(--f-mono);font-weight:600}
@@ -456,14 +456,12 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 }
 /* narrow phones */
 @media (max-width:420px){
-  .crow{grid-template-columns:minmax(1.4rem,.4fr) minmax(3.2rem,.9fr) minmax(2.6rem,.8fr) minmax(3.4rem,1fr) minmax(3.2rem,1fr) minmax(2.7rem,.9fr);gap:3px}
-  .freq{padding:1px 2px}
+  .crow{grid-template-columns:minmax(1.8rem,.5fr) minmax(3.6rem,1fr) minmax(2.75rem,1fr) minmax(0,.9fr) minmax(2.3rem,.8fr) minmax(0,1.2fr);gap:3px}
   .chead{font-size:.6rem;letter-spacing:0}
   .cmove{gap:2px}
   .cand .chip{font-size:.8rem}
   .ceng,.ceng .ev{font-size:.74rem}
-  .cpeer,.cyou,.cscore{font-size:.76rem}
-  .ctags{font-size:.8rem}
+  .cpeer,.cyou,.cscore,.ctags{font-size:.8rem}
   .mgrid{grid-template-columns:1fr}
 }
 /* wide screens */

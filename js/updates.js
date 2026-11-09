@@ -5,9 +5,9 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
-    id: "2026-11-09w", date: "9 Nov 2026", title: "Peers and masters on one line",
+    id: "2026-11-09x", date: "9 Nov 2026", title: "P for peers, M for masters",
     items: [
-      "Played and Score now read peers/masters on one line, for example 70%/80%, with the masters' figure smaller and grey.",
+      "Played and Score are back to two lines: your peers on top, labelled P, and masters underneath in grey, labelled M.",
     ],
   },
   {
