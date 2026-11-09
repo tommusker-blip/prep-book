@@ -240,15 +240,35 @@ function slidePieces(el, moves, flip) {
 
 /* ---------- board ---------- */
 const GLYPH ={ k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+// Moves by tapping (piece, then square) or by dragging a piece. The board only redraws when
+// something it shows has changed, and keeps a selected piece across redraws of the same
+// position, so results arriving in the background never undo a half-made move. A redraw asked
+// for while a piece is being dragged waits until the drag ends.
 function Board(el) {
-  const b = { el, fen: START, flip: false, sel: null, last: null, hint: null, bad: null, onMove: null, locked: false, arrows: [] };
+  const b = { el, fen: START, flip: false, sel: null, last: null, hint: null, bad: null, onMove: null, locked: false, arrows: [], drag: null, pending: null };
+  const sig = () => JSON.stringify([b.fen, b.flip, b.last, b.hint, b.bad, b.arrows]);
+  let drawn = "";
   b.set = (fen, opts = {}) => {
-    const oldFen = b.fen, oldLast = b.last;
-    b.fen = fen; b.sel = null;
+    if (b.drag) { b.pending = [fen, opts]; return; }
+    const oldFen = b.fen, oldLast = b.last, same = fen === oldFen;
+    b.fen = fen;
+    if (!same) b.sel = null;
     Object.assign(b, { last: null, hint: null, bad: null, arrows: [] }, opts);
-    b.anim = opts.animate === false ? null : slideFor(oldFen, oldLast, fen, b.last);
+    if (b.sel) { const p = new Chess(fen).get(b.sel); if (!p || p.color !== fen.split(" ")[1]) b.sel = null; }
+    b.anim = opts.animate === false || b.noSlide ? null : slideFor(oldFen, oldLast, fen, b.last);
+    b.noSlide = false;
+    if (!b.anim && same && sig() === drawn) return; // nothing to change
     b.draw();
     b.anim = null;
+  };
+  // Just the arrows (move rows filling in): no need to rebuild the squares
+  b.setArrows = arrows => {
+    b.arrows = arrows || [];
+    if (b.drag) return;
+    const old = el.querySelector("svg.arrows");
+    if (old) old.remove();
+    el.insertAdjacentHTML("beforeend", arrowsSvg(b.arrows, b.flip));
+    drawn = sig();
   };
   b.draw = () => {
     const c = new Chess(b.fen);
@@ -265,6 +285,7 @@ function Board(el) {
       if (b.hint && (b.hint[0] === sq || b.hint[1] === sq)) cls.push("hint");
       if (b.bad && (b.bad[0] === sq || b.bad[1] === sq)) cls.push("bad");
       if (b.sel === sq) cls.push("sel");
+      if (p && p.color === c.turn() && !b.locked) cls.push("own"); // can be dragged: touch-action in the CSS
       if (p && p.type === "k" && c.in_check() && p.color === c.turn()) cls.push("check");
       const dot = targets.includes(sq) ? (p ? '<i class="cap"></i>' : '<i class="dot"></i>') : "";
       const coordF = r === 7 ? `<span class="cf">${files[file]}</span>` : "";
@@ -274,8 +295,78 @@ function Board(el) {
       html += `<button type="button" class="${cls.join(" ")}" style="--f:${f};--r:${r}" data-sq="${sq}" aria-label="${sq}${p ? " " + (p.color === "w" ? "white " : "black ") + p.type : ""}">${pc}${dot}${coordF}${coordR}</button>`;
     }
     el.innerHTML = html + arrowsSvg(b.arrows, b.flip);
+    drawn = sig();
     if (b.anim) slidePieces(el, b.anim, b.flip);
   };
+  // Play a move from one square to another if it's legal; returns true if it was
+  const tryMove = (from, to) => {
+    const c = new Chess(b.fen), mv = c.moves({ square: from, verbose: true }).find(m => m.to === to);
+    if (!mv) return false;
+    b.sel = null; b.draw();
+    const res = c.move({ from, to, promotion: "q" });
+    if (b.onMove) b.onMove(res, from, to);
+    return true;
+  };
+  const sqAt = (x, y) => { const t = document.elementFromPoint(x, y); const s = t && t.closest && t.closest("[data-sq]"); return s && el.contains(s) ? s.dataset.sq : null; };
+  /* ----- drag and drop (pointer events: mouse, touch and pen alike) -----
+     Press on one of the side to move's pieces and move a few pixels to start dragging. Pieces
+     have touch-action: none (CSS), so dragging a piece doesn't scroll the page; swiping on an
+     empty square still does. A press without movement is left to the click handler (tap-to-move). */
+  const DRAG_PX = 6;
+  let press = null, swallowClick = false;
+  el.addEventListener("pointerdown", e => {
+    if (b.locked || (e.pointerType === "mouse" && e.button !== 0)) return;
+    const t = e.target.closest("[data-sq]");
+    if (!t) return;
+    const p = new Chess(b.fen).get(t.dataset.sq);
+    if (!p || p.color !== b.fen.split(" ")[1]) return;
+    press = { sq: t.dataset.sq, x: e.clientX, y: e.clientY, id: e.pointerId };
+  });
+  el.addEventListener("pointermove", e => {
+    if (!press || e.pointerId !== press.id) return;
+    if (!b.drag) {
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_PX) return;
+      const pc = el.querySelector(`[data-sq="${press.sq}"] .pc`);
+      if (!pc || b.locked) { press = null; return; }
+      try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      b.sel = press.sq; b.draw(); // show the targets
+      const src = el.querySelector(`[data-sq="${press.sq}"]`), size = src.getBoundingClientRect().width;
+      const ghost = el.querySelector(`[data-sq="${press.sq}"] .pc`).cloneNode(true);
+      ghost.classList.add("ghost");
+      Object.assign(ghost.style, { width: size + "px", height: size + "px", fontSize: (size * 0.8) + "px" });
+      document.body.append(ghost);
+      el.querySelector(`[data-sq="${press.sq}"]`).classList.add("dragfrom");
+      b.drag = { from: press.sq, ghost, size, over: null };
+    }
+    e.preventDefault();
+    const d = b.drag;
+    d.ghost.style.transform = `translate(${e.clientX - d.size / 2}px, ${e.clientY - d.size / 2}px)`;
+    const over = sqAt(e.clientX, e.clientY);
+    if (over !== d.over) {
+      if (d.over) { const o = el.querySelector(`[data-sq="${d.over}"]`); if (o) o.classList.remove("dragover"); }
+      d.over = over;
+      if (over) { const o = el.querySelector(`[data-sq="${over}"]`); if (o) o.classList.add("dragover"); }
+    }
+  });
+  const endDrag = (e, cancel) => {
+    if (!press || (e && e.pointerId !== press.id)) return;
+    press = null;
+    const d = b.drag;
+    if (!d) return;
+    b.drag = null;
+    d.ghost.remove();
+    swallowClick = true; setTimeout(() => (swallowClick = false), 0); // the click that follows the drop
+    const to = cancel || !e ? null : sqAt(e.clientX, e.clientY);
+    const pend = b.pending; b.pending = null;
+    if (pend) { b.sel = null; b.set(pend[0], pend[1]); return; } // the position changed meanwhile
+    // the piece is already where it was dropped, so the redraw that follows shouldn't slide it there
+    if (to && to !== d.from && !b.locked) { b.noSlide = true; const moved = tryMove(d.from, to); setTimeout(() => (b.noSlide = false), 0); if (moved) return; }
+    b.sel = to === d.from ? d.from : null; // dropped back where it started: keep it selected
+    b.draw();
+  };
+  el.addEventListener("pointerup", e => endDrag(e, false));
+  el.addEventListener("pointercancel", e => endDrag(e, true));
+  el.addEventListener("lostpointercapture", e => { if (b.drag) endDrag(e, true); });
   // A missing piece image falls back to the Unicode pieces
   el.addEventListener("error", e => {
     if (!e.target.classList || !e.target.classList.contains("pimg") || pieceFallback) return;
@@ -283,17 +374,9 @@ function Board(el) {
   }, true);
   el.addEventListener("click", e => {
     const t = e.target.closest("[data-sq]");
-    if (!t || b.locked) return;
+    if (!t || b.locked || swallowClick || b.drag) return;
     const sq = t.dataset.sq, c = new Chess(b.fen);
-    if (b.sel) {
-      const mv = c.moves({ square: b.sel, verbose: true }).find(m => m.to === sq);
-      if (mv) {
-        const from = b.sel; b.sel = null; b.draw();
-        const res = c.move({ from, to: sq, promotion: "q" });
-        if (b.onMove) b.onMove(res, from, sq);
-        return;
-      }
-    }
+    if (b.sel && tryMove(b.sel, sq)) return;
     const p = c.get(sq);
     b.sel = p && p.color === c.turn() && b.sel !== sq ? sq : null;
     b.draw();
@@ -323,14 +406,27 @@ function render() {
 function curPath() { return S.build[S.color]; }
 // For queued work about the Build position with this key: true once the user has moved on
 const notHere = key => () => S.view !== "build" || K(fenAfter(START, curPath()) || START) !== key;
+/* Build redraws come in two sizes:
+   - renderBuild(): the whole Build screen, after the position or the repertoire changes
+   - refreshBuild(key): only what background results change (move rows and arrows), once a burst
+     of engine or Lichess results has arrived. The board's squares aren't rebuilt, a selected
+     piece stays selected, and the panel keeps its height so the page doesn't jump.
+   Gaps and Lichess suggestions go over the whole tree, so they're only worked out while their
+   tab is open (sidePanes()), and not on every result. */
+// The Build position. A path that no longer plays out (for example after a sync changed the
+// tree, or a stored path from an older build) is cut back to its longest legal start, so the
+// board never shows a different position from the move list.
+function buildState() {
+  const path = curPath(), c = new Chess();
+  for (let i = 0; i < path.length; i++) if (!c.move(path[i], { sloppy: true })) { path.length = i; break; }
+  const fen = c.fen(), key = K(fen);
+  return { path, fen, key, n: rep().pos[key], mine: isMine(key, S.color) };
+}
 function renderBuild() {
-  const path = curPath();
-  const fen = fenAfter(START, path) || START;
-  const key = K(fen);
+  const { path, fen, key, n, mine } = buildState();
   BB.flip = S.color === "black";
   let last = null;
   if (path.length) { const c = new Chess(fenAfter(START, path.slice(0, -1))); const mv = c.move(path[path.length - 1]); if (mv) last = [mv.from, mv.to]; }
-  const n = rep().pos[key];
   BB.set(fen, { last, arrows: buildArrows(fen, key, n) });
   BB.el.classList.toggle("exploring", exploring());
   document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(exploring())));
@@ -342,31 +438,52 @@ function renderBuild() {
   const pb = $("#practiseHere"); pb.disabled = !(branch && branch.cards);
   pb.setAttribute("aria-label", branch && branch.cards ? `Practise the lines from this position (${branch.cards} of your moves)` : "Practise: open a position in your repertoire first");
   const op = openingFor(path);
-  const ex = cachedExplorer(fen);
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
   const oi = $("#opInfo"); oi.hidden = !(op && op.idea); if (op && op.idea) oi.dataset.tip = op.idea;
-  // prompt
-  const mine = isMine(key, S.color);
   const pr = $("#prompt");
+  pr.style.minHeight = ""; pr.dataset.key = key;
+  pr.innerHTML = movesPane(fen, key, n, path, mine);
+  // Ideas tab: only for positions where it's my move; only built while the tab is open
+  if (S.ptab === "ideas") $("#ideasCard").innerHTML = mine ? ideasPanel(fen, key, n, path) : `<p class="help">Ideas are for positions where it's your move. Play the opponent's reply, or go back one move.</p>`;
+  if (!cachedExplorer(fen) && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
+  sidePanes();
+}
+// The Moves tab: my moves (or the opponent's options), then the candidate rows
+function movesPane(fen, key, n, path, mine) {
+  let h = "";
   if (mine) {
     if (n && n.m.length) {
       const many = n.m.length > 1;
-      pr.innerHTML = `<div class="myrow"><span class="lbl">${many ? "Your moves" : "Your move"} ${exploring() ? "" : info(`Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Remove takes the move out with the line after it.`, "About your moves")}</span>
+      h = `<div class="myrow"><span class="lbl">${many ? "Your moves" : "Your move"} ${exploring() ? "" : info(`Tap a move to follow it. Play a different move on the board to add it as ${many ? "another" : "a second"} option or to replace one of these. Remove takes the move out with the line after it.`, "About your moves")}</span>
       <div class="mymoves">${n.m.map(m => `<span class="mymove"><button type="button" class="chip" data-go="${esc(m)}">${esc(moveLabel(path, m))}</button>${exploring() ? "" : `<button type="button" class="xbtn" data-remove="${esc(m)}" aria-label="Remove ${esc(m)} and the line after it">✕</button>`}</span>`).join("")}</div></div>`;
     } else {
-      pr.innerHTML = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet: play your move on the board</p>`;
+      h = exploring() ? `<p class="lbl">Your move</p><p class="help">Not in your repertoire yet.</p>` : `<p class="lbl warn">No prep yet: play your move on the board</p>`;
     }
-    pr.innerHTML += candRows(fen, key, n, path);
+    h += candRows(fen, key, n, path);
   } else {
-    pr.innerHTML = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
+    h = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
-  if (exploring()) pr.innerHTML = exploreBar() + pr.innerHTML;
-  // Ideas tab: only for positions where it's my move; only built while the tab is open
-  if (S.ptab === "ideas") $("#ideasCard").innerHTML = mine ? ideasPanel(fen, key, n, path) : `<p class="help">Ideas are for positions where it's your move. Play the opponent's reply, or go back one move.</p>`;
-  if (!ex && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d && S.view === "build" && K(fenAfter(START, curPath()) || START) === key) renderBuild(); });
-  renderGaps();
-  renderSuggest();
+  return (exploring() ? exploreBar() : "") + h;
 }
+function refreshBuild(key) {
+  if (notHere(key)()) return;
+  const { path, fen, n, mine } = buildState();
+  BB.setArrows(buildArrows(fen, key, n));
+  const pr = $("#prompt");
+  if (pr.dataset.key === key) pr.style.minHeight = pr.offsetHeight + "px"; // grow, never shrink, while results arrive
+  const y = window.scrollY;
+  pr.innerHTML = movesPane(fen, key, n, path, mine);
+  if (window.scrollY !== y) window.scrollTo(0, y);
+  sideSoon();
+}
+// Gaps and suggestions: only for the open tab, and at most every 1.5 s while results arrive
+let sideTimer = null;
+function sidePanes() {
+  clearTimeout(sideTimer); sideTimer = null;
+  if (S.ptab === "gaps") renderGaps();
+  if (S.ptab === "lichess") renderSuggest();
+}
+function sideSoon() { if (!sideTimer && (S.ptab === "gaps" || S.ptab === "lichess")) sideTimer = setTimeout(() => { sideTimer = null; if (S.view === "build") sidePanes(); }, 1500); }
 /* ----- opponent's turn: quick picks ----- */
 // "common": the most played reply at my level. "weak": my weakest spot here, which is the most
 // common reply I haven't prepared, or (if all are prepared) the one I score worst against.
@@ -391,17 +508,27 @@ function quickOppButtons(fen, key, n) {
   const same = weak && weak.san === common.san;
   return `<div class="row quickrow">${btn(same ? weak : common, same ? "Common · weakest" : "Common")}${weak && !same ? btn(weak, "Weakest") : ""}${info(`Common: the reply played most at your level (${common.why}).${weak ? ` Weakest: your weakest spot here, the most common reply you haven't prepared, or the one you score worst against (${weak.why}).` : ""} Tap one to play it.`, "About these buttons")}</div>`;
 }
-// Settings > "After my move": play the opponent's reply automatically ("common" | "weak" | off)
+// Settings > "After my move": play the opponent's reply automatically.
+//   "gap" (default): the biggest gap among the replies here, ranked like the Gaps tab (frequency
+//          or rating impact). Replies I've already prepared are left out, so if every common
+//          reply is prepared, nothing is played and I choose.
+//   "common" | "weak": see pickOpp(). "off": I choose.
+const autoOppMode = () => S.settings.autoOpp || "gap";
+function gapReply(path, color = S.color) {
+  const k = gapMode(), here = path.join(" ");
+  const list = findGaps(color).filter(g => g.opp && g.path.join(" ") === here).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
+  return list.length ? { san: list[0].opp, why: "the biggest gap here" } : null;
+}
 async function autoOpponent(path) {
-  const mode = S.settings.autoOpp;
-  if (!mode || mode === "off") return;
+  const mode = autoOppMode();
+  if (mode === "off") return;
   const fen = fenAfter(START, path), key = K(fen);
-  if (isMine(key, S.color)) return;
-  if (!cachedExplorer(fen)) await explorer(fen, { prio: PRIO.now });
+  if (!fen || isMine(key, S.color)) return;
+  if (!cachedExplorer(fen) && S.token && !explorerBlocked) await explorer(fen, { prio: PRIO.now });
   const same = () => S.view === "build" && curPath() === path && curPath().join(" ") === path.join(" ");
   if (!same()) return;
-  const p = pickOpp(fen, key, rep().pos[key], mode);
-  if (!p) return;
+  const p = mode === "gap" ? gapReply(path) : pickOpp(fen, key, rep().pos[key], mode);
+  if (!p) { if (mode === "gap" && cachedExplorer(fen)) toast("Every common reply here is prepared: pick one to carry on."); return; }
   setTimeout(() => { if (same()) goMove(p.san); }, 450);
 }
 
@@ -547,9 +674,7 @@ function onIdeaTick(finished) {
   if (finished) renderBuild(); else renderIdeaBox();
 }
 function goMove(san) {
-  const path = curPath();
-  const fen = fenAfter(START, path);
-  const c = new Chess(fen);
+  const c = new Chess(buildState().fen);
   const mv = c.move(san, { sloppy: true });
   if (!mv) return;
   onBuildMove(mv);
@@ -747,6 +872,7 @@ function nextCard() {
 }
 function renderTrainCard() {
   $("#trainHome").hidden = true; $("#trainRun").hidden = false;
+  renderPzNav(); // the ◀ ▶ row is for puzzles only
   TB.flip = T.mode === "puzzles" && T.pzGame ? T.pzGame.my === "black" : S.color === "black";
   $("#tLine").innerHTML = lineHtml(T.path, false);
   const op = openingFor(T.path);
@@ -879,6 +1005,12 @@ function startPuzzles() {
   Object.assign(T, { mode: "puzzles", state: "run", queue: puzzleQueue(10), i: 0, done: 0, right: 0, retries: 0, graded: new Set() });
   nextPuzzle();
 }
+/* A puzzle starts a few moves before the mistake (PZ_RUNUP plies, replayed), then asks for a
+   move. ◀ ▶ under the board step through the moves: before answering, only the moves leading up
+   to it (the board can be played on at the puzzle position only); after answering, the game's
+   moves after it too. At the puzzle position, arrows show the best move (blue), the move played
+   in the game (orange) and mine (purple). */
+const PZ_RUNUP = 5, PZ_AFTER = 6;
 function nextPuzzle() {
   stopTraining();
   if (T.i >= T.queue.length) return endSession();
@@ -886,18 +1018,43 @@ function nextPuzzle() {
   if (!g) { T.i++; return nextPuzzle(); }
   T.pzGame = g;
   T.path = g.moves.split(" ").slice(0, m.ply);
-  T.frames = framesTo(T.path);
+  T.frames = framesTo(T.path).slice(-(PZ_RUNUP + 1)); // from a few moves before
   T.tries = 0;
+  T.nav = { frames: T.frames, i: T.frames.length - 1, pz: T.frames.length - 1, arrows: [] };
   renderTrainCard();
+  renderPzNav();
   playLine();
 }
 function showPuzzle() {
   clearTimeout(T.timer);
-  const f = T.frames[T.frames.length - 1], g = T.pzGame, opp = g.my === "white" ? g.black : g.white;
-  T.phase = "move"; TB.locked = false;
-  TB.set(f.fen, { last: f.last });
+  const g = T.pzGame, opp = g.my === "white" ? g.black : g.white;
+  T.phase = "move";
+  T.nav.i = T.nav.pz; pzGo(T.nav.pz);
   $("#tPrompt").innerHTML = `<p class="lbl">${pzState(puzzleId(T.pz)) ? '<span class="pill">Again</span> ' : ""}Find a good move</p>
-    <p class="muted">You went wrong here against ${esc(opp)} (${esc(g.date)}). Any good move counts.</p>`;
+    <p class="muted">You went wrong here against ${esc(opp)} (${esc(g.date)}). Any good move counts. ◀ ▶ step through the moves before it.</p>`;
+}
+// Show one of the puzzle's frames; the board can only be played on at the puzzle position
+function pzGo(i) {
+  const nav = T.nav;
+  if (!nav) return;
+  nav.i = Math.max(0, Math.min(nav.frames.length - 1, i));
+  const f = nav.frames[nav.i];
+  TB.locked = !(T.phase === "move" && nav.i === nav.pz);
+  TB.set(f.fen, { last: f.last, arrows: nav.i === nav.pz ? nav.arrows : [] });
+  renderPzNav();
+}
+function renderPzNav() {
+  const box = $("#pzNav"), nav = T.nav, on = T.state === "run" && T.mode === "puzzles" && nav;
+  box.hidden = !on;
+  if (!on) return;
+  $("#pzBack").disabled = nav.i <= 0;
+  $("#pzFwd").disabled = nav.i >= nav.frames.length - 1;
+  $("#pzHere").disabled = nav.i === nav.pz;
+}
+function pzStep(d) {
+  if (T.phase === "anim") skipLine(); // stepping skips the replay
+  if (!T.nav || T.phase === "checking") return;
+  pzGo(d === "start" ? T.nav.pz : T.nav.i + d);
 }
 // Is my move good? The engine's best move is; otherwise compare with the best at depth 12
 async function judgePuzzleMove(fen, mv) {
@@ -914,6 +1071,20 @@ async function judgePuzzleMove(fen, mv) {
     return { ok: loss <= adv().good, loss, best: b.best };
   } catch (e) { return { ok: false }; }
 }
+// Arrows at the puzzle position: best (blue), played in the game (orange), mine (purple).
+// A move that is two of these at once gets one arrow, in the first colour.
+function pzArrows(fen, best, played, mine) {
+  const c = new Chess(fen), out = [];
+  const add = (san, kind, w) => {
+    if (!san) return;
+    const m = c.move(san, { sloppy: true });
+    if (!m) return;
+    c.undo();
+    if (!out.some(a => a.from === m.from && a.to === m.to)) out.push({ from: m.from, to: m.to, w, kind });
+  };
+  add(best, "best", 0.85); add(played, "played", 0.6); add(mine, "tried", 0.5);
+  return out;
+}
 async function onPuzzleMove(mv) {
   const fen = T.frames[T.frames.length - 1].fen, m = T.pz, first = T.tries === 0;
   T.phase = "checking"; TB.locked = true; T.tries++;
@@ -922,25 +1093,22 @@ async function onPuzzleMove(mv) {
   if (tok !== T.token || T.state !== "run") return;
   if (first) { T.done++; if (r.ok) T.right++; }
   T.pzSolved = first && r.ok;
-  const bestSan = uciToSan(fen, m.bestUci || r.best || ""), c = new Chess(fen), good = bestSan ? c.move(bestSan) : null;
-  TB.set(fen, r.ok ? { last: [mv.from, mv.to] } : { bad: [mv.from, mv.to], hint: good ? [good.from, good.to] : null, animate: false });
-  const g = T.pzGame, moves = g.moves.split(" "), punish = moves.slice(m.ply, m.ply + 4);
+  const bestSan = uciToSan(fen, m.bestUci || r.best || "");
+  const g = T.pzGame, moves = g.moves.split(" "), after = moves.slice(m.ply, m.ply + PZ_AFTER);
   const opp = g.my === "white" ? g.black : g.white;
+  // Now the game's moves after the mistake can be stepped through too
+  const c = new Chess(fen), more = [];
+  for (const s of after) { const x = c.move(s, { sloppy: true }); if (!x) break; more.push({ fen: c.fen(), last: [x.from, x.to] }); }
+  T.nav = { frames: T.frames.concat(more), pz: T.frames.length - 1, i: T.frames.length - 1, arrows: pzArrows(fen, bestSan, m.played, mv.san) };
+  T.phase = "review";
+  pzGo(T.nav.pz);
+  const shown = new Set(T.nav.arrows.map(a => a.kind));
+  const legend = [shown.has("best") && `<span class="key best">best${bestSan ? " " + esc(bestSan) : ""}</span>`, shown.has("played") && `<span class="key played">played in the game</span>`, shown.has("tried") && `<span class="key tried">yours</span>`].filter(Boolean).join("");
   $("#tPrompt").innerHTML = `<p class="lbl ${r.ok ? "ok" : "warn"}">${r.ok ? `Good: ${esc(moveLabel(T.path, mv.san))}` : `Not quite. Better was ${esc(moveLabel(T.path, bestSan))}`}</p>
-    <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(m.before)} → ${pawns(m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, punish.slice(1)) || "…")}</span></p>`;
-  // Then play out what happened in the game: my move and the punishment
-  later(() => playPunish(fen, punish), r.ok ? 1100 : 1600);
-}
-function playPunish(fen, moves) {
-  const c = new Chess(fen), frames = [];
-  for (const s of moves) { const mv = c.move(s); if (!mv) break; frames.push({ fen: c.fen(), last: [mv.from, mv.to] }); }
-  let i = 0;
-  const step = () => {
-    if (i < frames.length) { TB.set(frames[i].fen, { last: frames[i].last }); i++; later(step, reduceMotion() ? 0 : 650); }
-    else puzzleChoice();
-  };
-  TB.set(fen, {}); // back to the puzzle position, then play the game's moves from there
-  later(step, 300);
+    <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(m.before)} → ${pawns(m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, after.slice(1, 4)) || "…")}</span></p>
+    ${legend ? `<p class="arrowkey">${legend}</p>` : ""}
+    <p class="help">▶ plays through what happened in the game.</p>`;
+  puzzleChoice();
 }
 function puzzleChoice() {
   const keep = suggestKeep(T.pz, T.pzSolved);
@@ -1136,7 +1304,7 @@ function renderLook() {
   $("#pieceSets").innerHTML = PIECE_SETS.map(p => `<button type="button" class="chip lookchip" aria-pressed="${p.id === set}" data-pieces="${p.id}">${pieceHtml({ color: "w", type: "n" }, p.id)}<span>${esc(p.name)}</span></button>`).join("");
   $("#boardThemes").innerHTML = BOARD_THEMES.map(t => `<button type="button" class="chip lookchip" aria-pressed="${t.id === theme}" data-boardtheme="${t.id}"><span class="swatch" data-swatch="${t.id}"><i></i><i></i></span><span>${esc(t.name)}</span></button>`).join("");
   $("#arrowOpt").innerHTML = [["on", "Show"], ["off", "Hide"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${(S.settings.arrows !== false) === (v === "on")}" data-arrows="${v}">${l}</button>`).join("");
-  $("#autoOpp").value = S.settings.autoOpp || "off";
+  $("#autoOpp").value = autoOppMode();
   const th = ["light", "dark", "system"].includes(S.settings.theme) ? S.settings.theme : "light";
   $("#appTheme").innerHTML = [["light", "Light"], ["dark", "Dark"], ["system", "Match my phone"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${v === th}" data-apptheme="${v}">${l}</button>`).join("");
   $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
@@ -1288,6 +1456,9 @@ async function boot() {
   const state = await Store.init();
   if (state === "auth") await new Promise(res => showAuth(res));
   applyLook(); syncToken(); renderHeader(); renderNewMark();
+  // v0.9: Build plays the biggest-gap reply by default. Switch older settings over once (asked for
+  // on 9 Nov 2026); it can be changed back in Settings.
+  if (S.settings.autoOppV !== 2) { S.settings.autoOpp = "gap"; S.settings.autoOppV = 2; Store.save("settings"); }
   fetchRating(); // G4, at most once a day, in the background
   walk("white"); walk("black");
   warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
@@ -1310,6 +1481,7 @@ async function boot() {
     else if (d.addopt) commitBuildMove(d.addopt);
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
+    else if ("deep" in d) { deepKeys.add(buildState().key); renderBuild(); }
     else if (d.arrows) { S.settings.arrows = d.arrows === "on"; Store.save("settings"); renderLook(); }
     else if (d.openbook) switchBook(d.openbook);
     else if (d.bookact) onBookAction(d.bookact);
@@ -1356,6 +1528,11 @@ async function boot() {
   // header height plus its bottom gap: the board's natural position, so it locks without moving first
   const hdr = document.querySelector(".top"), setHdr = () => document.documentElement.style.setProperty("--hdr", hdr.offsetHeight + parseFloat(getComputedStyle(hdr).marginBottom) + "px");
   setHdr(); if (window.ResizeObserver) new ResizeObserver(setHdr).observe(hdr);
+  // The Build tabs and the move rows' column headers stay pinned under the board on phones: they
+  // need the board column's height (--bcol) and the tabs' height (--ptabs)
+  const bcol = $("#buildBoardCol"), ptabs = document.querySelector(".ptabs");
+  const setPin = () => { const st = document.documentElement.style; st.setProperty("--bcol", bcol.offsetHeight + "px"); st.setProperty("--ptabs", ptabs.offsetHeight + "px"); };
+  setPin(); if (window.ResizeObserver) { const ro = new ResizeObserver(setPin); ro.observe(bcol); ro.observe(ptabs); }
   const toggleCand = san => { const id = K(fenAfter(START, curPath()) || START) + "|" + san; if (candOpen.has(id)) candOpen.delete(id); else candOpen.add(id); renderBuild(); };
   $("#prompt").addEventListener("click", e => { if (e.target.closest("button, a, [data-tip]")) return; const row = e.target.closest(".cand"); if (row) toggleCand(row.dataset.cand); });
   $("#prompt").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("cand")) { e.preventDefault(); toggleCand(e.target.dataset.cand); } });
@@ -1367,6 +1544,9 @@ async function boot() {
   $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;
+  $("#pzBack").onclick = () => pzStep(-1);
+  $("#pzFwd").onclick = () => pzStep(1);
+  $("#pzHere").onclick = () => pzStep("start");
   $("#fetchBtn").onclick = fetchChessCom;
   $("#pasteBtn").onclick = importPasted;
   $("#pgnFile").onchange = async e => { const f = e.target.files[0]; if (f) { $("#pgnIn").value = await f.text(); importPasted(); } e.target.value = ""; };

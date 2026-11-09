@@ -5,6 +5,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09d", date: "9 Nov 2026", title: "Smoother Build, drag to move, better mistake review",
+    items: [
+      "Drag pieces to move them, or tap as before. Dragging a piece doesn't scroll the page.",
+      "Build is lighter: results arriving in the background only update the move rows, so the board no longer redraws and a piece you've picked up stays selected.",
+      "Each move gets a quick engine check. Tap Deeper analysis under the rows for a full check and the Rep column.",
+      "After you add a move, the opponent's reply is played for you: the biggest gap among the replies you haven't prepared. Change it in Settings.",
+      "On phones the tabs and the column headers stay in place under the board, so only the moves scroll. The board is back to its bigger size.",
+      "Mistake review: puzzles come in a random order, start 5 moves before the mistake, and show arrows for the best move (blue), the game's move (orange) and yours (purple). ◀ ▶ step through the moves before it, and after you answer, through what happened next.",
+    ],
+  },
+  {
     id: "2026-11-09c", date: "9 Nov 2026", title: "Coach report, and two fixes",
     items: [
       "Games → Coach report: a summary of your openings, where you leave prep, lines where you score below peers, gaps, training and mistakes. Copy it for an AI coach, or copy or download it as JSON.",

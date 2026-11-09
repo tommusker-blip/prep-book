@@ -38,6 +38,40 @@ f.onload = () => {
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
     if (mode === "explore-mode") runExploreMode();
+    if (mode === "drag") (async () => {
+      // v0.9: drag and drop, and a selected piece surviving background refreshes
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const S = G("S"), BB = G("BB");
+      w.eval('S.settings.autoOpp = "off"; S.build.white = []; renderBuild()');
+      const centre = sq => { const r = d.querySelector(`#board [data-sq="${sq}"]`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+      const pe = (type, sq, target) => { const [x, y] = centre(sq); (target || d.elementFromPoint(x, y)).dispatchEvent(new w.PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX: x, clientY: y, button: 0 })); };
+      // drag the e-pawn from e2 to e4
+      const from = d.querySelector('#board [data-sq="e2"]');
+      pe("pointerdown", "e2", from); pe("pointermove", "e3", from); pe("pointermove", "e4", from);
+      L("dragging: " + !!BB.drag + ", ghost: " + !!d.querySelector("body > .pc.ghost") + ", e2 square draggable: " + from.classList.contains("own"));
+      pe("pointerup", "e4", d.querySelector("#board"));
+      d.querySelector('#board [data-sq="e4"]').click(); // the click that follows a drop is ignored
+      await sleep(50);
+      L("after drag e2-e4: path=" + S.build.white.join(" ") + ", ghost left: " + !!d.querySelector("body > .pc.ghost"));
+      // an illegal drop puts the piece back
+      w.eval('S.build.white = ["e4"]; S.color = "white"; renderBuild()');
+      const g8 = d.querySelector('#board [data-sq="g8"]');
+      pe("pointerdown", "g8", g8); pe("pointermove", "g6", g8); pe("pointermove", "g4", g8); pe("pointerup", "g4", d.querySelector("#board"));
+      await sleep(50);
+      L("illegal drop g8-g4: path=" + S.build.white.join(" "));
+      // a tap selection survives results arriving
+      w.eval('S.build.white = ["e4", "e5"]; renderBuild()');
+      d.querySelector('#board [data-sq="g1"]').click();
+      w.eval('refreshBuild(K(fenAfter(START, ["e4","e5"]))); renderBuild()');
+      L("selected g1 after a refresh and a redraw: " + BB.sel + ", target dot on f3: " + !!d.querySelector('#board [data-sq="f3"] .dot'));
+      d.querySelector('#board [data-sq="f3"]').click();
+      L("tap move: path=" + S.build.white.join(" "));
+      // a stored path that no longer plays out is cut back
+      w.eval('S.build.white = ["e4", "e5", "Ke3"]; renderBuild()');
+      L("bad path cut back to: " + S.build.white.join(" "));
+      L("Deeper analysis button: " + !!d.querySelector("#prompt [data-deep]"));
+      L("DONE");
+    })();
     if (mode === "report") (async () => {
       w.eval(`const lines = ["e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+", "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7"];
         S.games = Array.from({ length: 1800 }, (_, i) => ({ id: "r" + i, my: i % 2 ? "black" : "white", tc: "rapid", date: "2026-01-01", result: ["1-0", "0-1", "1/2-1/2"][i % 3], moves: lines[i % 3], clk: Array(12).fill(400) }));
@@ -191,9 +225,10 @@ f.onload = () => {
       const x = data[G("K")(fen)] || { white: 100, draws: 50, black: 100, moves: [] };
       return { ok: true, status: 200, json: async () => ({ ...x, moves: x.moves.map(([san, w1, d1, b1]) => ({ san, white: w1, draws: d1, black: b1 })) }) };
     };
-    w.eval('S.token = "test-token"');
+    w.eval('S.token = "test-token"; S.settings.autoOpp = "off"');
     play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
     d.querySelector("#toStart").click();
+    d.querySelector('[data-ptab="lichess"]').click(); // panes are only filled while their tab is open
     L("scan box: " + d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim());
     d.querySelector("#scanBox [data-scan]").click();
     const wait = n => {
@@ -210,6 +245,7 @@ f.onload = () => {
       L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
       L("opponent rows after 1.e4: " + rowText());
       // Next gap: the button names its target; tapping it jumps there with the reply's row open
+      d.querySelector('[data-ptab="gaps"]').click();
       const nb = () => d.querySelector("#gapNext [data-nextgap]");
       L("next gap button: " + (nb() ? nb().textContent.replace(/\s+/g, " ").trim() : "none"));
       nb().click();
@@ -231,7 +267,13 @@ f.onload = () => {
       // Auto-play the most common reply after my move
       w.eval('S.settings.autoOpp = "common"; S.build.white = []; renderBuild()');
       play("#board", "e2", "e4");
-      setTimeout(() => { L("auto reply after 1.e4: path=" + G("S").build.white.join(" ")); L("DONE"); }, 1500);
+      setTimeout(() => {
+        L("auto reply after 1.e4: path=" + G("S").build.white.join(" "));
+        // v0.9 default: the biggest gap among the replies, leaving out prepared ones (1...e5 is prepared)
+        w.eval('removeMove(["e4"], "c5", "white"); walk("white"); S.settings.autoOpp = "gap"; S.build.white = []; renderBuild()');
+        play("#board", "e2", "e4");
+        setTimeout(() => { L("gap auto reply after 1.e4: path=" + G("S").build.white.join(" ")); L("DONE"); }, 1500);
+      }, 1500);
     };
     wait(0);
   }

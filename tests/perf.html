@@ -35,6 +35,7 @@ f.onload = () => setTimeout(async () => {
   S.build.white = "e4 e5".split(" ");
   time("renderBuild at my move (1.e4 e5)", () => G("renderBuild")(), 3);
   time("board redraw only", () => G("BB").draw());
+  time("refreshBuild (what a background result now costs)", () => G("refreshBuild")(G("K")(G("fenAfter")(G("START"), ["e4", "e5"]))));
   // the parts of a Build redraw
   time("  walk (tidy the tree)", () => G("walk")("white"));
   time("  renderGaps", () => G("renderGaps")());

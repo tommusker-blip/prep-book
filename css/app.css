@@ -343,7 +343,7 @@ tr.why td{border-top:0;padding-top:0;font-size:.8rem;color:var(--muted)}
 .crep.weapon{color:#fff;background:var(--gem);border-radius:999px;padding:3px 0}
 .cand{padding:3px 2px}
 .cand .chip{min-height:30px;padding:2px 8px}
-@media (max-width:899px){ #buildBoardCol .board{max-width:min(100%,32vh,520px)} }
+@media (max-width:899px){ #buildBoardCol .board{max-width:min(100%,38vh,520px)} } /* 38vh: the size before v0.7.2, which the user preferred */
 /* Updates page and the header's "New" marker */
 .settingshead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .upd h3{margin:2px 0 6px}
@@ -383,3 +383,29 @@ input[type=text],input[type=password],input[type=number],select,textarea{backgro
 /* coach report */
 table.rep td{font-size:.82rem;padding:5px 4px}
 table.rep th{font-size:.64rem}
+
+/* ---------- drag and drop (v0.9) ---------- */
+/* a square with one of the side to move's pieces: dragging it moves the piece, not the page */
+.board .sq.own{touch-action:none;cursor:grab}
+.pc.ghost{position:fixed;left:0;top:0;z-index:50;pointer-events:none;display:grid;place-items:center;filter:drop-shadow(0 4px 6px rgba(16,24,40,.25));cursor:grabbing}
+.pc.ghost:not(.pimg){font-family:var(--f-piece);line-height:1}
+.sq.dragfrom .pc{opacity:.3}
+.sq.dragover{box-shadow:inset 0 0 0 3px var(--accent)}
+
+/* ---------- pinned tabs and column headers on phones (v0.9) ---------- */
+/* Under the pinned board: the Build tabs, then the move rows' column headers, so only the
+   rows scroll. --bcol and --ptabs are measured in boot(). */
+@media (max-width:899px){
+  .ptabs{position:sticky;top:calc(var(--hdr,64px) + env(safe-area-inset-top,0px) + var(--bcol,0px));z-index:5;background:var(--bg);margin-bottom:0}
+  .chead{position:sticky;top:calc(var(--hdr,64px) + env(safe-area-inset-top,0px) + var(--bcol,0px) + var(--ptabs,40px));z-index:4;background:var(--surface);padding-top:6px;box-shadow:0 1px 0 var(--line)}
+}
+.deeprow{margin:8px 0 2px;align-items:center;gap:6px}
+/* mistake review: arrows for the best move, the game's move and mine, and their key */
+.arw.best line{stroke:var(--good)} .arw.best polygon{fill:var(--good)}
+.arw.played line{stroke:var(--bad)} .arw.played polygon{fill:var(--bad)}
+.arw.tried line{stroke:var(--gem)} .arw.tried polygon{fill:var(--gem)}
+.arrowkey{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 0;font-size:.8rem;color:var(--muted)}
+.arrowkey .key::before{content:"";display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:5px;vertical-align:middle;background:currentColor}
+.arrowkey .key.best::before{background:var(--good)} .arrowkey .key.played::before{background:var(--bad)} .arrowkey .key.tried::before{background:var(--gem)}
+.navrow.pznav{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;margin:8px auto 0}
+.navrow.pznav .btn:disabled{opacity:.4}

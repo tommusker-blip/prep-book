@@ -22,10 +22,18 @@ f.onload = () => setTimeout(async () => {
   for (let i = 0; i < 60 && !d.querySelector("#pzStart"); i++) await sleep(100);
   L("card: " + d.querySelector("#mistakeBody").textContent.replace(/\s+/g, " ").trim().slice(0, 200));
   ok(/2 puzzles from 2 mistakes/.test(d.querySelector("#mistakeBody").textContent), "the card finds both punished mistakes");
+  w.eval("PZ.rng = () => 0.9999"); // keep the order for this test (sessions are shuffled)
   d.querySelector("#pzStart").click();
   const T = G("T"), until = async (cond, ms = 30000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(100); };
   await until(() => T.phase === "move");
   ok(G("T").path.join(" ") === "e4 e5 Nf3 Nc6 Bc4 Nd4", "puzzle 1 starts before 4.Nxe5", T.path.join(" "));
+  ok(T.frames.length === 6 && T.frames[0].last && T.frames[0].last.join("") === "e2e4", "the run-up is the last 5 moves (from after 1.e4)", T.frames.length + " frames");
+  // ◀ ▶ before answering: step back, the board is locked; back at the puzzle, it can be played on
+  d.querySelector("#pzBack").click();
+  ok(!d.querySelector("#pzNav").hidden && T.nav.i === 4 && G("TB").locked, "◀ steps back and locks the board");
+  ok(d.querySelector("#pzFwd").disabled === false && d.querySelector("#pzHere").disabled === false, "▶ and Puzzle are available");
+  d.querySelector("#pzFwd").click();
+  ok(T.nav.i === 5 && !G("TB").locked && d.querySelector("#pzFwd").disabled, "▶ back to the puzzle unlocks it; nothing further yet");
   // A good alternative: castling
   const play = (a, b) => { d.querySelector(`#tBoard [data-sq="${a}"]`).click(); d.querySelector(`#tBoard [data-sq="${b}"]`).click(); };
   play("e1", "g1");
@@ -34,6 +42,13 @@ f.onload = () => setTimeout(async () => {
   L("after O-O: " + txt.slice(0, 260));
   ok(/^Good: 4\. O-O/.test(txt.trim()), "castling is judged a good move (engine, within 0.5)");
   ok(/you played 4. Nxe5/.test(txt) && /punished it: 4… Qg5/.test(txt), "shows what was played and the punishment, numbered");
+  const kinds = T.nav.arrows.map(a => a.kind + ":" + a.from + a.to).join(" ");
+  ok(/played:f3e5/.test(kinds) && /tried:e1g1/.test(kinds), "arrows for the game's move and mine", kinds);
+  ok(T.nav.frames.length > 6 && !d.querySelector("#pzFwd").disabled, "after answering, ▶ steps into the game's moves");
+  d.querySelector("#pzFwd").click();
+  ok(T.nav.i === 6 && G("TB").fen.split(" ")[0] === G("fenAfter")(G("START"), "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5".split(" ")).split(" ")[0] && G("TB").arrows.length === 0, "▶ shows 4.Nxe5 from the game, without the arrows");
+  d.querySelector("#pzHere").click();
+  ok(T.nav.i === 5 && G("TB").arrows.length >= 2 && G("TB").locked, "Puzzle goes back to the position with the arrows (locked after answering)");
   d.querySelector('#tPrompt [data-pz="keep"]').click();
   ok(G("S").puzzles.map["bs:6"].st === "keep" && G("S").puzzles.map["bs:6"].c.reps === 1, "Keep schedules it (solved first time)");
   // Puzzle 2: play the game's own blunder again

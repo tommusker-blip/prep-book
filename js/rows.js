@@ -67,9 +67,15 @@ const Tip = {
   },
 };
 
-/* ----- engine evals for the rows (depth 14, through the job queue) ----- */
-const ROW_DEPTH = 14;
-const evalAt = fen => { const e = EVALC[K(fen)]; return e && e.d >= ROW_DEPTH ? e : null; };
+/* ----- engine evals for the rows (through the job queue) -----
+   By default each row gets a quick eval (depth 10: a few hundredths of a second per position on a
+   PC), which keeps Build light on a phone. "Deeper analysis" asks for depth 14 for every row and
+   the follow-ups (the Rep column: MultiPV and the Lichess replies after each move). Deeper
+   results already in the cache or the database are always used. */
+const QUICK_DEPTH = 10, DEEP_DEPTH = 14;
+const deepKeys = new Set(); // positions where I asked for deeper analysis (this session)
+const rowDepth = key => (deepKeys.has(key) ? DEEP_DEPTH : QUICK_DEPTH);
+const evalAt = (fen, depth = QUICK_DEPTH) => { const e = EVALC[K(fen)]; return e && e.d >= depth ? e : null; };
 // My-side eval after a move, and how much the mover gave up against their best move
 function engineFor(fen, key, san) {
   const before = evalAt(fen), after = fenAfter(fen, [san]), ea = after && evalAt(after);
@@ -80,15 +86,23 @@ function engineFor(fen, key, san) {
   return { mine, loss, mate: ea.mate != null, best: ea.best, after };
 }
 let rowsTimer = null;
-function rowsChanged(key) { // redraw once a burst of results has arrived, if still here
+function rowsChanged(key) { // refresh the rows once a burst of results has arrived, if still here
   clearTimeout(rowsTimer);
-  rowsTimer = setTimeout(() => { if (!notHere(key)()) renderBuild(); }, 120);
+  rowsTimer = setTimeout(() => refreshBuild(key), 150);
 }
 function queueRowEvals(fen, key, sans) {
   if (Engine.failed) return;
-  const opts = { prio: PRIO.now, stale: notHere(key) };
-  const fens = [fen, ...sans.map(s => fenAfter(fen, [s])).filter(Boolean)].filter(f => !evalAt(f));
-  for (const f of fens) Engine.analyse(f, ROW_DEPTH, opts).then(() => rowsChanged(key), () => {});
+  const depth = rowDepth(key), opts = { prio: PRIO.now, stale: notHere(key) };
+  const fens = [fen, ...sans.map(s => fenAfter(fen, [s])).filter(Boolean)].filter(f => !evalAt(f, depth));
+  for (const f of fens) Engine.analyse(f, depth, opts).then(() => rowsChanged(key), () => {});
+}
+// Is anything for the rows still on its way at this depth?
+function rowsPending(fen, key, list) {
+  const depth = rowDepth(key);
+  if (Engine.failed) return false;
+  if ([fen, ...list.map(c => fenAfter(fen, [c.san]))].some(f => f && !evalAt(f, depth))) return true;
+  if (!deepKeys.has(key) || !isMine(key, S.color)) return false;
+  return list.slice(0, FOLLOW_MAX).some(c => { const p1 = fenAfter(fen, [c.san]), m = p1 && MPV[K(p1)]; return p1 && !(m && m.d >= MPV_DEPTH && m.n >= MPV_N); });
 }
 
 /* ----- follow-ups for each of my candidate moves (NOTES item 7) -----
@@ -113,7 +127,7 @@ function followups(fen, san) {
 }
 // Ask for the MultiPV and Lichess replies for my top candidates, one at a time, most played first
 function queueFollowups(fen, key, list) {
-  if (!isMine(key, S.color)) return;
+  if (!isMine(key, S.color) || !deepKeys.has(key)) return; // only after "Deeper analysis"
   const opts = { prio: PRIO.now, stale: notHere(key) };
   for (const c of list.slice(0, FOLLOW_MAX)) {
     const p1 = fenAfter(fen, [c.san]);
@@ -171,7 +185,7 @@ function candRow(fen, key, c, ex, path) {
   const stateText = c.prep ? (myTurn ? "in your repertoire" : "prepared") : !myTurn ? "not prepared (a gap)" : "";
   const rep = !myTurn ? "" : fu && fu.label
     ? `<span class="crep${weapon ? " weapon" : ""}" aria-label="${esc(fu.label)}: ${fu.count} good repl${fu.count === 1 ? "y" : "ies"}">${fu.count >= MPV_N ? MPV_N + "+" : fu.count}</span>`
-    : `<span class="crep muted">${!Engine.failed && c.rank < FOLLOW_MAX ? "…" : "–"}</span>`;
+    : `<span class="crep muted">${!Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX ? "…" : "–"}</span>`;
   const head = `<div class="crow${myTurn ? " c5" : ""}">
       <span class="cmove"><button type="button" class="chip ${state}" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${stateText ? ", " + stateText : ""}">${esc(c.san)}</button></span>
       <span class="ceng">${engineCell(e, myTurn)}</span>
@@ -222,7 +236,14 @@ function candRows(fen, key, n, path) {
   if (!list.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
   const myTurn = isMine(key, S.color);
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a green outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish depth ${ROW_DEPTH}, from your side; ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep: how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
+      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a blue outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish, from your side (a quick depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep (after Deeper analysis): how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
-    </div>`;
+    </div>${deepRow(fen, key, list, myTurn)}`;
+}
+// Under the rows: the "Deeper analysis" button, or progress while it runs
+function deepRow(fen, key, list, myTurn) {
+  if (Engine.failed) return "";
+  const pending = rowsPending(fen, key, list);
+  if (deepKeys.has(key)) return pending ? `<p class="help deeprow" aria-live="polite">Analysing deeper…</p>` : "";
+  return `<div class="row deeprow"><button type="button" class="btn ghost" data-deep>Deeper analysis</button>${info(`Each move gets a quick engine check (depth ${QUICK_DEPTH}) so Build stays fast. Deeper analysis checks every move at depth ${DEEP_DEPTH}${myTurn ? " and works out the Rep column: how many good replies your opponent has after each of your top moves, and how often players at your level find them" : ""}. It takes a few seconds, longer on a phone.`, "About deeper analysis")}</div>`;
 }

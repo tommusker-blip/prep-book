@@ -7,11 +7,11 @@ now, but should stay structured so other people could use it later.
 - Repo: https://github.com/tommusker-blip/prep-book
 - Live site (GitHub Pages, main branch, root): https://tommusker-blip.github.io/prep-book/
 - Must work well on **Android Chrome** (installed via "Add to Home screen") and
-  on desktop. Mobile-first layout, tap-to-move board.
+  on desktop. Mobile-first layout; pieces move by tap or drag.
 - I play **rapid** on chess.com, rated about **1500–1600**. Repertoires for both
   White and Black. The repertoire starts empty and is built in the app.
 
-## Current state (v0.8, proof of concept)
+## Current state (v0.9, proof of concept)
 
 Plain static files, no build step and no bundler. GitHub Pages serves the repo
 as it is. External scripts come from CDNs:
@@ -92,7 +92,10 @@ when it loads; the others just define things.
     `k`)
   - `Tip`: hover or tap tips (no `title` tooltips); `info(text)` makes an ⓘ
     button for explanations, so they aren't on screen all the time
-  - `followups()` (item 7): for each of my top 6 candidates, `Engine.multi()`
+  - Depth (v0.9): rows get a quick depth-10 eval by default (`QUICK_DEPTH`).
+    "Deeper analysis" (`deepKeys`, per session) asks for depth 14 for every
+    row and the follow-ups below. Deeper results already cached are always used.
+  - `followups()` (item 7, only after Deeper analysis): for each of my top 6 candidates, `Engine.multi()`
     (MultiPV 5 at depth 12, cached in `MPV` / `pb_mpv` and in `evals` as
     `mpv:<key>`) counts the opponent's replies within the good margin. The
     label is "Only move", "Narrow", "Several" or "Many". The Lichess data
@@ -104,6 +107,20 @@ when it loads; the others just define things.
   one line each; the moves line scrolls sideways. On phones the board column is pinned under the header
   (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
   control row has Start, Back, Next, Explore, Gap and Practise (lines from this position).
+  On phones the tabs and the rows' column headers are pinned too (`--bcol`, `--ptabs`, measured in `boot()`).
+- Build redraws (v0.9): `renderBuild()` redraws everything after the position or
+  the tree changes. Engine and Lichess results go through `rowsChanged()` to
+  `refreshBuild()`, which only redraws the move rows and the arrows (`BB.setArrows()`).
+  Gaps and suggestions only run while their tab is open (`sidePanes()`).
+  `buildState()` cuts a path that no longer plays out back to its legal start.
+- Board (`Board()` in `app.js`): tap-to-move and drag-and-drop (pointer
+  events). It redraws only when what it shows changes, keeps a selected piece
+  across redraws of the same position, and holds off redraws during a drag.
+  Squares with the side to move's pieces get `.own` (`touch-action: none`), so
+  dragging doesn't scroll the page.
+- Auto-reply in Build (`autoOpponent()`, Settings): default `gap` plays the
+  biggest unprepared reply, ranked like the Gaps tab (`gapReply()`). Prepared
+  replies are left out, so nothing is played once they're all covered.
 - `js/puzzles.js` (item 9, mistake review):
   - `gameMistakes()` finds mistakes in a game's v2 analysis, with the reasons
     one isn't a puzzle: `lost`, `winning`, `clock`, `recapture`, `forced`,
@@ -117,8 +134,12 @@ when it loads; the others just define things.
   - Keep / Seen / Later state is in `S.puzzles.map` (the `puzzles` doc in
     `prep_data`, so it syncs), with an SM-2 card for kept ones
   - The UI is in `app.js`: `renderMistakeCard()` and `startPuzzles()` through
-    `onPuzzleChoice()`. A puzzle reuses the Train board and run-up, and judges
-    any move within the good margin at depth 12 as correct.
+    `onPuzzleChoice()`. A puzzle replays the 5 moves before the mistake
+    (`PZ_RUNUP`), and judges any move within the good margin at depth 12 as
+    correct. ◀ ▶ (`pzStep()`) step through the moves before it, and after
+    answering also through the game's next 6 moves. At the puzzle position,
+    arrows show the best move (blue), the game's move (orange) and mine
+    (purple). New and "later" puzzles are shuffled (`PZ.rng`).
 - `js/report.js`: the coach data report (backlog 6, without the AI for now).
   `buildCoachReport()` gathers aggregated numbers only: openings from my games (results,
   accuracy in and after book, prep depth, misplays), prep exits, positions where I score below

@@ -145,7 +145,15 @@ function openingFamilyOf(gid) {
   famMemo.set(gid, fam);
   return fam;
 }
-// The next session: kept puzzles that are due, then new ones, then ones put off for later
+// The next session: kept puzzles that are due (most overdue first), then new ones, then ones put
+// off for later. New and later ones come in a random order rather than by date, so a session
+// mixes games and openings. PZ.rng can be swapped for a fixed one in tests.
+const PZ = { rng: Math.random };
+function shuffled(a, rng = PZ.rng) {
+  const out = a.slice();
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
 function puzzleQueue(n = 10, now = Date.now()) {
   const list = puzzleList(), due = [], fresh = [], later = [];
   for (const m of list) {
@@ -155,5 +163,5 @@ function puzzleQueue(n = 10, now = Date.now()) {
     else if (st.st === "later") later.push(m);
   }
   due.sort((a, b) => pzState(puzzleId(a)).c.due - pzState(puzzleId(b)).c.due);
-  return [...due, ...fresh, ...later].slice(0, n);
+  return [...due, ...shuffled(fresh), ...shuffled(later)].slice(0, n);
 }

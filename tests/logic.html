@@ -489,12 +489,15 @@ t("puzzles: queue order is due kept ones, then new, then later; seen ones are re
   S.puzzles = { map: {} }; MIST.byGame.clear();
   const { g, a } = shilling(); S.games = [g]; S.acc = { bs: a };
   MIST.byGame.set("bs", gameMistakes(g, a, null));
+  PZ.rng = () => 0; // new ones are shuffled, not in date order
+  eq(puzzleQueue().map(puzzleId), ["bs:8", "bs:6"], "shuffled");
+  PZ.rng = () => 0.9999; // a shuffle that keeps the order, for the checks below
   eq(puzzleQueue().map(puzzleId), ["bs:6", "bs:8"]);
   S.puzzles.map["bs:6"] = { st: "later" }; S.puzzles.map["bs:8"] = { st: "keep", c: { due: Date.now() - 1 } };
   eq(puzzleQueue().map(puzzleId), ["bs:8", "bs:6"]);
   S.puzzles.map["bs:6"] = { st: "seen" };
   eq(puzzleQueue().map(puzzleId), ["bs:8"]);
-  S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear();
+  S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear(); PZ.rng = Math.random;
 });
 
 /* ----- coach report: aggregated numbers only ----- */
