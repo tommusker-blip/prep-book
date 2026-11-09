@@ -268,7 +268,8 @@ div.gap-row{cursor:default}
 .possum .bad,.cand .bad{color:var(--bad);font-weight:600} .possum .ok,.cand .ok{color:var(--good);font-weight:600}
 /* the candidate rows (rows.js): tags | move | eval | played | peer score | you */
 .cands{display:flex;flex-direction:column;margin-top:6px}
-.crow{display:grid;grid-template-columns:2.2rem 4.3rem 3.1rem minmax(0,1fr) 2.6rem minmax(0,1fr);gap:5px;align-items:center;font-variant-numeric:tabular-nums}
+.crow{display:grid;grid-template-columns:minmax(2.2rem,.6fr) minmax(4.3rem,1.2fr) minmax(3.1rem,1fr) minmax(0,1fr) minmax(2.6rem,.9fr) minmax(0,1fr);gap:5px;align-items:center;font-variant-numeric:tabular-nums}
+.crow>.ceng,.crow>.cpeer,.crow>.cscore,.crow>.cyou,.chead>span:nth-child(n+2){text-align:center;justify-content:center} /* the numbers centred under their headings */
 .chead{font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:600;padding:0 4px 4px}
 .chead span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chead .hd2{white-space:normal;line-height:1.05;overflow:visible} /* "Peer score" on two lines */
@@ -303,7 +304,7 @@ div.gap-row{cursor:default}
 .tag.t-warn{color:var(--warn)}
 .tag.t-gambit{font-size:1.15em}
 .tag.more{font-size:.7rem;color:var(--muted);font-weight:700}
-.crow .cname{grid-column:1/-1;font-size:.74rem;line-height:1.2;color:var(--accent);font-weight:600;margin-top:-2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .cname{grid-column:1/-1;font-size:.74rem;line-height:1.2;color:var(--accent);font-weight:600;margin-bottom:-1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crow .cname .eco{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-right:2px}
 /* an expanded row */
 .cdetail{margin-top:8px;display:flex;flex-direction:column;gap:6px;cursor:default}
@@ -452,7 +453,7 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 }
 /* narrow phones */
 @media (max-width:420px){
-  .crow{grid-template-columns:1.8rem 3.6rem 2.75rem minmax(0,.8fr) 2.3rem minmax(0,1.2fr);gap:3px}
+  .crow{grid-template-columns:minmax(1.8rem,.5fr) minmax(3.6rem,1fr) minmax(2.75rem,1fr) minmax(0,.9fr) minmax(2.3rem,.8fr) minmax(0,1.2fr);gap:3px}
   .chead{font-size:.6rem;letter-spacing:0}
   .cmove{gap:2px}
   .cand .chip{font-size:.8rem}

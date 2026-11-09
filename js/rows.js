@@ -198,13 +198,13 @@ function candRow(fen, key, c, ex, path) {
   const tags = rowTags({ weapon, fu, gem: flag === "gem" && !weapon ? flagText : peerGem ? (peerGem === "gem" ? "A hidden gem: rarely played at your level, but it scores well" : "Scores better at your level than your move here") : "", gambit, trans, warn: flag === "warn" ? flagText : "" });
   const mark = moveMark(e, gambit || !!peerGem || flag === "gem");
   const head = `<div class="crow c5">
+      ${namedLine(fen, c.san, path)}
       <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${mark.t ? ", " + mark.t : ""}${stateText ? ", " + stateText : ""}">${esc(c.san)}<span class="mark ${mark.k}">${mark.s}</span></button></span>
       <span class="ceng">${engineCell(e)}</span>
       <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}</span>
       <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n}·${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
-      ${namedLine(fen, c.san, path)}
     </div>`;
   let detail = "";
   if (open) {
@@ -316,7 +316,7 @@ function fitLine(fen, c, path) {
 }
 /* ----- named lines (v0.9.8) -----
    A row whose move reaches a named position (OPENINGS, or the curated BOOK) gets the name on a
-   line of its own, in the accent colour. Where it continues the opening on the board, only the
+   line of its own above the move, in the accent colour. Where it continues the opening on the board, only the
    new part is shown ("Najdorf Variation" under the Sicilian). */
 const namedCache = new Map();
 let namedHere = { ps: null, name: "" };

@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09t", date: "9 Nov 2026", title: "Move rows spread out",
+    items: [
+      "The columns in Build's move rows now share the width evenly, with the numbers centred under their headings, instead of bunching up on the left.",
+      "An opening's name now sits above its move rather than below it.",
+      "Behind the scenes: the app's code has been tidied up into one file per screen, which should make future changes quicker and safer.",
+    ],
+  },
+  {
     id: "2026-11-09s", date: "9 Nov 2026", title: "Fixes found while tidying up",
     items: [
       "Your browser's password manager no longer pops up in Settings. The Lichess token box is still hidden as you type, but it isn't a password field any more.",
