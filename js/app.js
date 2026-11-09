@@ -400,6 +400,7 @@ function render() {
   if (S.view === "settings") renderSettings();
   if (S.view === "updates") renderUpdates();
   if (S.view === "report") renderReport();
+  if (S.view === "openings") renderCatalogue();
 }
 
 /* ----- build ----- */
@@ -1567,6 +1568,8 @@ async function boot() {
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
+    else if ("catbuild" in d) { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
+    else if ("cattrain" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.pz) onPuzzleChoice(d.pz);
     else if (d.pzply) pzJump(+d.pzply);
     else if ("practicehere" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: curPath().slice() }; Store.save("settings"); setView("train"); startLines(); }
@@ -1611,6 +1614,8 @@ async function boot() {
   $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
   $("#tStop").onclick = endSession;
+  // Catalogue: remember which entries are open across redraws
+  $("#catBody").addEventListener("toggle", e => { const p = e.target.dataset && e.target.dataset.catpath; if (p == null) return; if (e.target.open) catOpen.add(p); else catOpen.delete(p); }, true);
   $("#pzBack").onclick = () => pzStep(-1);
   $("#pzFwd").onclick = () => pzStep(1);
   $("#pzHere").onclick = () => pzStep("start");

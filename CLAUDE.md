@@ -148,6 +148,8 @@ when it loads; the others just define things.
   `maxLoss` cp at depth 12; on the opponent's turn, every reply seen `minGames` times.
   Existing moves are kept and followed. The plan is previewed, then `applyAutoBuild()`.
   Options in `S.settings.autobuild`.
+- Build row columns are sized in `rem`, not `em` (the smaller header font made `em` columns
+  narrower than the rows, so its labels overlapped).
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
   `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,
   beyond = weak (orange). No ✓ marks; `g` tags a weak gambit. The column key is a line
@@ -157,6 +159,13 @@ when it loads; the others just define things.
   (`unplayable()`, `showWeak`). Peers are two columns: Played (share, with a bar) and Score.
 - Phone layout: `.layout` is `minmax(0,1fr)`; without it the one-line move strip widened
   the page. The Build controls stand in a column beside the board.
+- `js/catalogue.js` (v0.9.4): the Openings tab. `buildCatalogue()` groups the tree by key
+  moves: a new entry where the opening name changes, or at a split (an opponent position with
+  2+ prepared replies each over `CAT_SPLIT` of the entry's reach, or several moves of mine).
+  Single named children covering 90%+ are folded in, a child named like its parent is
+  labelled by its moves, and nesting stops at `CAT_DEPTH`. `catalogueStats()` adds coverage
+  (1 − gap reach ÷ reach), score, accuracy in and after book, cards, and `catComment()`.
+  Build and Train this line (practice root) buttons per entry.
 - `js/report.js`: the coach data report (backlog 6, without the AI for now).
   `buildCoachReport()` gathers aggregated numbers only: openings from my games (results,
   accuracy in and after book, prep depth, misplays), prep exits, positions where I score below

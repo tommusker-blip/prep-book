@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09i", date: "9 Nov 2026", title: "Opening catalogue",
+    items: [
+      "New Openings tab: your repertoire grouped by opening, opening out into its main lines. Branches are made where the opening name changes or the line splits into main replies, not for every move.",
+      "Each entry shows how much of what you'll meet is covered, your score and accuracy from your own games, and a short comment, such as 'Mostly covered; your results are poor (38% in 21 games). Worth more training, or a rethink.'",
+      "Build opens that line on the board; Train this line practises just that branch.",
+      "Fixed: the Score and You column headings in Build no longer overlap.",
+    ],
+  },
+  {
     id: "2026-11-09h", date: "9 Nov 2026", title: "Faster Train, easier to find auto-build",
     items: [
       "Train no longer looks through all your games for mistakes every time. The results are kept on this device, and only new or re-analysed games are checked.",

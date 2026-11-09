@@ -457,3 +457,30 @@ table.rep th{font-size:.64rem}
 .legend .ev{font-family:inherit}
 .cfull{margin:0 0 4px}
 @media (max-width:420px){.crow,.crow.c5{gap:4px}.ceng .ev{font-size:.74rem}}
+/* v0.9.4: column widths in rem, not em. em follows each row's own font size, so the smaller
+   header text got narrower columns than the rows below it and its labels overlapped. */
+.crow{grid-template-columns:3.7rem 3.3rem minmax(0,1fr) 2.7rem minmax(0,1fr)}
+.crow.c5{grid-template-columns:3.7rem 3.3rem minmax(0,1fr) 2.7rem minmax(0,1fr) 1.7rem}
+.chead{letter-spacing:.03em}
+.chead span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- opening catalogue (v0.9.4) ---------- */
+.tabs{grid-template-columns:repeat(5,1fr)}
+#catBody{display:flex;flex-direction:column;gap:8px}
+details.cat{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.catkids details.cat{border-radius:8px;box-shadow:none}
+details.cat > summary{list-style:none;cursor:pointer;padding:10px 12px;display:grid;gap:3px}
+details.cat > summary::-webkit-details-marker{display:none}
+details.cat > summary::before{content:"▸";float:left;color:var(--muted);margin-right:6px;transition:transform .15s}
+details.cat[open] > summary::before{transform:rotate(90deg)}
+.catname{font-weight:600;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catline{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catnums{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.78rem;color:var(--muted);align-items:center}
+.catnums b{color:var(--ink,inherit);font-family:var(--f-mono)}
+.catnums .good b{color:var(--good)} .catnums .bad b{color:var(--bad)}
+.cmeter{display:inline-block;width:44px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;vertical-align:middle;margin-right:5px}
+.cmeter i{display:block;height:100%;background:var(--good)}
+.cmeter.warn i{background:var(--warn)}
+.catbody{padding:0 12px 10px}
+.catbtns{margin:6px 0 4px}
+.catkids{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding-left:10px;border-left:2px solid var(--line)}

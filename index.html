@@ -92,6 +92,13 @@
   </div>
 </section>
 
+<section data-view="openings" hidden>
+  <div class="stack">
+    <div class="settingshead"><h2 id="catHead">Your openings</h2><span class="info" role="button" tabindex="0" aria-label="About the catalogue" data-tip="Your repertoire grouped by key moves: where the opening name changes, or where the line splits into main branches. Covered: how much of what you'll meet at your level is prepared. Score and accuracy come from your own games through that position. Tap an opening to open its branches; Build opens it on the board, and Train this line practises just that branch.">i</span></div>
+    <div id="catBody"></div>
+  </div>
+</section>
+
 <section data-view="train" hidden>
   <div id="trainHome" class="stack">
     <h2>Train <span class="info" role="button" tabindex="0" aria-label="About training" data-tip="Spaced repetition on your own moves. Positions you misplayed in real games come first; ones you know well come back less often.">i</span></h2>
@@ -268,6 +275,7 @@
 
 <nav class="tabs" aria-label="Sections">
   <button type="button" data-nav="build"><svg viewBox="0 0 24 24"><path d="M5 19V9l4-4 3 3M5 19h14M9 19v-5h6v5M15 11V7l3-2v14"/></svg>Build</button>
+  <button type="button" data-nav="openings"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 20a2 2 0 0 0 2 2h13v-4M8 7h7M8 11h5"/></svg>Openings</button>
   <button type="button" data-nav="train"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/><path d="M12 8v4l3 2"/></svg>Train</button>
   <button type="button" data-nav="games"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Games</button>
   <button type="button" data-nav="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
@@ -292,6 +300,7 @@
 <script src="js/puzzles.js"></script>
 <script src="js/report.js"></script>
 <script src="js/autobuild.js"></script>
+<script src="js/catalogue.js"></script>
 <script src="js/updates.js"></script>
 <script src="js/app.js"></script>
 </body>

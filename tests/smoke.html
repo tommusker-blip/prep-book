@@ -38,6 +38,32 @@ f.onload = () => {
     if (mode === "anim") runAnim();
     if (mode === "lines") runLines();
     if (mode === "explore-mode") runExploreMode();
+    if (mode === "catalogue") (async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      w.eval(`S.settings.autoOpp = "off";
+        for (const l of ["e4 e5 Nf3 Nc6 Bc4 Bc5 c3", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4", "e4 c5 Nf3 d6 d4", "e4 e6 d4 d5"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+        walk("white");
+        S.games = Array.from({ length: 6 }, (_, i) => ({ id: "c" + i, my: "white", tc: "rapid", date: "2026-01-01", result: i < 4 ? "1-0" : "0-1", moves: "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6", white: "me", black: "x" }));
+        S.acc = Object.fromEntries(S.games.map(g => [g.id, { v: 2, d: 10, ev: Array(9).fill(20), bm: Array(9).fill(""), inb: [88], post: [70] }]));`);
+      d.querySelector('[data-nav="openings"]').click();
+      for (let i = 0; i < 50 && !d.querySelector("#catBody details.cat"); i++) await sleep(100);
+      L("head: " + d.querySelector("#catHead").textContent);
+      L("top entries: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | "));
+      const it = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
+      L("Italian summary: " + it.querySelector("summary").textContent.replace(/\s+/g, " ").trim());
+      L("Italian comment: " + it.querySelector(".catbody .help").textContent.trim());
+      it.open = true; await sleep(50);
+      w.eval("renderCatalogue()");
+      const again = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
+      L("stays open after a redraw: " + again.open);
+      again.querySelector("[data-catbuild]").click();
+      L("Build opens: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
+      d.querySelector('[data-nav="openings"]').click(); await sleep(100);
+      const it2 = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
+      it2.querySelector("[data-cattrain]").click(); await sleep(100);
+      L("Train this line: view=" + G("S").view + " mode=" + G("T").mode + " root=" + G("T").root.join(" "));
+      L("DONE");
+    })();
     if (mode === "drag") (async () => {
       // v0.9: drag and drop, and a selected piece surviving background refreshes
       const sleep = ms => new Promise(r => setTimeout(r, ms));

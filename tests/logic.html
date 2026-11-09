@@ -24,6 +24,7 @@
 <script src="../js/puzzles.js"></script>
 <script src="../js/report.js"></script>
 <script src="../js/autobuild.js"></script>
+<script src="../js/catalogue.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -462,6 +463,19 @@ t("rows: the eval is from White's side whoever I play, coloured by strength", ()
   eq(/\+0\.4/.test(engineCell(e5)) && !/✓/.test(engineCell(e5)), true, engineCell(e5));
   for (const s of ["e5", "g5"]) delete EVALC[K(fenAfter(fen, [s]))];
   delete EVALC[key]; S.color = "white";
+});
+t("catalogue: groups the tree by named lines and main splits, with numbers for each", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); S.games = [];
+  for (const l of ["e4 e5 Nf3 Nc6 Bc4 Bc5 c3", "e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5", "e4 e5 Nf3 Nc6 Bb5 a6 Ba4", "e4 c5 Nf3 d6 d4", "e4 c5 Nf3 Nc6 d4", "e4 e6 d4 d5"]) line("white", l);
+  const root = catalogueStats(buildCatalogue("white"), "white");
+  const show = (c, d = 0) => [" ".repeat(d * 2) + c.label + " [" + c.path.join(" ") + "]", ...c.children.flatMap(k => show(k, d + 1))];
+  const lines = root.children.flatMap(c => show(c));
+  results.push("     " + lines.join("\n     "));
+  const all = lines.join("\n");
+  eq(/Italian Game/.test(all) && /Ruy Lopez/.test(all) && /Sicilian/.test(all) && /French/.test(all), true, all);
+  const flat = c => [c, ...c.children.flatMap(flat)], every = root.children.flatMap(flat);
+  eq(every.every(c => c.depth <= CAT_DEPTH && typeof c.comment === "string" && c.stats.cover >= 0 && c.stats.cover <= 1), true);
+  eq(every.some(c => c.children.length === 1 && c.children[0].named && c.children[0].reach >= 0.9 * c.reach && c.named), false, "single named children are folded");
 });
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
