@@ -83,7 +83,6 @@ function gameMistakes(g, a, treeIdx) {
    Results are saved in this device's IndexedDB (they're too big for localStorage: a few MB for
    ~2,000 games), per game with a stamp of its analysis, so on the next visit only new or
    re-analysed games are scanned. A change of thresholds (mistSig) starts again. */
-const accStamp = a => (a && a.ev ? `${a.d}|${a.ev.length}|${a.ev.reduce((s, x) => s + (x || 0), 0)}` : "");
 const mistKey = () => "mist:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local");
 Object.assign(MIST, { loaded: false, stamp: new Map() });
 async function loadMistakes() {

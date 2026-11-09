@@ -154,7 +154,7 @@ function catComment(s) {
    data doesn't trigger that on its own (it arrives all the time): Recalculate does. */
 let catMemo = {}, catJob = null, catLoaded = {};
 const catStoreKey = color => "cat:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local") + ":" + S.book + ":" + color;
-const catSig = color => [S.book, color, walk(color).sig, bandKey(), S.games.length, Object.keys(S.acc).length].join("|");
+const catSig = color => [S.book, color, walk(color).sig, bandKey(), contentSig()].join("|");
 const catCurrent = () => catMemo[catStoreKey(S.color)] || null;
 async function renderCatalogue(force) {
   const box = $("#catBody");
@@ -177,7 +177,7 @@ async function renderCatalogue(force) {
 function drawCatProgress() {
   const bar = $("#catProg"), j = catJob, memo = catCurrent();
   if (!bar) return;
-  const undo = catUndo && catUndo.book === S.book && catUndo.color === S.color && walk(S.color).sig === catUndo.after ? `<p class="help catwhen" role="status">Removed ${esc(catUndo.label)}. <button type="button" class="btn ghost quick" data-catundo>Undo</button></p>` : "";
+  const undo = undoNote("cat");
   if (j && j.sk === catStoreKey(S.color)) {
     bar.innerHTML = undo + `<p class="help" aria-live="polite">${memo ? "Updating… " : ""}${esc(j.step)}${j.total ? ` ${j.done} of ${j.total}` : ""}</p><progress max="${j.total || 1}" value="${j.done}"></progress>`;
     return;
@@ -251,8 +251,7 @@ function drawCatalogue(root, targets) {
    at 1.e4 e6 2.d4 d5). So the cut is made where the line starts: climb back up while the
    position before has only this one move or reply, and remove that move (my move, or a reply I'd
    prepared for). Everything under it that no other path still reaches goes too (walk() prunes
-   positions and cards). A copy of the repertoire is kept for Undo. */
-let catUndo = null;
+   positions and cards). Undo: RepUndo (rep.js). */
 function catCutPath(ps, color = S.color) {
   const path = ps.split(" ").filter(Boolean), R = rep(color);
   let i = path.length;
@@ -270,28 +269,13 @@ function catRemoveCount(ps, color = S.color) {
 function removeCatalogueEntry(ps, label, color = S.color) {
   const path = catCutPath(ps, color);
   if (!path.length) return false;
-  const R = rep(color), n = catRemoveCount(ps, color);
+  const n = catRemoveCount(ps, color);
   if (!confirm(`Remove ${label} from your ${color === "white" ? "White" : "Black"} repertoire? This takes out ${numbered(0, path)} and everything after it.${n ? ` ${n} position${n === 1 ? "" : "s"} with your move${n === 1 ? "" : "s"} go, with their training cards.` : ""} Positions your other lines also reach are kept.`)) return false;
-  catUndo = { color, label, book: S.book, pos: JSON.parse(JSON.stringify(R.pos)), cards: JSON.parse(JSON.stringify(R.cards)) };
-  removeMove(path.slice(0, -1), path[path.length - 1], color);
-  catUndo.after = walk(color).sig; // Undo only while nothing else has changed
-  Store.save(repDoc(color));
-  return true;
-}
-function undoCatalogueRemove() {
-  const u = catUndo;
-  if (!u || u.book !== S.book || walk(u.color).sig !== u.after) return false;
-  const R = rep(u.color);
-  R.pos = u.pos; R.cards = u.cards;
-  walk(u.color);
-  Store.save(repDoc(u.color));
-  catUndo = null;
-  return true;
+  return RepUndo.change("cat", color, () => { removeMove(path.slice(0, -1), path[path.length - 1], color); return `Removed ${label}`; });
 }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("catbuild", d => { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }, true);
 onClick("catremove", d => { if (removeCatalogueEntry(d.catremove, d.catlabel || d.catremove)) { catOpen.delete(d.catremove); renderCatalogue(); } });
-onClick("catundo", d => { if (undoCatalogueRemove()) renderCatalogue(); }, true);
 onClick("catrecalc", d => renderCatalogue(true), true);
 onClick("cattrain", d => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }, true);

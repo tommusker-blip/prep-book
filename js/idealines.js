@@ -26,7 +26,7 @@ function ideaLinesFor(color = S.color, under = null) {
 // My games of one colour with their positions as sets, memoised (the catalogue asks per entry)
 let igMemo = { sig: "", sets: [] };
 function ideaGameSets(color) {
-  const sig = color + "|" + S.games.length + "|" + Object.keys(S.acc).length;
+  const sig = color + "|" + gamesSig() + "|" + accSig();
   if (igMemo.sig !== sig) igMemo = { sig, sets: S.games.filter(g => g.my === color).map(g => ({ g, keys: new Set(gameKeys(g)), a: S.acc[g.id] })) };
   return igMemo.sets;
 }

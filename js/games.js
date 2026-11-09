@@ -105,6 +105,7 @@ const Games = {
     const i = byId ? byId.get(g.id) : S.games.findIndex(x => x.id === g.id);
     if (i != null && i >= 0) S.games[i] = g; else { S.games.push(g); if (byId) byId.set(g.id, S.games.length - 1); }
     if (analysis) S.acc[g.id] = analysis; else delete S.acc[g.id];
+    touchData();
   },
   async fetchRows(since = 0) {
     if (!Store.sb || !Store.user) return { error: "no session" };

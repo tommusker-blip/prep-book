@@ -70,7 +70,7 @@ f.onload = () => {
       fr.querySelector("[data-catremove]").click();
       for (let i = 0; i < 50 && [...d.querySelectorAll("#catBody .catname")].some(s => /French/.test(s.textContent)); i++) await sleep(100);
       L("after Remove: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | ") + " | replies to 1.e4 now: " + w.eval('rep("white").pos[K(fenAfter(START, ["e4"]))].m.join(",")') + " | note: " + d.querySelector("#catProg .catwhen").textContent.replace(/\s+/g, " ").trim());
-      d.querySelector("[data-catundo]").click();
+      d.querySelector("[data-undo='cat']").click();
       for (let i = 0; i < 50 && ![...d.querySelectorAll("#catBody .catname")].some(s => /French/.test(s.textContent)); i++) await sleep(100);
       L("after Undo: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | "));
       for (let i = 0; i < 50 && G("catJob"); i++) await sleep(100);
@@ -360,11 +360,11 @@ f.onload = () => {
       const act = t => [...d.querySelectorAll("#sugOut [data-sugact]")].find(b => b.textContent.startsWith(t));
       act("Add as an option").click();
       L("after Add: " + myAt() + " | " + d.querySelector("#sugOut .catwhen").textContent.replace(/\s+/g, " ").trim());
-      d.querySelector("#sugOut [data-sugundo]").click();
+      d.querySelector("#sugOut [data-undo='sug']").click();
       L("after Undo: " + myAt());
       act("Replace").click();
       L("after Replace: " + myAt() + " | Nf3 line pruned: " + !w.eval('rep("white").pos[K(fenAfter(START, ["e4","e5","Nf3"]))]'));
-      d.querySelector("#sugOut [data-sugundo]").click();
+      d.querySelector("#sugOut [data-undo='sug']").click();
       L("after Undo: " + myAt());
       d.querySelector('#sugOut [data-sug^="gems"]').click();
       const rowText = () => [...d.querySelectorAll("#prompt .cand")].map(r => r.querySelector(".crow").textContent.replace(/\s+/g, " ").trim()).join(" | ");

@@ -597,10 +597,10 @@ t("catalogue: removing an entry takes out its line, and Undo puts it back", () =
     eq(pos("e4 c5 Nf3 d6"), undefined, "the line under it is pruned");
     eq(rep("white").cards[K(fenAfter(START, ["e4", "c5"]))], undefined, "and its card");
     eq(pos("e4 e5 Nf3 Nc6").m, ["Bc4"], "the other line stays");
-    eq(undoCatalogueRemove(), true);
+    eq(RepUndo.undo("cat"), true);
     eq(pos("e4").m, ["e5", "c5", "e6"]);
     eq(pos("e4 c5 Nf3 d6").m, ["d4"]);
-    eq(undoCatalogueRemove(), false, "only once");
+    eq(RepUndo.undo("cat"), false, "only once");
   } finally { window.confirm = keep; }
 });
 t("rows: marks on the move, tags, and transpositions", () => {
@@ -617,6 +617,23 @@ t("rows: marks on the move, tags, and transpositions", () => {
   eq(/class="cand" data-cand="d4"/.test(html), true, "2.d4 doesn't");
   eq(html.includes("⇄"), true);
 });
+t("data signatures: caches notice new games and redone analysis, not just new counts", () => {
+  reset(); S.color = "white";
+  const mk = (moves, r, id) => ({ id, my: "white", tc: "rapid", result: r, moves, white: "me", black: "x" });
+  S.games = [mk("e4 e5 Nf3", "1-0", "a1"), mk("e4 e5 Nf3", "1-0", "a2")]; S.games.forEach(gameKeys);
+  const key = K(fenAfter(START, ["e4", "e5"]));
+  eq(myMoveStats(key, "Nf3").n, 2);
+  // the same number of games, but different ones: the old count-based key missed this
+  S.games = [mk("e4 e5 Bc4", "0-1", "b1"), mk("e4 e5 Bc4", "0-1", "b2")]; S.games.forEach(gameKeys);
+  eq(myMoveStats(key, "Nf3"), null, "Nf3 is gone");
+  eq(myMoveStats(key, "Bc4").n, 2);
+  // redoing one game's analysis changes the catalogue's saved-result key
+  S.acc = { b1: { v: 2, d: 10, ev: [10, 20], bm: [] } };
+  const before = catSig("white");
+  S.acc.b1 = { v: 2, d: 10, ev: [10, 90], bm: [] }; touchData();
+  eq(catSig("white") !== before, true, "catalogue sees the new analysis");
+  S.games = []; S.acc = {};
+});
 t("rows: named lines, and the moves I usually play", () => {
   reset(); S.color = "white";
   const fen = fenAfter(START, ["e4"]);
@@ -629,7 +646,6 @@ t("rows: named lines, and the moves I usually play", () => {
   S.games.forEach(gameKeys);
   const here = gameMovesHere(K(fenAfter(START, ["e4", "e5"])));
   eq(here.map(x => x.san), ["Nf3", "Bc4"], "d4 once is left out: " + JSON.stringify(here));
-  delete myStatsMemo.white; // its key is the number of games, which the next tests reuse
   S.games = [];
 });
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {

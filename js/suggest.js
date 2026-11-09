@@ -67,7 +67,7 @@ function renderSuggest() {
     section("struct", "Same pawn structure", "Named openings that reach the same pawn structure as one of your lines, so your plans carry over.", s.struct,
       (r, i) => `<div class="gap-row"><span class="gt">${esc(r.eco)} ${esc(r.name)}</span><span class="gd">Same pawns as your ${esc(r.myName || "line")}: <span class="mono">${esc(r.mine.join(" "))}</span></span>
         <span class="row" style="margin-top:4px"><button type="button" class="btn ghost" data-sug="struct:${i}">Go to your line</button><a class="btn ghost" href="${lichessAnalysis(r.key)}" target="_blank" rel="noopener">Open on Lichess</a></span></div>`);
-  out.innerHTML = sugUndoNote() + (html || `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree to look for suggestions." : "No suggestions with the current thresholds. You can change them in Settings."}</p>`);
+  out.innerHTML = undoNote("sug") + (html || `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree to look for suggestions." : "No suggestions with the current thresholds. You can change them in Settings."}</p>`);
   out._s = s;
 }
 function onScanTick(finished) {
@@ -99,8 +99,7 @@ function onIdeaTick(finished) {
    Gems, better-scoring alternatives, tricks and easy-to-remember moves are all a move of mine
    at one of my positions. Each gets Add as an option, and Replace <my move> for every move I
    have there (addMove() with `replaces`; the old move's line is pruned by walk(), its card is
-   reset). A copy of the repertoire is kept for Undo while nothing else has changed. */
-let sugUndo = null;
+   reset). Undo: RepUndo (rep.js). */
 const sugMove = (id, r) => (id === "memorable" || id === "trick" ? r.c.san : r.san);
 function sugActs(id, i, r) {
   const path = r.path, san = sugMove(id, r), n = rep(S.color).pos[K(fenAfter(START, path))], mine = n ? n.m : [];
@@ -110,33 +109,19 @@ function sugActs(id, i, r) {
 function onSugAct(spec) {
   const [id, i, how] = spec.split(":"), r = $("#sugOut")._s[id][+i];
   if (!r) return;
-  const color = S.color, R = rep(color), path = r.path, san = sugMove(id, r);
-  const n = R.pos[K(fenAfter(START, path))], old = how === "add" ? null : n && n.m[+how];
-  const snap = { color, book: S.book, pos: JSON.parse(JSON.stringify(R.pos)), cards: JSON.parse(JSON.stringify(R.cards)) };
-  const res = addMove(path, san, color, old);
-  if (res === "same") return;
-  walk(color);
-  Store.save(repDoc(color));
-  sugUndo = { ...snap, after: walk(color).sig, text: old ? `Replaced ${moveLabel(path, old)} with ${moveLabel(path, san)}` : `Added ${moveLabel(path, san)} as ${n && n.m.length > 1 ? "another option" : "your move"}` };
+  const color = S.color, path = r.path, san = sugMove(id, r);
+  const n = rep(color).pos[K(fenAfter(START, path))], old = how === "add" ? null : n && n.m[+how];
+  RepUndo.change("sug", color, () => {
+    if (addMove(path, san, color, old) === "same") return "";
+    walk(color);
+    return old ? `Replaced ${moveLabel(path, old)} with ${moveLabel(path, san)}` : `Added ${moveLabel(path, san)} as ${n && n.m.length > 1 ? "another option" : "your move"}`;
+  });
   renderSuggest();
 }
-function undoSugAct() {
-  const u = sugUndo;
-  if (!u || u.book !== S.book || walk(u.color).sig !== u.after) return;
-  const R = rep(u.color);
-  R.pos = u.pos; R.cards = u.cards;
-  walk(u.color);
-  Store.save(repDoc(u.color));
-  sugUndo = null;
-  renderSuggest();
-}
-const sugUndoNote = () => (sugUndo && sugUndo.book === S.book && sugUndo.color === S.color && walk(S.color).sig === sugUndo.after
-  ? `<p class="help catwhen" role="status">${esc(sugUndo.text)}. <button type="button" class="btn ghost quick" data-sugundo>Undo</button></p>` : "");
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("scan", d => scanTree(S.color, onScanTick), true);
 onClick("more", d => { sugOpen[d.more] += 10; renderSuggest(); });
 onClick("sugact", d => onSugAct(d.sugact));
-onClick("sugundo", d => undoSugAct(), true);
 onClick("otab", d => { S.otab = d.otab; showOpeningsTab(); });
 onClick("sug", d => { const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i]; S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 }); });

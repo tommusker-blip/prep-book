@@ -69,6 +69,7 @@ function syncToken() {
 /* ---------- wiring ---------- */
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("nav", d => { if (S.view === "train" && T.state === "run" && d.nav !== "train") { stopTraining(); T.state = "idle"; } setView(d.nav); });
+onClick("undo", d => { if (RepUndo.undo(d.undo)) render(); }); // RepUndo, from undoNote()
 onClick("color", d => { stopTraining(); S.color = d.color; T.state = "idle"; render(); });
 
 async function boot() {

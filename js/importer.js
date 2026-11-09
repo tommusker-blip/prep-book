@@ -112,6 +112,7 @@ async function analyseGamesWithEngine() {
       if (stopAnalysis) break;
       st.textContent = `Analysing game ${done + 1} of ${todo.length}${g.date ? ` (${g.date})` : ""}…`;
       S.acc[g.id] = await analyseOne(g);
+      touchData();
       analysed.push(g.id);
       done++; anaProg = { done, total: todo.length }; renderBg();
       if (done % SAVE_EVERY === 0) { persist(); if (S.view === "games") renderGames(); }

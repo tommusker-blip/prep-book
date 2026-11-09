@@ -246,6 +246,15 @@ when it loads; the others just define things.
 - Buttons: a screen registers its own `data-*` buttons with `onClick(name, fn, any)` (core.js),
   next to its code; `app.js` has the single click listener (`dispatchClick()`). Don't add
   branches to a central if/else.
+- Shared helpers (v0.9.18):
+  - `RepUndo` (rep.js): `RepUndo.change(kind, color, fn)` copies the repertoire, runs the change
+    (fn returns the text for the Undo line) and saves; `undoNote(kind)` (core.js) draws
+    "<text>. Undo" (`data-undo`), offered while the tree hasn't changed since. Used by Remove an
+    opening ("cat") and suggestion Replace / Add ("sug"). One slot.
+  - Data signatures (rep.js): caches of things worked out from games key on `gamesSig()` /
+    `accSig()` (array identity + length + `touchData()`, called where one game or analysis is
+    replaced in place), never on counts alone. `contentSig()` (game ids + `accStamp()`) is
+    stable across sessions, for results saved to IndexedDB (the catalogue).
 
 Tests (open in a browser, or run headless Chrome with `--dump-dom`; there's no
 Node on the dev machine):

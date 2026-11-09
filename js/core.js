@@ -73,3 +73,6 @@ function dispatchClick(t) {
   }
   return false;
 }
+// The "<what changed>. Undo" line for RepUndo (rep.js), for the colour on screen
+const undoNote = kind => (RepUndo.live(kind) && RepUndo.s.color === S.color
+  ? `<p class="help catwhen" role="status">${esc(RepUndo.s.text)}. <button type="button" class="btn ghost quick" data-undo="${kind}">Undo</button></p>` : "");

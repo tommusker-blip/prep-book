@@ -157,6 +157,25 @@ function timeClass(tc) {
   return "rapid";
 }
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+/* ---------- data signatures (v0.9.18), for caches of what's worked out from my games ----------
+   gamesSig() and accSig() change whenever S.games / S.acc are replaced or grow (tracked by the
+   array's identity and length) or an entry is replaced in place (touchData()). Cheap, so a
+   cache can check them on every call. contentSig() is the same across sessions (game ids and
+   each game's analysis stamp), for results kept in IndexedDB; it's worked out once per change. */
+const objIds = new WeakMap();
+let objN = 0, dataVer = 0;
+const objId = o => { if (!o || typeof o !== "object") return 0; if (!objIds.has(o)) objIds.set(o, ++objN); return objIds.get(o); };
+const touchData = () => { dataVer++; };
+const gamesSig = () => `${objId(S.games)}.${S.games.length}.${dataVer}`;
+const accSig = () => `${objId(S.acc)}.${Object.keys(S.acc).length}.${dataVer}`;
+// One game's analysis, as a short stamp: changes when it's redone (also used by puzzles.js)
+const accStamp = a => (a && a.ev ? `${a.d}|${a.ev.length}|${a.ev.reduce((s, x) => s + (x || 0), 0)}` : "");
+let contentMemo = { k: "", v: "" };
+function contentSig() {
+  const k = gamesSig() + "|" + accSig();
+  if (contentMemo.k !== k) contentMemo = { k, v: S.games.length + "." + hashStr(S.games.map(g => g.id + ":" + accStamp(S.acc[g.id])).join(",")) };
+  return contentMemo.v;
+}
 
 function gameFromPGN(g, user, tcHint) {
   const h = parseHeaders(g);
@@ -261,7 +280,7 @@ let analysisMemo = { sig: "", out: null };
 function analysis(color = S.color, all = false) {
   // all = true works out any missing keys now (slow the first time); used where completeness matters
   const ready = all || !(warming || S.games.some(g => !GAMEKEYS.has(g.id))) ? S.games : S.games.filter(g => GAMEKEYS.has(g.id));
-  const sig = color + "|" + S.book + "|" + ready.length + "|" + S.games.length + "|" + hashStr(Object.entries(rep(color).pos).map(([k, n]) => k + ":" + n.m.join()).join("|"));
+  const sig = color + "|" + S.book + "|" + ready.length + "|" + gamesSig() + "|" + hashStr(Object.entries(rep(color).pos).map(([k, n]) => k + ":" + n.m.join()).join("|"));
   if (analysisMemo.sig === sig) return analysisMemo.out;
   const out = ready.filter(g => g.my === color).map(g => ({ g, a: analyseGame(g), s: myScore(g) }));
   analysisMemo = { sig, out };
@@ -276,7 +295,7 @@ const newWdl = () => ({ n: 0, w: 0, d: 0, l: 0 });
 let myStatsMemo = {};
 function myStats(color = S.color) {
   const ready = S.games.filter(g => g.my === color && GAMEKEYS.has(g.id));
-  const sig = S.games.length + "|" + ready.length;
+  const sig = gamesSig() + "|" + ready.length;
   if (myStatsMemo[color] && myStatsMemo[color].sig === sig) return myStatsMemo[color];
   const pos = {}, mv = {};
   for (const g of ready) {
@@ -384,3 +403,30 @@ function importRepertoire(text, color) {
   Store.save(repDoc(color));
   return { added, options, bad };
 }
+
+/* ---------- Undo for a change made from a list (v0.9.18) ----------
+   Remove an opening (kind "cat") and a suggestion's Replace / Add ("sug"). change() keeps a
+   copy of that colour's repertoire, runs fn (which makes the change and returns the text for the
+   Undo line, or nothing if it didn't change anything), and saves. undo() puts the copy back,
+   but only while the tree hasn't changed since. One slot: the latest change is the one undone. */
+const RepUndo = {
+  s: null,
+  change(kind, color, fn) {
+    const R = rep(color), copy = { pos: JSON.parse(JSON.stringify(R.pos)), cards: JSON.parse(JSON.stringify(R.cards)) };
+    const text = fn();
+    if (!text) return false;
+    this.s = { kind, color, book: S.book, text, ...copy, after: walk(color).sig };
+    Store.save(repDoc(color));
+    return true;
+  },
+  live(kind) { const u = this.s; return !!(u && u.kind === kind && u.book === S.book && walk(u.color).sig === u.after); },
+  undo(kind) {
+    if (!this.live(kind)) return false;
+    const u = this.s, R = rep(u.color);
+    R.pos = u.pos; R.cards = u.cards;
+    walk(u.color);
+    Store.save(repDoc(u.color));
+    this.s = null;
+    return true;
+  },
+};
