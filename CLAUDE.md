@@ -165,7 +165,7 @@ when it loads; the others just define things.
   margin worse than the best that is a gambit or a gem. On my turn `unplayable()` hides moves over
   `mistake` worse than the best or below −`unplayable`, except prepared moves, gambits and gems.
   The first column (v0.9.13; it was the last) is Tags (`rowTags()`: ⚔ weapon, 💎 gem from `judgeMove()` or the engine-vs-peers
-  flag, 🎲 gambit, ⇄ transposition, ⚠
+  flag, 🃏 gambit, ⇄ transposition, ⚠
   warning; two shown, all in words when expanded); it replaced the Rep count, which is in the
   expanded row. `rowsLegend()` is a `<details>` Key, open state in `pb_legend`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
@@ -559,6 +559,11 @@ Stockfish's choice:
 
 - Git: commit through GitHub Desktop or the terminal. Pushing to `main` updates
   the Pages site within a minute or two.
+- **Cache busting (v0.9.14):** `index.html` loads `css/app.css` and every `js/*.js` with `?v=<version>`.
+  Bump it on every release (`sed -i "s/?v=OLD/?v=NEW/g" index.html`), or phones can mix new
+  HTML with cached old scripts or styles (Pages caches for about 10 minutes).
+- **Auto-reply (v0.9.14):** `autoPending` (the path) makes `renderBuild()`/`refreshBuild()` skip the
+  rows for the in-between position until `autoOpponent()` plays the reply (Lichess wait capped at 8 s).
 - **Updates page:** when something user-visible ships, add an entry at the top
   of `UPDATES` in `js/updates.js`. Give it a new `id`, a date, a title and a few
   plain-language lines. The header shows "New" until the page has been opened

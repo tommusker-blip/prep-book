@@ -575,3 +575,5 @@ label.check input{width:18px;height:18px}
 .crow,.crow.c5{grid-template-columns:2.2rem 4.3rem 3.1rem minmax(0,1fr) 2.6rem minmax(0,1fr)}
 .ctags{justify-content:flex-end}
 @media (max-width:420px){.crow,.crow.c5{grid-template-columns:1.8rem 3.6rem 2.75rem minmax(0,.8fr) 2.3rem minmax(0,1.2fr)}}
+.tag.t-gambit{font-size:1.15em}
+.chead .hd2{white-space:normal!important;line-height:1.05;overflow:visible!important}

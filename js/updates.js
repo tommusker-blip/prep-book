@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09r", date: "9 Nov 2026", title: "Snappier auto-reply, and the card is back",
+    items: [
+      "When Build plays your opponent's reply for you, it no longer works out the rows for the position in between. You see “Playing your opponent's reply…” for a moment, and the rows appear once it's your move again.",
+      "Gambits are marked with the playing card 🃏 again, a little bigger.",
+      "The Score column is now headed Peer score: how your colour scores after the move in Lichess games at your level.",
+      "Fixed: after an update, the app could mix new and old files from your phone's cache (for example the Tags column still on the right). Each release now loads fresh.",
+    ],
+  },
+  {
     id: "2026-11-09q", date: "9 Nov 2026", title: "Simpler move marks",
     items: [
       "Gambits are now marked with 🎲, which shows clearly on phones. The tags (🎲 💎 ⚔ ⇄ ⚠) now sit just left of the move.",

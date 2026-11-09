@@ -287,7 +287,7 @@ function candRows(fen, key, n, path) {
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} weak move${weak.length === 1 ? "" : "s"}` : `${weak.length} weak move${weak.length === 1 ? "" : "s"} hidden (${weak.map(c => esc(c.san)).join(", ")}): over ${(adv().mistake / 100).toFixed(1)} worse than the best, or leaving you below −${(adv().unplayable / 100).toFixed(1)}`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span></div>
+      <div class="crow chead c5"><span aria-label="Tags"></span><span>Move</span><span>Eval</span><span>Played</span><span class="hd2">Peer score</span><span>You</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }
@@ -355,11 +355,11 @@ function moveMark(e, interesting) {
   if (!e || e.loss == null || !interesting || e.loss <= adv().mistake / 2) return { s: "", k: "", t: "" };
   return { s: "!?", k: "m-int", t: "interesting: the engine likes it less, but it's a gambit or it scores well" };
 }
-// The Tags column: ⚔ practical weapon, 💎 hidden gem / scores well, 🎲 gambit, ⇄ transposes
+// The Tags column: ⚔ practical weapon, 💎 hidden gem / scores well, 🃏 gambit, ⇄ transposes
 // into my prep, ⚠ the sources disagree against me. At most two symbols in the row; all of them,
 // in words, in the expanded row.
 const TAGS = {
-  weapon: { s: "⚔", t: "Practical weapon" }, gem: { s: "💎", t: "Hidden gem" }, gambit: { s: "🎲", t: "Gambit" },
+  weapon: { s: "⚔", t: "Practical weapon" }, gem: { s: "💎", t: "Hidden gem" }, gambit: { s: "🃏", t: "Gambit" },
   trans: { s: "⇄", t: "Transposes into your prep" }, warn: { s: "⚠", t: "Watch out" },
 };
 function rowTags(o) {
@@ -368,7 +368,7 @@ function rowTags(o) {
   if (o.gem) list.push(["gem", `💎 ${esc(o.gem)}.`]);
   if (o.warn) list.push(["warn", `⚠ ${esc(o.warn)}.`]);
   if (o.trans) list.push(["trans", "⇄ Leads into a position you've already prepared, by another move order."]);
-  if (o.gambit) list.push(["gambit", "🎲 A gambit: material for time or attack."]);
+  if (o.gambit) list.push(["gambit", "🃏 A gambit: material for time or attack."]);
   const shown = list.slice(0, 2);
   return {
     html: shown.map(([k]) => `<span class="tag t-${k}" aria-label="${TAGS[k].t}">${TAGS[k].s}</span>`).join("") + (list.length > 2 ? `<span class="tag more" aria-label="more tags">+</span>` : ""),
@@ -390,10 +390,10 @@ function rowsLegend(myTurn, ex) {
       <p class="rk-h">Tags</p>
       ${myTurn ? `<p><span class="tag">💎</span> hidden gem: rarely played, or the engine likes it less, but it scores well at your level</p>
       <p><span class="tag">⚔</span> practical weapon: your opponent has only 1 or 2 good replies and often misses them (after Deeper analysis)</p>` : ""}
-      <p><span class="tag">🎲</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
+      <p><span class="tag">🃏</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
       <p class="rk-h">Columns</p>
       <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
-      <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Score</b> your colour's score after it · <b>You</b> your games · your score</p>
+      <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Peer score</b> how your colour scores after it in those games (win 1, draw ½) · <b>You</b> your games · your score</p>
       <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
       <p class="rk-h">Arrows on the board</p>
       <p><span class="sw sw-a-good"></span>yours <span class="sw sw-a-gap"></span>a gap <span class="sw sw-gem"></span>gem or better-scoring <span class="sw sw-other"></span>other common moves${myTurn ? ` <span class="sw sw-games"></span>what you play in your games` : ""}</p>

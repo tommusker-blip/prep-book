@@ -445,6 +445,9 @@ function renderBuild() {
   $("#opName").innerHTML = op ? `<span class="eco">${esc(op.eco)}</span> ${esc(op.name)}` : (path.length ? "Unnamed line" : "Starting position");
   const oi = $("#opInfo"); oi.hidden = !(op && op.idea); if (op && op.idea) oi.dataset.tip = op.idea;
   const pr = $("#prompt");
+  // While the opponent's reply is about to be played (autoOpponent), skip the rows for this
+  // in-between position: no engine checks, keep the height so nothing jumps
+  if (autoPending === path.join(" ")) { pr.style.minHeight = pr.offsetHeight + "px"; pr.dataset.key = key; pr.innerHTML = `<p class="help" aria-live="polite">Playing your opponent's reply…</p>`; sidePanes(); return; }
   pr.style.minHeight = ""; pr.dataset.key = key;
   pr.innerHTML = movesPane(fen, key, n, path, mine);
   // Ideas tab: only for positions where it's my move; only built while the tab is open
@@ -470,6 +473,7 @@ function movesPane(fen, key, n, path, mine) {
   return (exploring() ? exploreBar() : "") + h;
 }
 function refreshBuild(key) {
+  if (autoPending && autoPending === curPath().join(" ")) return; // the reply is on its way
   if (notHere(key)()) return;
   const { path, fen, n, mine } = buildState();
   BB.setArrows(buildArrows(fen, key, n));
@@ -531,17 +535,23 @@ function gapReply(path, color = S.color) {
   const list = findGaps(color).filter(g => g.opp && g.path.join(" ") === here).sort((a, b) => b[k] - a[k] || b.freq - a.freq);
   return list.length ? { san: list[0].opp, why: "the biggest gap here" } : null;
 }
+// v0.9.14: from the moment my move is played until the reply is on the board, Build shows a
+// short note instead of the rows (autoPending), so nothing is analysed for that position
+let autoPending = null;
 async function autoOpponent(path) {
+  const ps = path.join(" ");
+  const same = () => S.view === "build" && curPath().join(" ") === ps;
+  const done = () => { if (autoPending === ps) { autoPending = null; if (same()) renderBuild(); } };
   const mode = autoOppMode();
-  if (mode === "off") return;
+  if (mode === "off") return done();
   const fen = fenAfter(START, path), key = K(fen);
-  if (!fen || isMine(key, S.color)) return;
-  if (!cachedExplorer(fen) && S.token && !explorerBlocked) await explorer(fen, { prio: PRIO.now });
-  const same = () => S.view === "build" && curPath() === path && curPath().join(" ") === path.join(" ");
-  if (!same()) return;
+  if (!fen || isMine(key, S.color)) return done();
+  // at most 8 s for the Lichess data (the queue can be paused after a rate limit)
+  if (!cachedExplorer(fen) && S.token && !explorerBlocked) await Promise.race([explorer(fen, { prio: PRIO.now }).catch(() => null), new Promise(r => setTimeout(r, 8000))]);
+  if (!same()) return done();
   const p = mode === "gap" ? gapReply(path) : pickOpp(fen, key, rep().pos[key], mode);
-  if (!p) { if (mode === "gap" && cachedExplorer(fen)) toast("Every common reply here is prepared: pick one to carry on."); return; }
-  setTimeout(() => { if (same()) goMove(p.san); }, 450);
+  if (!p) { done(); if (mode === "gap" && cachedExplorer(fen)) toast("Every common reply here is prepared: pick one to carry on."); return; }
+  setTimeout(() => { if (same()) { autoPending = null; goMove(p.san); } else done(); }, 250);
 }
 
 /* ----- my turn: what I play here, and is it any good? ----- */
@@ -772,6 +782,7 @@ function commitBuildMove(san, replaces = null) {
   path.push(san);
   walk();
   if (r !== "same" || filled) Store.save(repDoc(S.color));
+  if (myMove && autoOppMode() !== "off") autoPending = path.join(" "); // the reply comes next: skip its rows
   renderBuild();
   if (myMove) autoOpponent(path);
 }

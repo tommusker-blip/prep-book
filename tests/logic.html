@@ -607,7 +607,7 @@ t("rows: marks on the move, tags, and transpositions", () => {
   reset(); resetEx(); S.color = "white"; S.settings.adv = undefined;
   eq(moveMark({ loss: 20 }).s, ""); eq(moveMark({ loss: 200 }).s, "", "only !? is used"); eq(moveMark({ loss: 20 }, true).s, "", "a gambit the engine is happy with is just good");
   eq(moveMark({ loss: 200 }, true).s, "!?", "weak but a gambit or a gem");
-  eq(rowTags({ gambit: true, trans: true, weapon: false }).html.includes("🎲"), true);
+  eq(rowTags({ gambit: true, trans: true, weapon: false }).html.includes("🃏"), true);
   line("white", "e4 e5 Nf3"); line("white", "Nf3 e5");
   // After 1.Nf3 e5 I have no move yet, but 2.e4 reaches 1.e4 e5 2.Nf3, which is in my tree
   const fen = fenAfter(START, ["Nf3", "e5"]), key = K(fen);

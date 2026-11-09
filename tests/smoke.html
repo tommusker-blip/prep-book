@@ -394,6 +394,7 @@ f.onload = () => {
       // Auto-play the most common reply after my move
       w.eval('S.settings.autoOpp = "common"; S.build.white = []; renderBuild()');
       play("#board", "e2", "e4");
+      L("while the reply is coming: " + d.querySelector("#prompt").textContent.trim() + " | rows: " + d.querySelectorAll("#prompt .cand").length);
       setTimeout(() => {
         L("auto reply after 1.e4: path=" + G("S").build.white.join(" "));
         // v0.9 default: the biggest gap among the replies, leaving out prepared ones (1...e5 is prepared)
