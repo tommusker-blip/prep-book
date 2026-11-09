@@ -506,3 +506,31 @@ label.check input{width:18px;height:18px}
 .aovars{display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow:auto;padding-right:4px}
 .aovar{align-items:flex-start;font-size:.85rem}
 .aovar input{margin-top:2px;flex:0 0 auto}
+/* v0.9.8: catalogue Remove, progress over the old entries */
+.btn.ghost.danger{color:var(--bad)}
+#catProg progress{width:100%;height:6px}
+#catProg .help{margin:0 0 4px}
+.catwhen{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* v0.9.8: Add an opening, preview board */
+.aopick{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:10px}
+@media (min-width:700px){.aopick{grid-template-columns:minmax(0,260px) minmax(0,1fr)}}
+.aoprev{display:flex;flex-direction:column;align-items:center;gap:4px}
+.aoboard{max-width:min(100%,260px,34vh)}
+.aonav{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;max-width:260px}
+.aonav .help{margin:0;text-align:center;font-size:.8rem;flex:1;min-width:0}
+#aoPrevLine{text-align:center;max-width:260px;line-height:1.7}
+.aoply{border:0;background:none;padding:1px 2px;font:inherit;color:var(--ink);cursor:pointer;border-radius:4px}
+.aoply.cur{background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.aovar{display:flex;align-items:center;gap:8px}
+.aoview{flex:1;min-width:0;text-align:left;border:0;background:none;padding:6px 8px;border-radius:8px;font:inherit;font-size:.85rem;color:var(--ink);cursor:pointer;min-height:36px}
+.aoview:hover{background:var(--accent-soft)}
+.aoview.cur{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.aomain{width:100%}
+.aovar input{width:20px;height:20px}
+/* v0.9.8: named lines in the Build rows */
+.crow .cname{grid-column:1/-1;font-size:.74rem;line-height:1.2;color:var(--accent-ink);margin-top:-2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow .cname .eco{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);margin-right:2px}
+/* v0.9.8: moves from my own games on the Build board */
+.arw.games{opacity:.9}
+.arw.games line{stroke:var(--ink);stroke-dasharray:.16 .1}
+.arw.games polygon{fill:var(--ink)}

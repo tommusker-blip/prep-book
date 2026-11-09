@@ -5,7 +5,7 @@
    variations from the same dataset (the lines that continue it). Where my repertoire already
    has a different move of mine, the line's move is added as another option, and the preview
    says how many. Everything goes through addMove(), like Build. */
-const AO = { open: false, q: "", pick: null, color: null, sel: new Set(), loading: null };
+const AO = { open: false, q: "", pick: null, color: null, sel: new Set(), loading: null, view: null, ply: 0 };
 function loadOpeningLines() {
   if (typeof OPENING_LINES !== "undefined") return Promise.resolve();
   if (AO.loading) return AO.loading;
@@ -61,17 +61,30 @@ async function renderAddOpening() {
   }
   const color = AO.color || S.color;
   if (AO.pick) {
-    const [eco, name, sans] = AO.pick, vars = variationsOf(sans);
+    const [eco, name, sans] = AO.pick, vars = variationsOf(sans), base = aoName(name);
     const chosen = [sans, ...vars.filter(v => AO.sel.has(v[2])).map(v => v[2])];
     const C = c => (c === "white" ? "White" : "Black");
-    box.innerHTML = `<div class="aohead"><button type="button" class="btn ghost quick" data-aoback>‹ Search</button><b>${esc(eco)} ${esc(aoName(name))}</b></div>
-      <p class="mono aoline">${esc(numbered(0, sans.split(" ")))}</p>
+    // A variation's own name without the opening's, and the moves it adds
+    const short = v => aoName(v[1]).replace(base + ": ", "").replace(base + ", ", "");
+    const extra = v => numbered(sans.split(" ").length, v[2].split(" ").slice(sans.split(" ").length));
+    box.innerHTML = `<div class="aohead"><button type="button" class="btn ghost quick" data-aoback>‹ Search</button><b>${esc(eco)} ${esc(base)}</b></div>
       <div class="row aocolor"><span class="lbl">Add to</span><div class="seg small" role="group" aria-label="Which repertoire">${["white", "black"].map(c => `<button type="button" data-aocolor="${c}" aria-pressed="${c === color}">${C(c)}</button>`).join("")}</div></div>
-      ${vars.length ? `<p class="lbl" style="margin-top:10px">Its variations (${vars.length}${vars.length === 60 ? "+" : ""}): tick the ones to add too</p>
-        <div class="row" style="margin:2px 0 4px"><button type="button" class="btn ghost quick" data-aoall>${vars.every(v => AO.sel.has(v[2])) ? "Untick all" : "Tick all"}</button></div>
-        <div class="aovars">${vars.map(v => `<label class="check aovar"><input type="checkbox" data-aovar="${esc(v[2])}" ${AO.sel.has(v[2]) ? "checked" : ""}><span><b>${esc(aoName(v[1]).replace(aoName(name) + ": ", "").replace(aoName(name) + ", ", ""))}</b> <span class="mono help">${esc(numbered(0, v[2].split(" ")).split(" ").slice(-4).join(" "))}</span></span></label>`).join("")}</div>` : `<p class="help">No deeper variations of this line in the list.</p>`}
+      <div class="aopick">
+        <div class="aoprev">
+          <div id="aoBoard" class="board aoboard" aria-label="Preview of the line"></div>
+          <div class="navrow aonav"><button type="button" class="btn ghost quick" data-aostep="-1" aria-label="Back one move">◀</button><span class="help" id="aoPrevName"></span><button type="button" class="btn ghost quick" data-aostep="1" aria-label="Forward one move">▶</button></div>
+          <p class="mono aoline" id="aoPrevLine"></p>
+        </div>
+        <div class="aolist">
+          <button type="button" class="aoview aomain" data-aoview="${esc(sans)}"><b>Main line</b> <span class="mono help">${esc(numbered(0, sans.split(" ")))}</span></button>
+          ${vars.length ? `<p class="lbl" style="margin-top:10px">Its variations (${vars.length}${vars.length === 60 ? "+" : ""}): tap a name to see it on the board, tick the ones to add too</p>
+            <div class="row" style="margin:2px 0 4px"><button type="button" class="btn ghost quick" data-aoall>${vars.every(v => AO.sel.has(v[2])) ? "Untick all" : "Tick all"}</button></div>
+            <div class="aovars">${vars.map(v => `<div class="aovar"><input type="checkbox" data-aovar="${esc(v[2])}" aria-label="Add ${esc(short(v))}" ${AO.sel.has(v[2]) ? "checked" : ""}><button type="button" class="aoview" data-aoview="${esc(v[2])}"><b>${esc(short(v))}</b> <span class="mono help">${esc(extra(v))}</span></button></div>`).join("")}</div>` : `<p class="help">No deeper variations of this line in the list.</p>`}
+        </div>
+      </div>
       <p class="help" id="aoSum" style="margin-top:8px">${aoSummaryText(chosen, color)}</p>
       <div class="row"><button type="button" class="btn" id="aoAddBtn" data-aoadd>${aoAddLabel(chosen)}</button></div>`;
+    aoShow(AO.view && (AO.view === sans || vars.some(v => v[2] === AO.view)) ? AO.view : sans, AO.view ? AO.ply : null);
     return;
   }
   const res = searchOpenings(AO.q);
@@ -83,8 +96,11 @@ async function renderAddOpening() {
 }
 function onAddOpeningClick(d) {
   if ("aotoggle" in d) { AO.open = !AO.open; if (AO.open) { AO.pick = null; AO.color = S.color; } renderAddOpening(); if (AO.open) setTimeout(() => { const i = $("#aoSearch"); if (i) i.focus(); }, 50); return true; }
-  if ("aopick" in d) { AO.pick = OPENING_LINES.find(o => o[2] === d.aopick) || null; AO.sel = new Set(); renderAddOpening(); return true; }
-  if ("aoback" in d) { AO.pick = null; renderAddOpening(); return true; }
+  if ("aopick" in d) { AO.pick = OPENING_LINES.find(o => o[2] === d.aopick) || null; AO.sel = new Set(); AO.view = null; renderAddOpening(); return true; }
+  if ("aoback" in d) { AO.pick = null; AO.view = null; renderAddOpening(); return true; }
+  if (d.aoview) { aoShow(d.aoview); return true; }
+  if (d.aoply) { aoShow(AO.view, +d.aoply); return true; }
+  if (d.aostep) { aoShow(AO.view, AO.ply + +d.aostep); return true; }
   if (d.aocolor) { AO.color = d.aocolor; renderAddOpening(); return true; }
   if ("aoall" in d) { const vars = variationsOf(AO.pick[2]); const all = vars.every(v => AO.sel.has(v[2])); AO.sel = all ? new Set() : new Set(vars.map(v => v[2])); renderAddOpening(); return true; }
   if ("aoadd" in d) {
@@ -111,4 +127,25 @@ function aoTick(v, on) {
   if (sum) sum.innerHTML = aoSummaryText(chosen, AO.color || S.color);
   if (btn) btn.textContent = aoAddLabel(chosen);
   if (all) all.textContent = variationsOf(AO.pick[2]).every(x => AO.sel.has(x[2])) ? "Untick all" : "Tick all";
+}
+/* ----- the preview board (v0.9.8) -----
+   Shows the line being looked at, up to a chosen move: tap a variation's name, a move in the
+   list, or ◀ ▶. Updated in place, so the list keeps its scroll position. */
+let AOB = null;
+function aoShow(sans, ply) {
+  const el = $("#aoBoard");
+  if (!el || !sans) return;
+  const m = sans.split(" ");
+  AO.view = sans;
+  AO.ply = ply == null ? m.length : Math.max(0, Math.min(m.length, ply));
+  if (!AOB || AOB.el !== el) { AOB = Board(el); AOB.locked = true; }
+  AOB.flip = (AO.color || S.color) === "black";
+  const c = new Chess();
+  let last = null;
+  for (let i = 0; i < AO.ply; i++) { const mv = c.move(m[i]); if (!mv) break; last = [mv.from, mv.to]; }
+  AOB.set(c.fen(), { last });
+  const o = OPENING_LINES.find(x => x[2] === sans), at = AO.ply ? openingFor(m.slice(0, AO.ply)) : null;
+  $("#aoPrevName").textContent = AO.ply < m.length ? (at && at.name ? at.name : "Start") : o ? aoName(o[1]) : "";
+  $("#aoPrevLine").innerHTML = m.map((s, i) => `${i % 2 === 0 ? `<span class="muted">${i / 2 + 1}.</span>` : ""}<button type="button" class="aoply${i + 1 === AO.ply ? " cur" : ""}" data-aoply="${i + 1}">${esc(s)}</button>`).join(" ");
+  document.querySelectorAll("#addOpenBox [data-aoview]").forEach(b => b.classList.toggle("cur", b.dataset.aoview === sans));
 }

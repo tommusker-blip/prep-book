@@ -105,13 +105,15 @@ when it loads; the others just define things.
     replies, and peers find one 50% of the time or less.
 - Build layout: the opening name (with its ⓘ) and the moves sit above the board,
   one line each; the moves line scrolls sideways. On phones the board column is pinned under the header
-  (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Gaps, Ideas, Lichess). The
+  (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Ideas here, Whole tree; the Gaps tab went in v0.9.8:
+  Gap › does its job, and its ranking, the auto-reply and the auto-build shortcut are in
+  Settings > Building your tree). The
   control row has Start, Back, Next, Explore, Gap and Practise (lines from this position).
   On phones the tabs and the rows' column headers are pinned too (`--bcol`, `--ptabs`, measured in `boot()`).
 - Build redraws (v0.9): `renderBuild()` redraws everything after the position or
   the tree changes. Engine and Lichess results go through `rowsChanged()` to
   `refreshBuild()`, which only redraws the move rows and the arrows (`BB.setArrows()`).
-  Gaps and suggestions only run while their tab is open (`sidePanes()`).
+  Suggestions only run while their tab is open (`sidePanes()`).
   `buildState()` cuts a path that no longer plays out back to its legal start.
 - Board (`Board()` in `app.js`): tap-to-move and drag-and-drop (pointer
   events). It redraws only when what it shows changes, keeps a selected piece
@@ -171,17 +173,29 @@ when it loads; the others just define things.
   v0.9.6: the top level is grouped by family (`groupByFamily()`): generic names in
   `CAT_GENERIC` (King's Pawn Game…) are replaced by their children, entries of one family share
   a group starting where their moves part, and children drop the parent's name prefix. The page
-  is cached (`catMemo`, keyed by `catSig()`: book, colour, tree, games, analysis, explorer
-  data) and built in steps (`statNode()`) with a progress bar; idea targets are worked out once.
+  is built in steps (`statNode()`) with a progress bar; idea targets are worked out once.
+  v0.9.8: the result is kept per book and colour in `catMemo` and in IndexedDB
+  (`cat:<space>:<book>:<colour>`, `catStoreKey()`). The last result is always drawn at once; if
+  `catSig()` (book, colour, tree, band, game and analysis counts; not explorer data, which
+  changes all the time) differs, it's recalculated in the background with a bar in `#catProg`.
+  Recalculate forces it. Remove (`removeCatalogueEntry()`) cuts where the line starts
+  (`catCutPath()` climbs back while the position before has one move), with Undo
+  (`catUndo`, only while the tree hasn't changed since). "Other lines" entries have no Remove.
 - `js/addopening.js` (v0.9.7): Openings > Add an opening. Searches `OPENING_LINES`
   (`js/openlines.js`, every named opening with its moves, 370 KB, loaded only when the panel
   opens; made by `tools/build-openings.html` alongside `openings.js`). A picked opening can
   bring its deeper variations (dataset lines that continue it). Lines go in with `addMove()`;
   a different move of mine becomes another option (`lineConflicts()`, now in `rep.js`).
+  v0.9.8: a locked preview board (`aoShow()`, `AOB`): tap the main line or a variation's name,
+  a move in the list, or ◀ ▶. Updated in place, so the list keeps its scroll.
 - Build rows are ordered by the engine (loss against the best move, for the side moving);
   moves without an eval yet come last. An expanded row of mine shows "Fits your prep"
   (`fitFor()`/`fitLine()` in `rows.js`, using `memorability()` from `ideas.js`) once the
   Lichess replies after the move are loaded. `srcLine()` moved to `explore.js`.
+  v0.9.8: a row whose move reaches a named position shows the name (`namedLine()`, only the
+  part after the family name of the opening on the board). On my turn the board adds thin
+  dashed arrows (kind `games`) for the moves I usually play there (`gameMovesHere()`: at least
+  2 games and 15%, top 3).
 - Idea lines (v0.9.5), an add-on kept out of the repertoire and cards:
   - `js/structures.js`: about 20 pawn structures matched on pawns alone (`structureOf()`,
     first match wins), each with plans for both sides and its break squares.

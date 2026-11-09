@@ -580,6 +580,41 @@ t("rows: a candidate that transposes into my lines fits my prep", () => {
   eq(m && m.transP >= 0.85, true, JSON.stringify(m));
   eq(/Fits your prep: <b>\d+%<\/b>/.test(fitLine(fen, { san: "e4" }, ["Nf3", "e5"])), true);
 });
+t("catalogue: removing an entry takes out its line, and Undo puts it back", () => {
+  reset(); S.color = "white";
+  line("white", "e4 e5 Nf3 Nc6 Bc4"); line("white", "e4 c5 Nf3 d6 d4"); line("white", "e4 c5 Nf3 Nc6 Bb5");
+  const keep = window.confirm; window.confirm = () => true;
+  try {
+    const pos = s => rep("white").pos[K(fenAfter(START, s.split(" ")))];
+    eq(catRemoveCount("e4 c5"), 3, "Nf3, d4 and Bb5 go with it");
+    line("white", "e4 e6 d4 d5 e5");
+    eq(catCutPath("e4 e6 d4 d5").join(" "), "e4 e6", "a folded entry is cut where its line starts");
+    eq(removeCatalogueEntry("e4 c5", "Sicilian Defence"), true);
+    eq(pos("e4").m, ["e5", "e6"], "1...c5 is no longer a prepared reply");
+    eq(pos("e4 c5 Nf3 d6"), undefined, "the line under it is pruned");
+    eq(rep("white").cards[K(fenAfter(START, ["e4", "c5"]))], undefined, "and its card");
+    eq(pos("e4 e5 Nf3 Nc6").m, ["Bc4"], "the other line stays");
+    eq(undoCatalogueRemove(), true);
+    eq(pos("e4").m, ["e5", "c5", "e6"]);
+    eq(pos("e4 c5 Nf3 d6").m, ["d4"]);
+    eq(undoCatalogueRemove(), false, "only once");
+  } finally { window.confirm = keep; }
+});
+t("rows: named lines, and the moves I usually play", () => {
+  reset(); S.color = "white";
+  const fen = fenAfter(START, ["e4"]);
+  eq(/Sicilian Defen[cs]e/.test(namedLine(fen, "c5", ["e4"])), true, namedLine(fen, "c5", ["e4"]));
+  const sic = fenAfter(START, ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3"]);
+  const naj = namedLine(sic, "a6", ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3"]);
+  eq(/Najdorf/.test(naj) && !/Sicilian/.test(naj), true, "only the new part of the name: " + naj);
+  S.games = [["e4 e5 Nf3", "1-0"], ["e4 e5 Nf3", "0-1"], ["e4 e5 Nf3", "1-0"], ["e4 e5 Bc4", "1-0"], ["e4 e5 Bc4", "1-0"], ["e4 e5 d4", "1-0"]]
+    .map(([m, r], i) => ({ id: "gm" + i, my: "white", tc: "rapid", result: r, moves: m, white: "me", black: "x" }));
+  S.games.forEach(gameKeys);
+  const here = gameMovesHere(K(fenAfter(START, ["e4", "e5"])));
+  eq(here.map(x => x.san), ["Nf3", "Bc4"], "d4 once is left out: " + JSON.stringify(here));
+  delete myStatsMemo.white; // its key is the number of games, which the next tests reuse
+  S.games = [];
+});
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3");

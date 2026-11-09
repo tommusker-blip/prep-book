@@ -5,6 +5,18 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09m", date: "9 Nov 2026", title: "Openings kept, Remove, and a preview board",
+    items: [
+      "The Openings tab is now saved on your device, so it opens at once, even after closing the app. When your tree, games or analysis change, it updates in the background with a thin progress bar, and you can still use the page meanwhile. Recalculate picks up new Lichess data.",
+      "Each opening in the Openings tab has a Remove button. It takes the line out from where it starts, along with its training cards, and you can Undo straight after.",
+      "Add an opening now has a board: tap the main line or any variation's name to see it, then step through it with ◀ ▶ or by tapping a move. The tick box still chooses what gets added.",
+      "In Build, a move that reaches a named opening line shows the name under its row, in blue.",
+      "On your turn in Build, thin dashed arrows show the moves you usually play there in your own games.",
+      "The Gaps tab has gone from Build: Gap › does the same job and now says which gap it went to. How gaps are ranked, the automatic opponent reply and Build my tree from my games are together in Settings → Building your tree.",
+      "Build's other tabs are renamed: Ideas here (this position) and Whole tree (suggestions from every line you have, formerly Lichess).",
+    ],
+  },
+  {
     id: "2026-11-09l", date: "9 Nov 2026", title: "Add an opening by name",
     items: [
       "Openings → Add an opening: search all 3,865 named openings and variations (for example Benko, Najdorf or A57), pick one, choose White or Black, and its moves go into your repertoire.",

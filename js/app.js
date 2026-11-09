@@ -166,10 +166,10 @@ function redrawBoards() { applyLook(); if (BB) BB.draw(); if (TB) TB.draw(); }
 function arrowsSvg(arrows, flip) {
   if (!arrows || !arrows.length) return "";
   const xy = sq => { const f = sq.charCodeAt(0) - 97, r = +sq[1]; return [(flip ? 7 - f : f) + 0.5, (flip ? r - 1 : 8 - r) + 0.5]; };
-  const body = arrows.slice().sort((a, b) => a.w - b.w).map(a => {
+  const body = arrows.slice().sort((a, b) => (a.kind === "games") - (b.kind === "games") || a.w - b.w).map(a => {
     const [x1, y1] = xy(a.from), [x2, y2] = xy(a.to);
     const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
-    const sw = 0.07 + 0.23 * a.w, head = 0.22 + 0.2 * a.w;
+    const thin = a.kind === "games", sw = thin ? 0.075 : 0.07 + 0.23 * a.w, head = thin ? 0.26 : 0.22 + 0.2 * a.w;
     const ex = x2 - ux * head, ey = y2 - uy * head; // shaft stops where the head starts
     const px = -uy * head * 0.75, py = ux * head * 0.75;
     return `<g class="arw ${a.kind}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke-width="${sw}"/><polygon points="${x2},${y2} ${ex + px},${ey + py} ${ex - px},${ey - py}"/></g>`;
@@ -193,6 +193,8 @@ function buildArrows(fen, key, n) {
   }
   // My moves always show, even without Lichess data
   for (const s of mine) if (!out.some(a => a.kind === "mine" && sq(s) && a.to === sq(s).to && a.from === sq(s).from)) { const mv = sq(s); if (mv) out.push({ from: mv.from, to: mv.to, w: 0.5, kind: "mine" }); }
+  // v0.9.8: on my turn, the moves I usually play here in my own games (thin, dashed, on top)
+  if (myTurn) for (const g of gameMovesHere(key)) { const mv = sq(g.san); if (mv) out.push({ from: mv.from, to: mv.to, w: g.f, kind: "games" }); }
   return out;
 }
 
@@ -482,10 +484,9 @@ function refreshBuild(key) {
 let sideTimer = null;
 function sidePanes() {
   clearTimeout(sideTimer); sideTimer = null;
-  if (S.ptab === "gaps") renderGaps();
   if (S.ptab === "lichess") renderSuggest();
 }
-function sideSoon() { if (!sideTimer && (S.ptab === "gaps" || S.ptab === "lichess")) sideTimer = setTimeout(() => { sideTimer = null; if (S.view === "build") sidePanes(); }, 1500); }
+function sideSoon() { if (!sideTimer && S.ptab === "lichess") sideTimer = setTimeout(() => { sideTimer = null; if (S.view === "build") sidePanes(); }, 1500); }
 /* ----- opponent's turn: quick picks ----- */
 // "common": the most played reply at my level. "weak": my weakest spot here, which is the most
 // common reply I haven't prepared, or (if all are prepared) the one I score worst against.
@@ -690,6 +691,7 @@ const exploring = () => S.buildMode === "explore";
 // Build's panel tabs (Moves, Gaps, Ideas, Lichess): one section at a time, so on a phone the
 // board and the section stay close together
 function showPane() {
+  if (S.ptab === "gaps") S.ptab = "moves"; // the Gaps tab moved to Settings (v0.9.8)
   const tab = S.ptab || "moves";
   document.querySelectorAll("[data-ptab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.ptab === tab)));
   document.querySelectorAll("[data-pane]").forEach(p => (p.hidden = p.dataset.pane !== tab));
@@ -1370,6 +1372,7 @@ function renderLook() {
 function renderSettings() {
   renderBooks();
   renderLook();
+  renderGaps(); // Gap › ranking buttons
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
   $("#setMonths").value = String(S.settings.months);
@@ -1557,7 +1560,7 @@ async function boot() {
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
     }
     else if (d.bmode) setBuildMode(exploring() ? "commit" : "explore");
-    else if (d.ptab) { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "gaps" || d.ptab === "lichess") renderBuild(); }
+    else if (d.ptab) { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "lichess") renderBuild(); }
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
@@ -1570,6 +1573,9 @@ async function boot() {
     else if ("iquiz" in d) startIdeaQuiz();
     else if ("iquitquiz" in d) { IV.mode = "view"; IV.quiz = null; IV.token++; renderIdea(); }
     else if ("catbuild" in d) { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
+    else if (d.catremove) { if (removeCatalogueEntry(d.catremove, d.catlabel || d.catremove)) { catOpen.delete(d.catremove); renderCatalogue(); } }
+    else if ("catundo" in d) { if (undoCatalogueRemove()) renderCatalogue(); }
+    else if ("catrecalc" in d) renderCatalogue(true);
     else if ("cattrain" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.pz) onPuzzleChoice(d.pz);
     else if (d.pzply) pzJump(+d.pzply);
@@ -1592,7 +1598,7 @@ async function boot() {
     if (n && n.m.length) { path.push(n.m[0]); renderBuild(); }
   };
   $("#toStart").onclick = () => { S.build[S.color] = []; renderBuild(); };
-  $("#quickGap").onclick = () => { const t = nextGapTarget(rankedGaps()); if (t) { S.ptab = "moves"; jumpToGap(t.id); } else toast("No gaps found in the positions checked so far."); };
+  $("#quickGap").onclick = () => { const list = rankedGaps(), t = nextGapTarget(list); if (t) { S.ptab = "moves"; jumpToGap(t.id, list); } else toast("No gaps found in the positions checked so far."); };
   // Build rows (rows.js): tap a row to expand it; the move button inside plays the move
   Tip.init();
   // Keep --hdr at the header's height, so the pinned Build board sits just under it

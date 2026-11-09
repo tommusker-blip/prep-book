@@ -62,26 +62,19 @@ function nextGapTarget(list) {
   const i = gapLast ? list.findIndex(g => g.id === gapLast) : -1;
   return list[(i + 1) % list.length];
 }
+// The Gap › ranking choice (Settings > Building your tree)
 function renderGaps() {
-  const box = $("#gapNext");
-  if (!box) return;
-  const list = rankedGaps(), t = nextGapTarget(list);
   document.querySelectorAll("[data-gapmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.gapmode === gapMode())));
-  if (!t) { box.innerHTML = `<p class="help">No gaps found in the positions checked so far.</p>`; return; }
-  const { where, line } = gapLabel(t), pos = list.indexOf(t) + 1;
-  box.innerHTML = `<button type="button" class="btn nextgap" data-nextgap="${esc(t.id)}"><b>Next gap: ${esc(t.opp ? where : t.text + (t.path.length ? " " + where : ""))}</b><span>${esc(line)}</span></button>
-    <p class="help">Gap ${pos} of ${list.length}</p>`;
-  box._list = list;
 }
-// Jump the board to a gap. For an unprepared reply, show the position before it with the reply's
-// row opened (nothing is added to the repertoire until the user plays it).
-function jumpToGap(id) {
-  const list = $("#gapNext")._list || rankedGaps(), g = list.find(x => x.id === id);
+// Jump the board to a gap. For an unprepared reply, play it on the board so it's my move. It
+// isn't saved until I answer it (commitBuildMove() saves the missing reply along with my move).
+function jumpToGap(id, list = rankedGaps()) {
+  const g = list.find(x => x.id === id);
   if (!g) return;
   gapLast = g.id;
-  // An unprepared reply: play it on the board so it's my move. It isn't saved until I answer
-  // it (commitBuildMove() saves the missing reply along with my move).
   S.build[S.color] = g.opp ? g.path.concat(g.opp) : g.path.slice();
   renderBuild();
+  const { line } = gapLabel(g);
+  toast(`Gap ${list.indexOf(g) + 1} of ${list.length}${line ? ": " + line : ""}`);
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
 }

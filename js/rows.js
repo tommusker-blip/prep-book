@@ -202,6 +202,7 @@ function candRow(fen, key, c, ex, path) {
       <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n} · ${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
       ${rep}
+      ${namedLine(fen, c.san, path)}
     </div>`;
   let detail = "";
   if (open) {
@@ -280,7 +281,7 @@ function candRows(fen, key, n, path) {
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   // Column key: written out under the rows rather than behind an ⓘ in the header
-  const legend = `<p class="help legend"><b>Eval</b> + good for White, − for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); colour compares the move with the best here: <span class="ev s-good">strong</span>, <span class="ev s-ok">playable</span>, <span class="ev s-weak">weak</span>${myTurn ? "; g a gambit" : ""}. <b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""}. <b>Score</b> your colour's score after it. <b>You</b> your games · score.${myTurn ? " <b>Rep</b> good replies left for your opponent; purple is a practical weapon." : ""} Outline: blue ${myTurn ? "in your repertoire" : "prepared"}${myTurn ? "" : ", orange not prepared"}. Tap a row for all its numbers.</p>`;
+  const legend = `<p class="help legend"><b>Eval</b> + good for White, − for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); colour compares the move with the best here: <span class="ev s-good">strong</span>, <span class="ev s-ok">playable</span>, <span class="ev s-weak">weak</span>${myTurn ? "; g a gambit" : ""}. <b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""}. <b>Score</b> your colour's score after it. <b>You</b> your games · score.${myTurn ? " <b>Rep</b> good replies left for your opponent; purple is a practical weapon." : ""} Outline: blue ${myTurn ? "in your repertoire" : "prepared"}${myTurn ? "" : ", orange not prepared"}. Names in blue: the move reaches a named opening line.${myTurn ? " Dashed arrows on the board: what you usually play here in your games." : ""} Tap a row for all its numbers.</p>`;
   return positionSummary(fen, key, ex) + `<div class="cands">
       <div class="crow chead${myTurn ? " c5" : ""}"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
@@ -308,4 +309,37 @@ function fitLine(fen, c, path) {
   if (!m) return "";
   const why = [m.transP >= 0.05 ? `transposes into your lines after ${pctOf(m.transP)} of replies` : "", m.setup >= 0.3 && m.like ? `same setup as your ${esc(numbered(0, m.like))} (${pctOf(m.setup)} alike)` : ""].filter(Boolean).join("; ");
   return `<p class="help">Fits your prep: <b>${pctOf(m.score)}</b>${why ? ` (${why})` : " (a new kind of position for you)"}</p>`;
+}
+/* ----- named lines (v0.9.8) -----
+   A row whose move reaches a named position (OPENINGS, or the curated BOOK) gets the name on a
+   line of its own, in the accent colour. Where it continues the opening on the board, only the
+   new part is shown ("Najdorf Variation" under the Sicilian). */
+const namedCache = new Map();
+let namedHere = { ps: null, name: "" };
+function namedAfter(fen, san) {
+  const k = fen + "|" + san;
+  if (namedCache.has(k)) return namedCache.get(k);
+  const after = fenAfter(fen, [san]), b = after ? bookName(K(after)) : null;
+  if (namedCache.size > 3000) namedCache.clear();
+  namedCache.set(k, b);
+  return b;
+}
+function namedLine(fen, san, path) {
+  const b = namedAfter(fen, san);
+  if (!b) return "";
+  const ps = (path || []).join(" ");
+  if (namedHere.ps !== ps) namedHere = { ps, name: ((ps ? openingFor(path) : null) || {}).name || "" };
+  const cur = namedHere.name;
+  let name = b.name;
+  if (cur && name === cur) return ""; // same name as the position on the board: nothing new
+  const fam = cur.split(":")[0].trim(); // the same family as the opening on the board: just the new part
+  if (fam && name.startsWith(fam + ": ")) name = name.slice(fam.length + 2);
+  return `<span class="cname"><span class="eco">${esc(b.eco)}</span> ${esc(name)}</span>`;
+}
+// The moves I usually play in a position, from my games: at least 2 games and 15% of them, top 3
+function gameMovesHere(key, color = S.color) {
+  const mv = myStats(color).mv[key];
+  if (!mv) return [];
+  const list = Object.entries(mv).map(([san, s]) => ({ san, n: s.n })), total = list.reduce((s, x) => s + x.n, 0);
+  return list.filter(x => x.n >= 2 && x.n / total >= 0.15).sort((a, b) => b.n - a.n).slice(0, 3).map(x => ({ ...x, f: x.n / total }));
 }

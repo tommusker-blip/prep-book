@@ -77,7 +77,7 @@ function groupByFamily(root, color) {
   const promote = list => list.flatMap(c => {
     if (!CAT_GENERIC.test(familyOf(c)) || !c.children.length) return [c];
     const kids = promote(c.children), own = endsUnder(c.path.join(" ")) - c.children.reduce((s, k) => s + endsUnder(k.path.join(" ")), 0);
-    return own > 0 ? [...kids, { ...c, children: [], label: `${familyOf(c)}: other lines` }] : kids;
+    return own > 0 ? [...kids, { ...c, children: [], label: `${familyOf(c)}: other lines`, other: true }] : kids;
   });
   const top = promote(root.children), fams = new Map();
   for (const c of top) { const f = familyOf(c) || c.label; if (!fams.has(f)) fams.set(f, []); fams.get(f).push(c); }
@@ -147,33 +147,61 @@ function catComment(s) {
 }
 
 /* ----- the page -----
-   Kept until the tree, games, analysis or Lichess data change (catSig), so coming back to the
-   page is instant. Otherwise it's worked out in small steps with a progress bar. */
-let catMemo = { sig: "", root: null, targets: [] }, catJob = null;
-const catSig = color => [S.book, color, repSig(color), S.games.length, Object.keys(S.acc).length, explVer].join("|");
-function renderCatalogue() {
+   Kept per prep book and colour, in memory and in IndexedDB (cat:<space>:<book>:<colour>), so
+   the page opens at once, even in a new session. The last result is always drawn straight
+   away; if the tree, games or analysis have changed since (catSig), it's worked out again in
+   the background in small steps, with a thin progress bar above the old entries. New Lichess
+   data doesn't trigger that on its own (it arrives all the time): Recalculate does. */
+let catMemo = {}, catJob = null, catLoaded = {};
+const catStoreKey = color => "cat:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local") + ":" + S.book + ":" + color;
+const catSig = color => [S.book, color, walk(color).sig, bandKey(), S.games.length, Object.keys(S.acc).length].join("|");
+const catCurrent = () => catMemo[catStoreKey(S.color)] || null;
+async function renderCatalogue(force) {
   const box = $("#catBody");
   if (!box) return;
-  const C = S.color === "white" ? "White" : "Black";
+  const color = S.color, C = color === "white" ? "White" : "Black", sk = catStoreKey(color);
   $("#catHead").textContent = `Your ${C} openings · ${prepBookName()}`;
-  const sig = catSig(S.color);
-  if (catMemo.sig === sig && catMemo.root) { drawCatalogue(catMemo.root, catMemo.targets); return; }
-  if (catJob && catJob.sig === sig) { drawCatProgress(); return; } // already on it
-  startCatalogueJob(sig, S.color);
+  // A saved result from an earlier session: read it once
+  if (!catMemo[sk] && !catLoaded[sk] && typeof IDB !== "undefined") {
+    catLoaded[sk] = true;
+    if (!box.innerHTML.trim()) box.innerHTML = `<p class="help">Loading your openings…</p>`;
+    try { const saved = await IDB.get(sk); if (saved && saved.v === 1 && saved.root && !catMemo[sk]) catMemo[sk] = saved; } catch (e) { /* worked out below */ }
+    if (S.view !== "openings" || S.color !== color) return;
+  }
+  const sig = catSig(color), memo = catMemo[sk];
+  if (memo) drawCatalogue(memo.root, memo.targets);
+  if (memo && memo.sig === sig && !force) { catJob = null; drawCatProgress(); return; }
+  if (catJob && catJob.sig === sig && catJob.sk === sk && !force) { drawCatProgress(); return; } // already on it
+  startCatalogueJob(sig, color, sk);
 }
 function drawCatProgress() {
-  const box = $("#catBody"), j = catJob;
-  if (!box || !j || S.view !== "openings") return;
-  box.innerHTML = `<p class="help" aria-live="polite">${esc(j.step)}${j.total ? ` ${j.done} of ${j.total}` : ""}</p><progress max="${j.total || 1}" value="${j.done}"></progress>`;
+  const bar = $("#catProg"), j = catJob, memo = catCurrent();
+  if (!bar) return;
+  const undo = catUndo && catUndo.book === S.book && catUndo.color === S.color && walk(S.color).sig === catUndo.after ? `<p class="help catwhen" role="status">Removed ${esc(catUndo.label)}. <button type="button" class="btn ghost quick" data-catundo>Undo</button></p>` : "";
+  if (j && j.sk === catStoreKey(S.color)) {
+    bar.innerHTML = undo + `<p class="help" aria-live="polite">${memo ? "Updating… " : ""}${esc(j.step)}${j.total ? ` ${j.done} of ${j.total}` : ""}</p><progress max="${j.total || 1}" value="${j.done}"></progress>`;
+    return;
+  }
+  bar.innerHTML = undo + (memo ? `<p class="help catwhen">Worked out ${esc(agoText(memo.at))}. <button type="button" class="btn ghost quick" data-catrecalc>Recalculate</button>${info("Kept so the page opens at once. It's worked out again by itself when your tree, games or analysis change. Recalculate also picks up new Lichess data (coverage), for example after Scan my tree.", "About this page")}</p>` : "");
 }
-function startCatalogueJob(sig, color) {
-  const job = catJob = { sig, step: "Reading your games…", done: 0, total: 0 };
+function agoText(t) {
+  const m = Math.round((Date.now() - (t || 0)) / 60000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+}
+function startCatalogueJob(sig, color, sk) {
+  const job = catJob = { sig, sk, step: "Reading your games…", done: 0, total: 0 };
   drawCatProgress();
   const alive = () => catJob === job;
+  const finish = (root, targets) => {
+    const memo = catMemo[sk] = { v: 1, sig, root, targets, at: Date.now() };
+    catJob = null;
+    if (typeof IDB !== "undefined") IDB.set(sk, memo).catch(() => {});
+    if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); }
+  };
   const go = () => {
     if (!alive()) return;
     const root = buildCatalogue(color), nodes = catNodes(root);
-    if (!nodes.length) { catMemo = { sig, root, targets: [] }; catJob = null; if (S.view === "openings") drawCatalogue(root, []); return; }
+    if (!nodes.length) { finish(root, []); return; }
     const ctx = catalogueContext(color);
     Object.assign(job, { step: "Working out your openings…", done: 0, total: nodes.length });
     drawCatProgress();
@@ -184,10 +212,7 @@ function startCatalogueJob(sig, color) {
       while (i < nodes.length && performance.now() < end) statNode(nodes[i++], ctx);
       job.done = i;
       if (i < nodes.length) { drawCatProgress(); setTimeout(step, 0); return; }
-      const targets = ideaTargets(color); // once for every entry's "Typical ideas"
-      catMemo = { sig, root, targets };
-      catJob = null;
-      if (S.view === "openings" && S.color === color) drawCatalogue(root, targets);
+      finish(root, ideaTargets(color)); // targets once for every entry's "Typical ideas"
     };
     setTimeout(step, 0);
   };
@@ -213,11 +238,53 @@ function drawCatalogue(root, targets) {
       </summary>
       <div class="catbody">
         <p class="help">${esc(c.comment)}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
-        <div class="row catbtns"><button type="button" class="btn ghost" data-catbuild="${esc(ps)}">Build</button><button type="button" class="btn ghost" data-cattrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train this line</button></div>
+        <div class="row catbtns"><button type="button" class="btn ghost" data-catbuild="${esc(ps)}">Build</button><button type="button" class="btn ghost" data-cattrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train this line</button>${c.path.length && !c.other ? `<button type="button" class="btn ghost danger" data-catremove="${esc(ps)}" data-catlabel="${esc(c.label)}">Remove</button>` : ""}</div>
         ${ideaBlock(ps, c.children.map(k => k.path.join(" ")), targets)}
         ${c.children.length ? `<div class="catkids">${c.children.map(entry).join("")}</div>` : ""}
       </div>
     </details>`;
   };
   box.innerHTML = root.children.map(entry).join("");
+}
+/* ----- removing an opening (v0.9.8) -----
+   An entry's path can start deeper than the line itself (a folded entry: the French is listed
+   at 1.e4 e6 2.d4 d5). So the cut is made where the line starts: climb back up while the
+   position before has only this one move or reply, and remove that move (my move, or a reply I'd
+   prepared for). Everything under it that no other path still reaches goes too (walk() prunes
+   positions and cards). A copy of the repertoire is kept for Undo. */
+let catUndo = null;
+function catCutPath(ps, color = S.color) {
+  const path = ps.split(" ").filter(Boolean), R = rep(color);
+  let i = path.length;
+  while (i > 1) {
+    const n = R.pos[K(fenAfter(START, path.slice(0, i - 1)))];
+    if (!n || n.m.length !== 1) break;
+    i--;
+  }
+  return path.slice(0, i);
+}
+function catRemoveCount(ps, color = S.color) {
+  const cut = catCutPath(ps, color).join(" "), { nodes } = walk(color), R = rep(color);
+  return Object.entries(nodes).filter(([k, v]) => catUnder(cut, v.path.join(" ")) && R.pos[k] && R.pos[k].m.length && isMine(k, color)).length;
+}
+function removeCatalogueEntry(ps, label, color = S.color) {
+  const path = catCutPath(ps, color);
+  if (!path.length) return false;
+  const R = rep(color), n = catRemoveCount(ps, color);
+  if (!confirm(`Remove ${label} from your ${color === "white" ? "White" : "Black"} repertoire? This takes out ${numbered(0, path)} and everything after it.${n ? ` ${n} position${n === 1 ? "" : "s"} with your move${n === 1 ? "" : "s"} go, with their training cards.` : ""} Positions your other lines also reach are kept.`)) return false;
+  catUndo = { color, label, book: S.book, pos: JSON.parse(JSON.stringify(R.pos)), cards: JSON.parse(JSON.stringify(R.cards)) };
+  removeMove(path.slice(0, -1), path[path.length - 1], color);
+  catUndo.after = walk(color).sig; // Undo only while nothing else has changed
+  Store.save(repDoc(color));
+  return true;
+}
+function undoCatalogueRemove() {
+  const u = catUndo;
+  if (!u || u.book !== S.book || walk(u.color).sig !== u.after) return false;
+  const R = rep(u.color);
+  R.pos = u.pos; R.cards = u.cards;
+  walk(u.color);
+  Store.save(repDoc(u.color));
+  catUndo = null;
+  return true;
 }
