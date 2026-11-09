@@ -291,6 +291,8 @@ div.gap-row{cursor:default}
 .freq{position:relative;display:block;border-radius:4px;overflow:hidden;padding:1px 4px;font-family:var(--f-mono)}
 .freq i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft,color-mix(in srgb,var(--accent) 18%,transparent));border-radius:4px}
 .freq b{position:relative;font-weight:600}
+.mline{display:block;font-size:.7rem;font-weight:500;color:var(--muted);line-height:1.15;margin-top:1px} /* masters, under the peers' figure */
+.chead small{display:block;font-size:.85em;font-weight:500;text-transform:none;letter-spacing:0}
 /* eval: blue strong, plain playable, orange weak, with a matching dot */
 .ev{font-family:var(--f-mono);font-weight:600}
 .ev.s-good{color:var(--good)} .ev.s-weak{color:var(--bad)} .ev.s-ok{color:var(--ink,inherit)}

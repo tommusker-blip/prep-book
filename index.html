@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.19">
+<link rel="stylesheet" href="css/app.css?v=0.9.20">
 </head>
 <body>
 
@@ -260,6 +260,7 @@
       <div class="field"><label for="autoOpp">After you add a move in Build, play the opponent's reply</label>
         <select id="autoOpp"><option value="gap">The biggest gap (a reply I haven't prepared)</option><option value="off">Don't: I'll choose</option><option value="common">Most common reply at my level</option><option value="weak">My weakest spot (unprepared or worst-scoring reply)</option></select>
         <p class="help">Lets you build a line quickly by only playing your own moves. Needs the Lichess token.</p></div>
+      <label class="check"><input type="checkbox" id="setMasters"> In Build's move rows, show masters' figures (grey M) under your peers'</label>
       <div class="field"><span class="lbl" style="margin:0">From your games</span>
         <div class="row" style="margin:0"><button type="button" class="btn ghost" data-goab>Build my tree from my games…</button></div>
         <p class="help">Adds the moves you play often and score well with, and the replies you meet often. You see the list first. It's on the Games tab.</p></div>
@@ -313,35 +314,35 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.19"></script>
-<script src="js/openings.js?v=0.9.19"></script>
-<script src="js/book.js?v=0.9.19"></script>
-<script src="js/store.js?v=0.9.19"></script>
-<script src="js/games.js?v=0.9.19"></script>
-<script src="js/evals.js?v=0.9.19"></script>
-<script src="js/rep.js?v=0.9.19"></script>
-<script src="js/jobs.js?v=0.9.19"></script>
-<script src="js/engine.js?v=0.9.19"></script>
-<script src="js/explore.js?v=0.9.19"></script>
-<script src="js/ideas.js?v=0.9.19"></script>
-<script src="js/rows.js?v=0.9.19"></script>
-<script src="js/gaps.js?v=0.9.19"></script>
-<script src="js/practice.js?v=0.9.19"></script>
-<script src="js/puzzles.js?v=0.9.19"></script>
-<script src="js/report.js?v=0.9.19"></script>
-<script src="js/autobuild.js?v=0.9.19"></script>
-<script src="js/catalogue.js?v=0.9.19"></script>
-<script src="js/addopening.js?v=0.9.19"></script>
-<script src="js/structures.js?v=0.9.19"></script>
-<script src="js/idealines.js?v=0.9.19"></script>
-<script src="js/updates.js?v=0.9.19"></script>
-<script src="js/importer.js?v=0.9.19"></script>
-<script src="js/board.js?v=0.9.19"></script>
-<script src="js/build.js?v=0.9.19"></script>
-<script src="js/suggest.js?v=0.9.19"></script>
-<script src="js/train.js?v=0.9.19"></script>
-<script src="js/gamesview.js?v=0.9.19"></script>
-<script src="js/settings.js?v=0.9.19"></script>
-<script src="js/app.js?v=0.9.19"></script>
+<script src="js/core.js?v=0.9.20"></script>
+<script src="js/openings.js?v=0.9.20"></script>
+<script src="js/book.js?v=0.9.20"></script>
+<script src="js/store.js?v=0.9.20"></script>
+<script src="js/games.js?v=0.9.20"></script>
+<script src="js/evals.js?v=0.9.20"></script>
+<script src="js/rep.js?v=0.9.20"></script>
+<script src="js/jobs.js?v=0.9.20"></script>
+<script src="js/engine.js?v=0.9.20"></script>
+<script src="js/explore.js?v=0.9.20"></script>
+<script src="js/ideas.js?v=0.9.20"></script>
+<script src="js/rows.js?v=0.9.20"></script>
+<script src="js/gaps.js?v=0.9.20"></script>
+<script src="js/practice.js?v=0.9.20"></script>
+<script src="js/puzzles.js?v=0.9.20"></script>
+<script src="js/report.js?v=0.9.20"></script>
+<script src="js/autobuild.js?v=0.9.20"></script>
+<script src="js/catalogue.js?v=0.9.20"></script>
+<script src="js/addopening.js?v=0.9.20"></script>
+<script src="js/structures.js?v=0.9.20"></script>
+<script src="js/idealines.js?v=0.9.20"></script>
+<script src="js/updates.js?v=0.9.20"></script>
+<script src="js/importer.js?v=0.9.20"></script>
+<script src="js/board.js?v=0.9.20"></script>
+<script src="js/build.js?v=0.9.20"></script>
+<script src="js/suggest.js?v=0.9.20"></script>
+<script src="js/train.js?v=0.9.20"></script>
+<script src="js/gamesview.js?v=0.9.20"></script>
+<script src="js/settings.js?v=0.9.20"></script>
+<script src="js/app.js?v=0.9.20"></script>
 </body>
 </html>

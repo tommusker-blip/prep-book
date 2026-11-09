@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09u", date: "9 Nov 2026", title: "Masters next to your peers",
+    items: [
+      "Build's Played and Score columns now show masters too: your peers' figure on top, and a grey M line under it from the Lichess masters database.",
+      "Moves masters often play are listed even when players at your level rarely choose them.",
+      "Tap a row to see the masters' wins, draws and losses next to your peers'.",
+      "It's a trial: switch it off in Settings → Building your tree if the rows feel too busy.",
+    ],
+  },
+  {
     id: "2026-11-09t", date: "9 Nov 2026", title: "Move rows spread out",
     items: [
       "The columns in Build's move rows now share the width evenly, with the numbers centred under their headings, instead of bunching up on the left.",

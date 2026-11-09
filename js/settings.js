@@ -18,6 +18,7 @@ function renderSettings() {
   renderBooks();
   renderLook();
   renderGaps(); // Gap › ranking buttons
+  const ms = $("#setMasters"); ms.checked = mastersOn(); ms.onchange = () => { S.settings.mastersRows = ms.checked; Store.save("settings"); };
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
   $("#setMonths").value = String(S.settings.months);

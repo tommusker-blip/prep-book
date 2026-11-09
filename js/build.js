@@ -48,6 +48,7 @@ function renderBuild() {
   // Ideas tab: only for positions where it's my move; only built while the tab is open
   if (S.ptab === "ideas") $("#ideasCard").innerHTML = mine ? ideasPanel(fen, key, n, path) : `<p class="help">Ideas are for positions where it's your move. Play the opponent's reply, or go back one move.</p>`;
   if (!cachedExplorer(fen) && S.token && !explorerBlocked) explorer(fen, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
+  if (mastersOn() && !cachedExplorer(fen, "masters") && S.token && !explorerBlocked) explorer(fen, { src: "masters", prio: PRIO.soon, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
   sidePanes();
 }
 // The Moves tab: my moves (or the opponent's options), then the candidate rows

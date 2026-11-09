@@ -168,6 +168,10 @@ when it loads; the others just define things.
   flag, 🃏 gambit, ⇄ transposition, ⚠
   warning; two shown, all in words when expanded); it replaced the Rep count, which is in the
   expanded row. `rowsLegend()` is a `<details>` Key, open state in `pb_legend`.
+- Masters in the rows (v0.9.20, `mastersOn()`, `S.settings.mastersRows`, on by default): Build fetches
+  the masters explorer for the position too (`PRIO.soon`); `mastCell()` adds a grey "M x%" line
+  under Played and Score, the expanded row a Masters bar, and masters' moves with 5%+ join the
+  candidates (`c.mast`).
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
   `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,
   beyond = weak (orange). No ✓ marks; `g` tags a weak gambit. The column key is a line
