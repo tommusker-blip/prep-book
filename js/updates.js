@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09f", date: "9 Nov 2026", title: "Mistake review: the whole game",
+    items: [
+      "◀ now goes all the way back to the first move of the game, not just a few moves.",
+      "Tap any move in the list above the board to jump to it. Before you answer, the list runs up to the puzzle; after, it shows the whole game, with your mistake underlined.",
+    ],
+  },
+  {
     id: "2026-11-09e", date: "9 Nov 2026", title: "Build your tree from your games",
     items: [
       "Games → Build my tree from my games: goes through your games and adds the moves you play often, if you score well with them and Stockfish doesn't think they're dubious, plus the replies you meet often. You see the list first, and nothing in your repertoire is replaced.",

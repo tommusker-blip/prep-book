@@ -874,7 +874,7 @@ function renderTrainCard() {
   $("#trainHome").hidden = true; $("#trainRun").hidden = false;
   renderPzNav(); // the ◀ ▶ row is for puzzles only
   TB.flip = T.mode === "puzzles" && T.pzGame ? T.pzGame.my === "black" : S.color === "black";
-  $("#tLine").innerHTML = lineHtml(T.path, false);
+  if (T.mode !== "puzzles") $("#tLine").innerHTML = lineHtml(T.path, false); // puzzles: renderPzNav()
   const op = openingFor(T.path);
   $("#tOpening").textContent = op ? `${op.eco} ${op.name}` : "";
   if (T.mode === "puzzles") { $("#tProgress").textContent = `Puzzle ${T.i + 1} / ${T.queue.length}`; $("#tProgress").dataset.tip = `${T.right} of ${T.done} solved first time`; return; }
@@ -1018,9 +1018,10 @@ function nextPuzzle() {
   if (!g) { T.i++; return nextPuzzle(); }
   T.pzGame = g;
   T.path = g.moves.split(" ").slice(0, m.ply);
-  T.frames = framesTo(T.path).slice(-(PZ_RUNUP + 1)); // from a few moves before
+  const upTo = framesTo(T.path); // every position from the start up to the puzzle
+  T.frames = upTo.slice(-(PZ_RUNUP + 1)); // the replay starts a few moves before
   T.tries = 0;
-  T.nav = { frames: T.frames, i: T.frames.length - 1, pz: T.frames.length - 1, arrows: [] };
+  T.nav = { frames: upTo, moves: T.path, i: upTo.length - 1, pz: upTo.length - 1, arrows: [] };
   renderTrainCard();
   renderPzNav();
   playLine();
@@ -1031,9 +1032,10 @@ function showPuzzle() {
   T.phase = "move";
   T.nav.i = T.nav.pz; pzGo(T.nav.pz);
   $("#tPrompt").innerHTML = `<p class="lbl">${pzState(puzzleId(T.pz)) ? '<span class="pill">Again</span> ' : ""}Find a good move</p>
-    <p class="muted">You went wrong here against ${esc(opp)} (${esc(g.date)}). Any good move counts. ◀ ▶ step through the moves before it.</p>`;
+    <p class="muted">You went wrong here against ${esc(opp)} (${esc(g.date)}). Any good move counts. ◀ ▶ or the moves above step through the game up to here.</p>`;
 }
-// Show one of the puzzle's frames; the board can only be played on at the puzzle position
+// Show one of the puzzle's frames (frame i = the position after i moves); the board can only
+// be played on at the puzzle position
 function pzGo(i) {
   const nav = T.nav;
   if (!nav) return;
@@ -1043,6 +1045,8 @@ function pzGo(i) {
   TB.set(f.fen, { last: f.last, arrows: nav.i === nav.pz ? nav.arrows : [] });
   renderPzNav();
 }
+// ◀ Puzzle ▶, and the game's moves as a clickable list: up to the puzzle before answering, the
+// whole game after. The current move is highlighted; the mistake is marked.
 function renderPzNav() {
   const box = $("#pzNav"), nav = T.nav, on = T.state === "run" && T.mode === "puzzles" && nav;
   box.hidden = !on;
@@ -1050,11 +1054,20 @@ function renderPzNav() {
   $("#pzBack").disabled = nav.i <= 0;
   $("#pzFwd").disabled = nav.i >= nav.frames.length - 1;
   $("#pzHere").disabled = nav.i === nav.pz;
+  const line = $("#tLine");
+  line.innerHTML = nav.moves.map((s, j) => `${j % 2 === 0 ? `<span class="mn">${j / 2 + 1}.</span>` : ""}<button type="button" class="mv${j + 1 === nav.i ? " cur" : ""}${j === nav.pz ? " pzmv" : ""}" data-pzply="${j + 1}" aria-label="Go to ${esc(moveLabel(nav.moves.slice(0, j), s))}">${esc(s)}</button>`).join("") || `<span class="muted">Start position</span>`;
+  const cur = line.querySelector(".mv.cur");
+  if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 function pzStep(d) {
   if (T.phase === "anim") skipLine(); // stepping skips the replay
   if (!T.nav || T.phase === "checking") return;
   pzGo(d === "start" ? T.nav.pz : T.nav.i + d);
+}
+function pzJump(i) { // a tap on a move in the list
+  if (T.phase === "anim") skipLine();
+  if (!T.nav || T.phase === "checking") return;
+  pzGo(i);
 }
 // Is my move good? The engine's best move is; otherwise compare with the best at depth 12
 async function judgePuzzleMove(fen, mv) {
@@ -1096,10 +1109,9 @@ async function onPuzzleMove(mv) {
   const bestSan = uciToSan(fen, m.bestUci || r.best || "");
   const g = T.pzGame, moves = g.moves.split(" "), after = moves.slice(m.ply, m.ply + PZ_AFTER);
   const opp = g.my === "white" ? g.black : g.white;
-  // Now the game's moves after the mistake can be stepped through too
-  const c = new Chess(fen), more = [];
-  for (const s of after) { const x = c.move(s, { sloppy: true }); if (!x) break; more.push({ fen: c.fen(), last: [x.from, x.to] }); }
-  T.nav = { frames: T.frames.concat(more), pz: T.frames.length - 1, i: T.frames.length - 1, arrows: pzArrows(fen, bestSan, m.played, mv.san) };
+  // Now the whole game can be stepped through, before and after the mistake
+  const full = framesTo(moves), played = moves.slice(0, full.length - 1);
+  T.nav = { frames: full, moves: played, pz: m.ply, i: m.ply, arrows: pzArrows(fen, bestSan, m.played, mv.san) };
   T.phase = "review";
   pzGo(T.nav.pz);
   const shown = new Set(T.nav.arrows.map(a => a.kind));
@@ -1107,7 +1119,7 @@ async function onPuzzleMove(mv) {
   $("#tPrompt").innerHTML = `<p class="lbl ${r.ok ? "ok" : "warn"}">${r.ok ? `Good: ${esc(moveLabel(T.path, mv.san))}` : `Not quite. Better was ${esc(moveLabel(T.path, bestSan))}`}</p>
     <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(m.before)} → ${pawns(m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, after.slice(1, 4)) || "…")}</span></p>
     ${legend ? `<p class="arrowkey">${legend}</p>` : ""}
-    <p class="help">▶ plays through what happened in the game.</p>`;
+    <p class="help">▶ or the moves above go through the whole game.</p>`;
   puzzleChoice();
 }
 function puzzleChoice() {
@@ -1556,6 +1568,7 @@ async function boot() {
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
     else if (d.pz) onPuzzleChoice(d.pz);
+    else if (d.pzply) pzJump(+d.pzply);
     else if ("practicehere" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: curPath().slice() }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.nextgap) jumpToGap(d.nextgap);
     else if (d.gapmode) { S.settings.gapMode = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); }

@@ -437,3 +437,6 @@ table.rep th{font-size:.64rem}
 .ablist{margin:4px 0 0;padding-left:1.4em;display:flex;flex-direction:column;gap:3px;font-size:.85rem;max-height:320px;overflow:auto}
 .abopts{margin-top:6px}
 .abopts input{width:4.2em}
+/* mistake review: the game's moves, clickable; the mistake is underlined in orange */
+#tLine .mv.pzmv{box-shadow:inset 0 -2px 0 var(--bad)}
+#tLine{max-height:5.6em;overflow-y:auto}

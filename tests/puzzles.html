@@ -30,10 +30,17 @@ f.onload = () => setTimeout(async () => {
   ok(T.frames.length === 6 && T.frames[0].last && T.frames[0].last.join("") === "e2e4", "the run-up is the last 5 moves (from after 1.e4)", T.frames.length + " frames");
   // ◀ ▶ before answering: step back, the board is locked; back at the puzzle, it can be played on
   d.querySelector("#pzBack").click();
-  ok(!d.querySelector("#pzNav").hidden && T.nav.i === 4 && G("TB").locked, "◀ steps back and locks the board");
+  ok(!d.querySelector("#pzNav").hidden && T.nav.i === 5 && G("TB").locked, "◀ steps back and locks the board");
   ok(d.querySelector("#pzFwd").disabled === false && d.querySelector("#pzHere").disabled === false, "▶ and Puzzle are available");
   d.querySelector("#pzFwd").click();
-  ok(T.nav.i === 5 && !G("TB").locked && d.querySelector("#pzFwd").disabled, "▶ back to the puzzle unlocks it; nothing further yet");
+  // The whole game before the puzzle: step back to the start, and tap a move in the list
+  for (let k = 0; k < 10; k++) d.querySelector("#pzBack").click();
+  ok(T.nav.i === 0 && d.querySelector("#pzBack").disabled, "◀ goes all the way back to the start of the game");
+  ok(d.querySelectorAll("#tLine [data-pzply]").length === 6, "before answering, the list shows the moves up to the puzzle", d.querySelectorAll("#tLine [data-pzply]").length + " moves");
+  d.querySelector('#tLine [data-pzply="3"]').click();
+  ok(T.nav.i === 3 && d.querySelector("#tLine .mv.cur").textContent === "Nf3", "tapping 2. Nf3 in the list goes there");
+  d.querySelector("#pzHere").click();
+  ok(T.nav.i === 6 && !G("TB").locked && d.querySelector("#pzFwd").disabled, "▶ back to the puzzle unlocks it; nothing further yet");
   // A good alternative: castling
   const play = (a, b) => { d.querySelector(`#tBoard [data-sq="${a}"]`).click(); d.querySelector(`#tBoard [data-sq="${b}"]`).click(); };
   play("e1", "g1");
@@ -46,9 +53,12 @@ f.onload = () => setTimeout(async () => {
   ok(/played:f3e5/.test(kinds) && /tried:e1g1/.test(kinds), "arrows for the game's move and mine", kinds);
   ok(T.nav.frames.length > 6 && !d.querySelector("#pzFwd").disabled, "after answering, ▶ steps into the game's moves");
   d.querySelector("#pzFwd").click();
-  ok(T.nav.i === 6 && G("TB").fen.split(" ")[0] === G("fenAfter")(G("START"), "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5".split(" ")).split(" ")[0] && G("TB").arrows.length === 0, "▶ shows 4.Nxe5 from the game, without the arrows");
+  ok(T.nav.i === 7 && G("TB").fen.split(" ")[0] === G("fenAfter")(G("START"), "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5".split(" ")).split(" ")[0] && G("TB").arrows.length === 0, "▶ shows 4.Nxe5 from the game, without the arrows");
   d.querySelector("#pzHere").click();
-  ok(T.nav.i === 5 && G("TB").arrows.length >= 2 && G("TB").locked, "Puzzle goes back to the position with the arrows (locked after answering)");
+  ok(T.nav.i === 6 && G("TB").arrows.length >= 2 && G("TB").locked, "Puzzle goes back to the position with the arrows (locked after answering)");
+  ok(d.querySelectorAll("#tLine [data-pzply]").length === 12 && d.querySelector("#tLine .pzmv").textContent === "Nxe5", "after answering, the whole game is listed, with the mistake marked");
+  d.querySelector('#tLine [data-pzply="12"]').click();
+  ok(T.nav.i === 12, "and its last move can be opened");
   d.querySelector('#tPrompt [data-pz="keep"]').click();
   ok(G("S").puzzles.map["bs:6"].st === "keep" && G("S").puzzles.map["bs:6"].c.reps === 1, "Keep schedules it (solved first time)");
   // Puzzle 2: play the game's own blunder again

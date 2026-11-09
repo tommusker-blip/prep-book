@@ -136,8 +136,8 @@ when it loads; the others just define things.
   - The UI is in `app.js`: `renderMistakeCard()` and `startPuzzles()` through
     `onPuzzleChoice()`. A puzzle replays the 5 moves before the mistake
     (`PZ_RUNUP`), and judges any move within the good margin at depth 12 as
-    correct. ◀ ▶ (`pzStep()`) step through the moves before it, and after
-    answering also through the game's next 6 moves. At the puzzle position,
+    correct. ◀ ▶ (`pzStep()`) and the clickable move list (`pzJump()`, in `#tLine`) go
+    through the game: up to the puzzle before answering, the whole game after. At the puzzle position,
     arrows show the best move (blue), the game's move (orange) and mine
     (purple). New and "later" puzzles are shuffled (`PZ.rng`).
 - `js/autobuild.js` (v0.9.1): Games > Build my tree from my games. `planAutoBuild()`
