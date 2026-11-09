@@ -409,3 +409,31 @@ table.rep th{font-size:.64rem}
 .arrowkey .key.best::before{background:var(--good)} .arrowkey .key.played::before{background:var(--bad)} .arrowkey .key.tried::before{background:var(--gem)}
 .navrow.pznav{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:6px;margin:8px auto 0}
 .navrow.pznav .btn:disabled{opacity:.4}
+
+/* ---------- v0.9.1: layout fixes ---------- */
+/* One column on phones that never grows past the screen. Without a set width the column grew
+   to fit the moves line above the board (one line, no wrapping), so every move played made
+   the whole page, and the move table, wider. */
+.layout{grid-template-columns:minmax(0,1fr)}
+.boardcol,.bhead{min-width:0}
+/* Phones: the Build controls stand up the right side of the board, which frees a row for moves */
+@media (max-width:899px){
+  #buildBoardCol{display:grid;grid-template-columns:min(calc(100% - 60px),40vh,460px) 54px;grid-template-areas:"head head" "board nav";column-gap:6px;justify-content:center}
+  #buildBoardCol .bhead{grid-area:head}
+  #buildBoardCol .board{grid-area:board;max-width:none;width:100%;margin:0}
+  #buildBoardCol .navrow.icons{grid-area:nav;display:flex;flex-direction:column;gap:4px;margin:0;max-width:none}
+  #buildBoardCol .navrow.icons .btn{flex:1 1 0;min-height:0;padding:2px;font-size:.66rem;line-height:1.1;white-space:normal;word-break:break-word}
+  #buildBoardCol .navrow.icons .btn:nth-child(-n+3){font-size:.95rem}
+}
+/* Build rows: Played (how common, with a bar) and Score as their own columns (v0.9.1) */
+.crow{grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,.85fr) minmax(0,.6fr) minmax(0,.85fr)}
+.crow.c5{grid-template-columns:minmax(0,1fr) minmax(0,.95fr) minmax(0,.85fr) minmax(0,.6fr) minmax(0,.8fr) 2.2em}
+.cscore{font-family:var(--f-mono);font-size:.82rem;white-space:nowrap;overflow:hidden}
+.freq{position:relative;display:block;border-radius:4px;overflow:hidden;padding:1px 4px;font-family:var(--f-mono)}
+.freq i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-soft,color-mix(in srgb,var(--accent) 18%,transparent));border-radius:4px}
+.freq b{position:relative;font-weight:600}
+@media (max-width:420px){.cscore{font-size:.74rem}}
+.weakrow{margin:6px 0 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ablist{margin:4px 0 0;padding-left:1.4em;display:flex;flex-direction:column;gap:3px;font-size:.85rem;max-height:320px;overflow:auto}
+.abopts{margin-top:6px}
+.abopts input{width:4.2em}

@@ -23,6 +23,7 @@
 <script src="../js/practice.js"></script>
 <script src="../js/puzzles.js"></script>
 <script src="../js/report.js"></script>
+<script src="../js/autobuild.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -383,9 +384,48 @@ async function jobTests() {
     await Promise.all([block, b]);
     eq(ran, true);
   });
+  // v0.9.1: build the tree from my games (engine stubbed: Qh5 gives up 2 pawns, everything else 0)
+  await at("autobuild: adds my good moves and the common replies, leaves out dubious and losing ones", async () => {
+    reset();
+    const real = { analyse: Engine.analyse, failed: Engine.failed };
+    const bad = K(fenAfter(START, "e4 c5 Qh5".split(" ")));
+    Engine.failed = false;
+    Engine.analyse = async fen => ({ cp: K(fen) === bad ? 200 : 0, d: 12 });
+    try {
+      const mk = (moves, result, i) => ({ id: "ab" + i, my: "white", result, moves });
+      S.games = [
+        ...["1-0", "1-0", "1/2-1/2", "1-0", "0-1"].map((r, i) => mk("e4 e5 Nf3 Nc6 Bc4", r, i)),
+        ...["1-0", "1-0", "1-0"].map((r, i) => mk("e4 c5 Qh5 Nc6", r, 10 + i)),
+        ...["0-1", "0-1", "0-1"].map((r, i) => mk("e4 e6 d3 d5", r, 20 + i)),
+      ];
+      const plan = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+      const str = a => a.path.concat(a.san).join(" ");
+      eq(plan.adds.filter(a => a.mine).map(str), ["e4", "e4 e5 Nf3", "e4 e5 Nf3 Nc6 Bc4"]);
+      eq(plan.adds.filter(a => !a.mine).map(str), ["e4 e5", "e4 c5", "e4 e6", "e4 e5 Nf3 Nc6"]);
+      eq(plan.skipped.map(s => str(s) + ":" + s.why), ["e4 c5 Qh5:engine", "e4 e6 d3:results"]);
+      applyAutoBuild(plan);
+      eq(rep("white").pos[K(fenAfter(START, ["e4", "e5", "Nf3", "Nc6"]))].m, ["Bc4"]);
+      // Run again: what's in the tree is kept and followed, so only new things are proposed
+      const again = await planAutoBuild("white", { minGames: 3, minScore: 0.45, maxLoss: 70, plies: 20 });
+      eq(again.adds.length, 0);
+    } finally { Engine.analyse = real.analyse; Engine.failed = real.failed; S.games = []; }
+  });
 }
 
 /* ----- gaps: frequency vs rating impact (item 4) ----- */
+t("rows: on my turn, moves worse than −1.5 are hidden unless prepared or a gambit", () => {
+  S.color = "white"; S.settings.adv = undefined;
+  const fen = fenAfter(START, ["e4", "e5"]), key = K(fen), set = (san, cp) => (EVALC[K(fenAfter(fen, [san]))] = { cp, d: 14 });
+  EVALC[key] = { cp: 30, d: 14 };
+  set("Ke2", 200); set("f4", 200); set("Nf3", -30); set("Qh5", 120);
+  eq(unplayable(fen, key, { san: "Ke2", prep: false }), true, "−2.0: hidden");
+  eq(unplayable(fen, key, { san: "f4", prep: false }), false, "King's Gambit: shown");
+  eq(unplayable(fen, key, { san: "Ke2", prep: true }), false, "my repertoire move: shown");
+  eq(unplayable(fen, key, { san: "Qh5", prep: false }), false, "−1.2: shown");
+  eq(unplayable(fen, key, { san: "Nf3", prep: false }), false);
+  for (const s of ["Ke2", "f4", "Nf3", "Qh5"]) delete EVALC[K(fenAfter(fen, [s]))];
+  delete EVALC[key];
+});
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3");

@@ -1227,6 +1227,7 @@ function onLineMove(mv) {
 
 /* ----- games ----- */
 function renderGames() {
+  renderAutoBuild();
   const color = S.color;
   const A = analysis(color);
   $("#gCount").textContent = `${A.length} rapid game${A.length === 1 ? "" : "s"} as ${color === "white" ? "White" : "Black"}`;
@@ -1282,6 +1283,58 @@ function renderGames() {
     return `<li><button type="button" class="linkish" data-open="${esc(a.path.join(" "))}"><span class="tt">${res} vs ${esc(opp)} <span class="muted">(${oe || "?"})</span></span><span class="sub">${esc(g.date)} · ${esc(typeLabel[a.type])} at move ${Math.floor(a.ply / 2) + 1}${z && z.inb.length ? ` · book accuracy ${Math.round(z.inb.reduce((p, q) => p + q, 0) / z.inb.length)}%` : ""}</span></button></li>`;
   }).join("") || `<li class="muted">No games yet.</li>`;
 }
+/* ----- Games > Build my tree from my games (autobuild.js) ----- */
+function renderAutoBuild() {
+  const box = $("#abBody");
+  if (!box) return;
+  const o = abOpts(), C = S.color === "white" ? "White" : "Black", mine = S.games.filter(g => g.my === S.color).length;
+  if (AB.running) {
+    const p = AB.plan;
+    box.innerHTML = `<p class="help" aria-live="polite">Checking your ${AB.color === "white" ? "White" : "Black"} games… ${AB.checks} engine checks · ${p ? p.adds.filter(a => a.mine).length : 0} of your moves found so far</p>
+      <button type="button" class="btn ghost" id="abStop">Stop</button>`;
+    $("#abStop").onclick = () => { AB.stop = true; };
+    return;
+  }
+  const p = AB.plan && AB.plan.color === S.color ? AB.plan : null;
+  if (p) {
+    const myAdds = p.adds.filter(a => a.mine), opp = p.adds.length - myAdds.length;
+    const row = a => `<li><span class="mono">${esc(numbered(0, a.path.concat(a.san)))}</span> <span class="help">${a.games} games · you score ${a.score == null ? "–" : pctOf(a.score)}${a.loss != null ? ` · engine −${(a.loss / 100).toFixed(1)}` : ""}${a.why ? ` · ${a.why === "engine" ? "dubious for the engine" : "results too poor"}` : ""}</span></li>`;
+    box.innerHTML = `<p class="possum">${p.stopped ? "Stopped early. " : ""}<b>${myAdds.length}</b> of your moves and <b>${opp}</b> opponent replies to add to your ${C} repertoire (${esc(prepBookName())}).</p>
+      ${myAdds.length ? `<p class="lbl" style="margin-top:8px">Your moves</p><ol class="ablist">${myAdds.map(row).join("")}</ol>` : ""}
+      ${p.skipped.length ? `<details style="margin-top:6px"><summary class="help">${p.skipped.length} move${p.skipped.length === 1 ? "" : "s"} left out</summary><ol class="ablist">${p.skipped.map(row).join("")}</ol></details>` : ""}
+      <div class="row" style="margin-top:10px">${p.adds.length ? `<button type="button" class="btn" id="abAdd">Add ${p.adds.length} move${p.adds.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn ghost" id="abDiscard">${p.adds.length ? "Discard" : "Close"}</button></div>`;
+    if (p.adds.length) $("#abAdd").onclick = () => { const n = applyAutoBuild(p); AB.plan = null; renderGames(); toast(`Added ${n} move${n === 1 ? "" : "s"} to your ${C} repertoire.`); };
+    $("#abDiscard").onclick = () => { AB.plan = null; renderAutoBuild(); };
+    return;
+  }
+  const num = (id, label, v, attrs) => `<label for="${id}">${label.replace("#", `<input type="number" id="${id}" value="${v}" ${attrs}>`)}</label>`;
+  box.innerHTML = `<p class="help">For your <b>${C}</b> repertoire, from ${nOf(mine)} games as ${C}. Switch colour at the top.</p>
+    <div class="gemgrid abopts">
+      ${num("abGames", "Played at least # times", o.minGames, 'inputmode="numeric" min="1" max="100"')}
+      ${num("abScore", "You score at least # %", Math.round(o.minScore * 100), 'inputmode="numeric" min="0" max="100"')}
+      ${num("abLoss", "Engine: gives up at most # pawns", (o.maxLoss / 100).toFixed(1), 'inputmode="decimal" min="0.1" max="5" step="0.1"')}
+      ${num("abPlies", "Up to move #", Math.round(o.plies / 2), 'inputmode="numeric" min="2" max="20"')}
+    </div>
+    <button type="button" class="btn" id="abRun" style="margin-top:8px" ${mine ? "" : "disabled"}>${mine ? "Find moves to add" : `Import games first`}</button>`;
+  const save = () => {
+    const v = id => +$("#" + id).value;
+    S.settings.autobuild = { minGames: Math.max(1, Math.round(v("abGames")) || 3), minScore: Math.min(1, Math.max(0, v("abScore") / 100)), maxLoss: Math.max(10, Math.round(v("abLoss") * 100) || 70), plies: Math.max(4, Math.round(v("abPlies") * 2) || 20) };
+    Store.save("settings");
+  };
+  box.querySelectorAll("input").forEach(i => (i.onchange = save));
+  $("#abRun").onclick = async () => {
+    save();
+    Object.assign(AB, { running: true, stop: false, checks: 0, plan: null, color: S.color });
+    renderAutoBuild();
+    let last = 0;
+    try {
+      AB.plan = await planAutoBuild(AB.color, abOpts(), p => { AB.plan = p; if (Date.now() - last > 400 && S.view === "games") { last = Date.now(); renderAutoBuild(); } });
+    } catch (e) { toast("Couldn't finish: " + e.message); }
+    AB.running = false;
+    if (S.view === "games") renderAutoBuild();
+    else toast("Your tree from your games is ready to review on the Games tab.");
+  };
+}
 function importPasted() {
   const text = $("#pgnIn").value;
   if (!text.trim()) { toast("Paste one or more games first."); return; }
@@ -1319,7 +1372,7 @@ function renderSettings() {
   $("#gemMin").value = gem.min; $("#gemFreq").value = gem.freq; $("#gemEdge").value = gem.edge;
   $("#gemTrapErr").value = gem.trapErr ?? 30; $("#gemTrapLoss").value = ((gem.trapLoss ?? 150) / 100).toFixed(1);
   const a = adv();
-  $("#advGood").value = (a.good / 100).toFixed(1); $("#advMistake").value = (a.mistake / 100).toFixed(1); $("#advClock").value = a.clock; $("#advK").value = a.k;
+  $("#advGood").value = (a.good / 100).toFixed(1); $("#advMistake").value = (a.mistake / 100).toFixed(1); $("#advClock").value = a.clock; $("#advK").value = a.k; $("#advUnplayable").value = (a.unplayable / 100).toFixed(1);
   const cc = S.settings.ccRating, sug = cc ? bandsFor(cc.r) : null;
   $("#bandHint").innerHTML = !cc ? (validChessComUser(S.settings.user || "") ? "Your chess.com rating will be checked to suggest bands." : "Add your chess.com username to get bands that match your rating.")
     : `Your chess.com rapid rating is <b>${cc.r}</b>, which suggests Lichess <b>${bandLabel(sug)}</b>. ` + (S.settings.bandAuto === false
@@ -1482,6 +1535,7 @@ async function boot() {
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
     else if ("deep" in d) { deepKeys.add(buildState().key); renderBuild(); }
+    else if ("showweak" in d) { const k = buildState().key; if (showWeak.has(k)) showWeak.delete(k); else showWeak.add(k); renderBuild(); }
     else if (d.arrows) { S.settings.arrows = d.arrows === "on"; Store.save("settings"); renderLook(); }
     else if (d.openbook) switchBook(d.openbook);
     else if (d.bookact) onBookAction(d.bookact);
@@ -1561,7 +1615,7 @@ async function boot() {
   $("#bookRename").onchange = e => { const v = e.target.value.trim(); if (!v) { renderBooks(); return; } S.settings.books = bookList().map(b => (b.id === S.book ? { ...b, name: v } : b)); Store.save("settings"); renderHeader(); renderBooks(); };
   $("#bookName").onclick = () => setView("settings");
   // Settings > Advanced (rows.js adv()): pawns are stored as centipawns
-  for (const [id, field, lo, hi, scale] of [["advGood", "good", 10, 300, 100], ["advMistake", "mistake", 30, 900, 100], ["advClock", "clock", 0, 600, 1], ["advK", "k", 1, 200, 1]]) {
+  for (const [id, field, lo, hi, scale] of [["advGood", "good", 10, 300, 100], ["advMistake", "mistake", 30, 900, 100], ["advClock", "clock", 0, 600, 1], ["advK", "k", 1, 200, 1], ["advUnplayable", "unplayable", 50, 900, 100]]) {
     $("#" + id).onchange = e => {
       const v = Math.round(+e.target.value * scale);
       if (!(v >= lo && v <= hi)) { toast(`Use a number from ${lo / scale} to ${hi / scale}.`); renderSettings(); return; }

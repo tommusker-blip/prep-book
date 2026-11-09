@@ -140,6 +140,17 @@ when it loads; the others just define things.
     answering also through the game's next 6 moves. At the puzzle position,
     arrows show the best move (blue), the game's move (orange) and mine
     (purple). New and "later" puzzles are shuffled (`PZ.rng`).
+- `js/autobuild.js` (v0.9.1): Games > Build my tree from my games. `planAutoBuild()`
+  walks my games for one colour from the start. On my turn it adds the most-played move
+  (at least `minGames`) whose score is at least `minScore` and that gives up at most
+  `maxLoss` cp at depth 12; on the opponent's turn, every reply seen `minGames` times.
+  Existing moves are kept and followed. The plan is previewed, then `applyAutoBuild()`.
+  Options in `S.settings.autobuild`.
+- Build rows hide my moves that leave me worse than `adv().unplayable` (default 150 cp)
+  unless prepared, a gambit by opening name, or within the good margin of the best
+  (`unplayable()`, `showWeak`). Peers are two columns: Played (share, with a bar) and Score.
+- Phone layout: `.layout` is `minmax(0,1fr)`; without it the one-line move strip widened
+  the page. The Build controls stand in a column beside the board.
 - `js/report.js`: the coach data report (backlog 6, without the AI for now).
   `buildCoachReport()` gathers aggregated numbers only: openings from my games (results,
   accuracy in and after book, prep depth, misplays), prep exits, positions where I score below

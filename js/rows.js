@@ -9,7 +9,7 @@
    Every part fills in by itself as engine and Lichess results arrive (job queue, G3). */
 
 /* ----- thresholds: Settings > Advanced ----- */
-const advDefaults = () => ({ good: 50, mistake: 150, clock: 30, k: 10 });
+const advDefaults = () => ({ good: 50, mistake: 150, clock: 30, k: 10, unplayable: 150 });
 const adv = () => ({ ...advDefaults(), ...S.settings.adv });
 
 /* ----- the sample-size rule (NOTES, general principles) -----
@@ -189,7 +189,8 @@ function candRow(fen, key, c, ex, path) {
   const head = `<div class="crow${myTurn ? " c5" : ""}">
       <span class="cmove"><button type="button" class="chip ${state}" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${stateText ? ", " + stateText : ""}">${esc(c.san)}</button></span>
       <span class="ceng">${engineCell(e, myTurn)}</span>
-      <span class="cpeer">${c.peer && f != null ? `${pctOf(f)} · ${pctOf(peerScore)}` : `<span class="muted">–</span>`}</span>
+      <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}</span>
+      <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n} · ${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
       ${rep}
     </div>`;
@@ -228,17 +229,35 @@ function positionSummary(fen, key, ex) {
   }
   return parts.length ? `<p class="possum">${parts.join(" · ")}${tip.length ? " " + info(tip.join(" "), "About this position") : ""}</p>` : "";
 }
+/* ----- unplayable moves (v0.9.1) -----
+   At a club player's level a move that leaves me worse than adv().unplayable (default 1.5 pawns)
+   isn't worth showing on my turn. Kept anyway: my repertoire moves, a gambit (the position after
+   it has "Gambit" in its opening name), and moves close to the engine's best (when every move
+   is bad, the least bad ones still show). Opponent moves always show. */
+const showWeak = new Set(); // positions where I asked to see the hidden moves
+function isGambit(fen, san) {
+  const after = fenAfter(fen, [san]), o = after && typeof OPENINGS !== "undefined" && OPENINGS[K(after)];
+  return !!(o && /gambit/i.test(o[1]));
+}
+function unplayable(fen, key, c) {
+  if (c.prep) return false;
+  const e = engineFor(fen, key, c.san);
+  return !!(e && e.mine < -adv().unplayable && (e.loss == null || e.loss > adv().good) && !isGambit(fen, c.san));
+}
 function candRows(fen, key, n, path) {
-  const ex = cachedExplorer(fen), list = candidates(fen, key, n);
-  queueRowEvals(fen, key, list.map(c => c.san));
-  list.forEach((c, i) => (c.rank = i));
-  queueFollowups(fen, key, list);
-  if (!list.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
+  const ex = cachedExplorer(fen), all = candidates(fen, key, n);
+  queueRowEvals(fen, key, all.map(c => c.san));
+  all.forEach((c, i) => (c.rank = i));
+  queueFollowups(fen, key, all);
+  if (!all.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
   const myTurn = isMine(key, S.color);
+  const weak = myTurn ? all.filter(c => unplayable(fen, key, c)) : [], showing = showWeak.has(key);
+  const list = showing ? all : all.filter(c => !weak.includes(c));
+  const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a blue outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish, from your side (a quick depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Peers: how often it's played · your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep (after Deeper analysis): how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Peers</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
+      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a blue outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish, from your side (a quick depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Played: how common the move is among players at your level (share of their games here, with a bar). Score: your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep (after Deeper analysis): how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Played</span><span>Score</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
-    </div>${deepRow(fen, key, list, myTurn)}`;
+    </div>${weakRow}${deepRow(fen, key, all, myTurn)}`;
 }
 // Under the rows: the "Deeper analysis" button, or progress while it runs
 function deepRow(fen, key, list, myTurn) {

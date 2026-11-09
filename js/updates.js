@@ -5,6 +5,16 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09e", date: "9 Nov 2026", title: "Build your tree from your games",
+    items: [
+      "Games → Build my tree from my games: goes through your games and adds the moves you play often, if you score well with them and Stockfish doesn't think they're dubious, plus the replies you meet often. You see the list first, and nothing in your repertoire is replaced.",
+      "Fixed: the page no longer gets wider after playing several moves in Build.",
+      "On phones the Build buttons stand beside the board, so there's more room for the moves.",
+      "Moves that leave you worse than −1.5 are hidden on your turn (gambits and your own moves still show). Tap Show to see them. Change the number in Settings → Advanced.",
+      "The rows now show how common each move is (Played, with a bar) and the score after it in separate columns.",
+    ],
+  },
+  {
     id: "2026-11-09d", date: "9 Nov 2026", title: "Smoother Build, drag to move, better mistake review",
     items: [
       "Drag pieces to move them, or tap as before. Dragging a piece doesn't scroll the page.",
