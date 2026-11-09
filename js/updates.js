@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09h", date: "9 Nov 2026", title: "Faster Train, easier to find auto-build",
+    items: [
+      "Train no longer looks through all your games for mistakes every time. The results are kept on this device, and only new or re-analysed games are checked.",
+      "Build my tree from my games is now near the top of the Games tab, and there's a shortcut to it in Build → Gaps.",
+    ],
+  },
+  {
     id: "2026-11-09g", date: "9 Nov 2026", title: "Clearer move rows",
     items: [
       "Evals are now from White's side whichever colour you play: + is good for White, − for Black.",

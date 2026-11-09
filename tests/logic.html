@@ -385,6 +385,30 @@ async function jobTests() {
     eq(ran, true);
   });
   // v0.9.1: build the tree from my games (engine stubbed: Qh5 gives up 2 pawns, everything else 0)
+  // v0.9.3: the mistake scan is saved, so the next session doesn't scan every game again
+  await at("mistakes: the scan is saved and reused; only re-analysed games are scanned again", async () => {
+    S.settings.adv = undefined; S.puzzles = { map: {} };
+    // An in-memory IDB (under headless virtual time the real one's 3 s timeout fires first)
+    const realIDB = { get: IDB.get, set: IDB.set, del: IDB.del }, mem = new Map();
+    Object.assign(IDB, { get: async k => mem.get(k), set: async (k, v) => { mem.set(k, JSON.parse(JSON.stringify(v))); return true; }, del: async k => { mem.delete(k); } });
+    const { g, a } = shilling(), g2 = { ...shilling().g, id: "bs2" };
+    S.games = [g, g2]; S.acc = { bs: a, bs2: JSON.parse(JSON.stringify(a)) };
+    const run = () => new Promise(r => scanMistakes(done => { if (done) r(); }));
+    const fresh = () => { MIST.byGame.clear(); MIST.stamp.clear(); MIST.loaded = false; MIST.sig = ""; };
+    await IDB.del(mistKey()); fresh();
+    await run();
+    eq([MIST.total, MIST.byGame.size], [2, 2], "first session scans both games");
+    clearTimeout(mistSaveTimer);
+    await IDB.set(mistKey(), { v: 1, sig: MIST.sig, games: Object.fromEntries([...MIST.byGame].map(([id, l]) => [id, [MIST.stamp.get(id), l]])) });
+    fresh(); MIST.total = 0;
+    await run();
+    eq([MIST.total, MIST.byGame.size, mistNeedsScan()], [0, 2, false], "next session: nothing to scan");
+    S.acc.bs2.ev[12] = -600; // bs2 analysed again
+    eq(mistTodo().map(x => x.id), ["bs2"]);
+    await run();
+    eq(MIST.total, 1, "only the re-analysed game is scanned");
+    await IDB.del(mistKey()); fresh(); S.games = []; S.acc = {}; Object.assign(IDB, realIDB);
+  });
   await at("autobuild: adds my good moves and the common replies, leaves out dubious and losing ones", async () => {
     reset();
     const real = { analyse: Engine.analyse, failed: Engine.failed };

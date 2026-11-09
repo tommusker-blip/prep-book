@@ -79,21 +79,60 @@ function gameMistakes(g, a, treeIdx) {
   }
   return found.filter(m => m.fen);
 }
-// Scan all analysed games in the background (about 12 ms of work per tick); onTick(done?)
+/* ----- the scan, kept between sessions (v0.9.3) -----
+   Results are saved in this device's IndexedDB (they're too big for localStorage: a few MB for
+   ~2,000 games), per game with a stamp of its analysis, so on the next visit only new or
+   re-analysed games are scanned. A change of thresholds (mistSig) starts again. */
+const accStamp = a => (a && a.ev ? `${a.d}|${a.ev.length}|${a.ev.reduce((s, x) => s + (x || 0), 0)}` : "");
+const mistKey = () => "mist:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local");
+Object.assign(MIST, { loaded: false, stamp: new Map() });
+async function loadMistakes() {
+  MIST.loaded = true;
+  const saved = typeof IDB !== "undefined" ? await IDB.get(mistKey()) : null;
+  if (!saved || saved.v !== 1 || saved.sig !== mistSig()) return;
+  MIST.sig = saved.sig;
+  for (const [gid, [stamp, list]] of Object.entries(saved.games || {})) {
+    if (accStamp(S.acc[gid]) === stamp) { MIST.byGame.set(gid, list); MIST.stamp.set(gid, stamp); }
+  }
+}
+let mistSaveTimer = null;
+function saveMistakesSoon() {
+  if (typeof IDB === "undefined") return;
+  clearTimeout(mistSaveTimer);
+  mistSaveTimer = setTimeout(() => {
+    const games = {};
+    for (const [gid, list] of MIST.byGame) games[gid] = [MIST.stamp.get(gid) || "", list];
+    IDB.set(mistKey(), { v: 1, sig: MIST.sig, games });
+  }, 1000);
+}
+// Analysed games with no scan result yet, or one from an older analysis
+const mistTodo = () => S.games.filter(g => { const a = S.acc[g.id]; return a && a.v === 2 && MIST.stamp.get(g.id) !== accStamp(a); });
+// Does the scan need to run? (false while it's already running)
+const mistNeedsScan = () => !MIST.running && (!MIST.loaded || MIST.sig !== mistSig() || mistTodo().length > 0);
+// Scan the analysed games that need it in the background (about 12 ms of work per tick);
+// onTick(done?). The first call of a session reads the saved results first.
 function scanMistakes(onTick = () => {}) {
-  const sig = mistSig();
-  if (sig !== MIST.sig) { MIST.byGame.clear(); MIST.sig = sig; }
   if (MIST.running) return;
-  const todo = S.games.filter(g => S.acc[g.id] && S.acc[g.id].v === 2 && !MIST.byGame.has(g.id));
+  if (!MIST.loaded) {
+    Object.assign(MIST, { running: true, done: 0, total: 0 });
+    loadMistakes().catch(() => {}).then(() => { MIST.running = false; scanMistakes(onTick); });
+    return;
+  }
+  const sig = mistSig();
+  if (sig !== MIST.sig) { MIST.byGame.clear(); MIST.stamp.clear(); MIST.sig = sig; }
+  const todo = mistTodo();
   if (!todo.length) { onTick(true); return; }
   const idx = { white: indexTree("white"), black: indexTree("black") };
   Object.assign(MIST, { running: true, done: 0, total: todo.length });
   let k = 0;
   const step = () => {
     const end = performance.now() + 12;
-    while (k < todo.length && performance.now() < end) { const g = todo[k++]; MIST.byGame.set(g.id, gameMistakes(g, S.acc[g.id], idx[g.my])); MIST.done++; }
+    while (k < todo.length && performance.now() < end) {
+      const g = todo[k++], a = S.acc[g.id];
+      MIST.byGame.set(g.id, gameMistakes(g, a, idx[g.my])); MIST.stamp.set(g.id, accStamp(a)); MIST.done++;
+    }
     onTick(false);
-    if (k < todo.length) setTimeout(step, 0); else { MIST.running = false; onTick(true); }
+    if (k < todo.length) setTimeout(step, 0); else { MIST.running = false; saveMistakesSoon(); onTick(true); }
   };
   setTimeout(step, 0);
 }
@@ -127,10 +166,15 @@ function setPuzzle(id, patch) {
   S.puzzles.map[id] = { ...(S.puzzles.map[id] || {}), ...patch };
   Store.save("puzzles");
 }
+// Is the mistake's position in my repertoire now? (Worked out fresh: saved scans can predate tree changes)
+function inPrepNow(m) {
+  const g = S.games.find(x => x.id === m.gid);
+  return !!(g && m.fen && indexTree(g.my)[K(m.fen)]);
+}
 // Suggest Keep for mistakes that recur (same position, or 3+ in the same opening and phase),
 // that came from my opening prep, or that I failed; Seen it for one-offs I solved at once.
 function suggestKeep(m, solvedFirst, list = puzzleList()) {
-  if (!solvedFirst || m.inPrep) return true;
+  if (!solvedFirst || inPrepNow(m)) return true;
   const key = K(m.fen), fam = openingFamilyOf(m.gid);
   const same = list.filter(x => x !== m && (K(x.fen) === key || (x.phase === m.phase && fam && openingFamilyOf(x.gid) === fam)));
   return same.some(x => K(x.fen) === key) || same.length >= 2;

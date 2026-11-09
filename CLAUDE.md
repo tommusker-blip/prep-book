@@ -126,7 +126,9 @@ when it loads; the others just define things.
     one isn't a puzzle: `lost`, `winning`, `clock`, `recapture`, `forced`,
     `unpunished`
   - `scanMistakes()` scans the games in the background, cached per game in
-    `MIST`
+    `MIST`. Since v0.9.3 the results are saved in IndexedDB (`mist:<space>`), per game with
+    a stamp of its analysis (`accStamp()`), so a new session only scans new or re-analysed
+    games (`mistTodo()`, `mistNeedsScan()`). "In prep" is worked out fresh (`inPrepNow()`).
   - `puzzleQueue()` builds a session: due kept puzzles, then new ones, then
     "later"
   - `suggestKeep()` picks the suggested choice

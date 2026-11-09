@@ -933,7 +933,7 @@ function renderReport() {
   }
   // Mistakes need the background scan; build once it's done
   const analysed = S.games.filter(g => S.acc[g.id] && S.acc[g.id].v === 2).length;
-  if (analysed && (MIST.running || MIST.byGame.size < analysed || MIST.sig !== mistSig())) {
+  if (analysed && (MIST.running || mistNeedsScan())) {
     box.innerHTML = `<p class="help">Gathering your mistakes first… ${MIST.running ? `${nOf(MIST.done)} of ${nOf(MIST.total)} games` : ""}</p>`;
     if (!MIST.running) scanMistakes(done => { if (S.view === "report") { if (done) renderReport(); else box.querySelector("p").textContent = `Gathering your mistakes first… ${nOf(MIST.done)} of ${nOf(MIST.total)} games`; } });
     return;
@@ -984,8 +984,8 @@ function renderMistakeCard() {
   if (!box) return;
   const analysed = S.games.filter(g => S.acc[g.id] && S.acc[g.id].v === 2).length;
   if (!analysed) { box.innerHTML = `<p class="help">Run Analyse all on the Games tab first: puzzles come from the engine's view of your games.</p>`; return; }
-  if (MIST.running) { box.innerHTML = `<p class="help" aria-live="polite">Finding your mistakes… ${nOf(MIST.done)} of ${nOf(MIST.total)} games</p><progress max="${MIST.total}" value="${MIST.done}"></progress>`; return; }
-  if (MIST.byGame.size < analysed || MIST.sig !== mistSig()) { scanMistakes(onMistakeTick); return; }
+  if (MIST.running) { box.innerHTML = MIST.total ? `<p class="help" aria-live="polite">Finding your mistakes… ${nOf(MIST.done)} of ${nOf(MIST.total)} games</p><progress max="${MIST.total}" value="${MIST.done}"></progress>` : `<p class="help">Loading your mistakes…</p>`; return; }
+  if (mistNeedsScan()) { scanMistakes(onMistakeTick); return; }
   const list = puzzleList(), now = Date.now();
   const kept = list.filter(m => (pzState(puzzleId(m)) || {}).st === "keep");
   const due = kept.filter(m => pzState(puzzleId(m)).c && pzState(puzzleId(m)).c.due <= now).length;
@@ -1546,6 +1546,7 @@ async function boot() {
     else if ("replace" in d) commitBuildMove(d.replace, d.old);
     else if ("cancel" in d) renderBuild();
     else if ("deep" in d) { deepKeys.add(buildState().key); renderBuild(); }
+    else if ("goab" in d) { setView("games"); const c = $("#abCard"); if (c) c.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" }); }
     else if ("showweak" in d) { const k = buildState().key; if (showWeak.has(k)) showWeak.delete(k); else showWeak.add(k); renderBuild(); }
     else if (d.arrows) { S.settings.arrows = d.arrows === "on"; Store.save("settings"); renderLook(); }
     else if (d.openbook) switchBook(d.openbook);

@@ -79,6 +79,7 @@
           <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="freq" aria-pressed="true">Frequency</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
         </div>
         <div id="gapNext" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:10px"><button type="button" class="btn ghost" data-goab>Build my tree from my games…</button></div>
       </div>
       <div class="card" data-pane="ideas" id="ideasCard" role="tabpanel" hidden></div>
       <div class="card" data-pane="lichess" id="suggest" role="tabpanel" hidden>
@@ -147,6 +148,7 @@
           <input type="file" id="pgnFile" accept=".pgn,text/plain" hidden></div>
       </details>
     </div>
+    <div class="card" id="abCard"><h3>Build my tree from my games <span class="info" role="button" tabindex="0" aria-label="About building from your games" data-tip="Goes through your games from the first move. Where it's your turn, it takes the moves you've played often enough and adds one if your results with it are good enough and Stockfish doesn't think it's dubious. Where it's your opponent's turn, it adds every reply that came up often enough. Moves already in your repertoire are kept. You see the list before anything is added.">i</span></h3><div id="abBody" style="margin-top:8px"></div></div>
     <div class="tiles" id="gTiles"></div>
     <div class="card">
       <h3>Where your prep ends</h3>
@@ -161,7 +163,6 @@
       <p class="help" id="engStatus" aria-live="polite" style="margin-top:6px">Checks your opening moves with Stockfish on this device, newest games first. Runs until done or stopped, and results are saved as it goes.</p>
     </div>
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3>Coach report <span class="info" role="button" tabindex="0" aria-label="About the coach report" data-tip="A compact summary of your openings, results, gaps, training and mistakes: aggregated numbers and line names only, no raw games. Read it here, or copy it into an AI coach such as Claude for training advice.">i</span></h3><p class="help">Everything a coach would want to know, in one page.</p></div><button type="button" class="btn ghost" data-nav="report">Open</button></div>
-    <div class="card" id="abCard"><h3>Build my tree from my games <span class="info" role="button" tabindex="0" aria-label="About building from your games" data-tip="Goes through your games from the first move. Where it's your turn, it takes the moves you've played often enough and adds one if your results with it are good enough and Stockfish doesn't think it's dubious. Where it's your opponent's turn, it adds every reply that came up often enough. Moves already in your repertoire are kept. You see the list before anything is added.">i</span></h3><div id="abBody" style="margin-top:8px"></div></div>
     <div class="card"><h3>Recent games</h3><ul class="list" id="gList" style="margin-top:8px"></ul></div>
     <div>
       <button type="button" class="btn ghost" id="clearGames">Clear imported games</button>
