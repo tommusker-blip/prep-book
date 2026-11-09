@@ -86,7 +86,7 @@ function routesBox(fen, key, path) {
   if (!trMemo.has(memoKey)) {
     if (!trPending.has(memoKey)) {
       trPending.add(memoKey);
-      setTimeout(() => { trPending.delete(memoKey); if (notHere(key)()) return; if (findRoutesInto(fen, path).length) rowsChanged(key); }, 30);
+      setTimeout(() => { trPending.delete(memoKey); if (notHere(key)()) return; if (findRoutesInto(fen, path).length && S.ptab === "tree") { const b = $("#trBox"); if (b) b.innerHTML = routesBox(fen, key, path); } }, 30);
     }
     return undoNote("tr");
   }

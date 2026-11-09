@@ -52,13 +52,18 @@ f.onload = () => {
       L("progress: " + ((d.querySelector("#coverMap .possum") || {}).textContent || "none") + " | hist: " + JSON.stringify(G("S").rep.white.hist.map(h => h.c)));
       d.querySelector('[data-mapmode="res"]').click();
       L("results view: " + d.querySelector("#coverMap .covmap").className);
+      d.querySelector('[data-mapmode="played"]').click();
+      L("played view: " + d.querySelector("#coverMap .covmap").className + " | end column: " + d.querySelector("#coverMap .mapend").textContent);
       // focus from the catalogue
       d.querySelector('[data-otab="cat"]').click();
       await until(() => d.querySelector("#catBody details.cat"));
       L("catalogue: " + d.querySelector(".cathead").textContent.replace(/\s+/g, " ").trim() + " | " + [...d.querySelectorAll("#catBody > details.cat > summary")].map(s => s.textContent.replace(/\s+/g, " ").trim()).join(" | "));
       const it = [...d.querySelectorAll("#catBody details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
       it.querySelector("[data-focusbuild]").click(); await sleep(50);
-      L("focus bar: " + d.querySelector("#focusBuild").textContent.replace(/\s+/g, " ").trim());
+      L("focus bar on Moves: " + !!d.querySelector("#prompt .focusbar") + " | tabs: " + [...d.querySelectorAll("[data-ptab]")].map(b => b.textContent).join(", "));
+      d.querySelector('[data-ptab="tree"]').click(); await sleep(50);
+      L("focus bar on My lines: " + d.querySelector("#treeCard .focusbar").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('[data-ptab="moves"]').click();
       d.querySelector("#fwd").click(); d.querySelector("#fwd").click(); await sleep(50);
       d.querySelector("#toStart").click();
       L("⏮ goes to: " + G("S").build.white.join(" ") + " | then: " + (d.querySelector("#toStart").click(), G("S").build.white.join(" ") || "start"));
@@ -72,13 +77,13 @@ f.onload = () => {
       L("tap a move goes to: " + G("S").build.white.join(" "));
       d.querySelector('[data-ptab="moves"]').click();
       w.eval('S.build.white = ["e4","e5"]; renderBuild()');
-      L("note on Moves: " + (d.querySelector("#prompt .notel") || {}).textContent);
+      L("Moves tab stays clean: " + !d.querySelector("#prompt .notel, #prompt .trbox, #prompt .focusbar"));
       // routes into a position from another line: 1.c4 e6 2.Nc3 Nf6 3.d4 = 1.d4 Nf6 2.c4 e6 3.Nc3
-      w.eval('S.build.white = "c4 e6 Nc3 Nf6 d4".split(" "); renderBuild()');
-      await until(() => d.querySelector("#prompt .trbox"), 3000);
-      L("routes: " + ((d.querySelector("#prompt .trlist") || {}).textContent || "none").replace(/\s+/g, " ").trim());
-      d.querySelector("#prompt [data-tradd='0']").click(); await sleep(50);
-      L("after Add: Nc3 saved=" + G('rep("white").pos[K(fenAfter(START, "d4 Nf6 c4 e6".split(" ")))].m.join(",")') + " | " + ((d.querySelector("#prompt [data-undo='tr']") || {}).parentNode || { textContent: "no undo" }).textContent.replace(/\s+/g, " ").trim());
+      w.eval('S.build.white = "c4 e6 Nc3 Nf6 d4".split(" "); S.ptab = "tree"; renderBuild()');
+      await until(() => d.querySelector("#treeCard .trbox"), 3000);
+      L("routes: " + ((d.querySelector("#treeCard .trlist") || {}).textContent || "none").replace(/\s+/g, " ").trim());
+      d.querySelector("#treeCard [data-tradd='0']").click(); await sleep(50);
+      L("after Add: Nc3 saved=" + G('rep("white").pos[K(fenAfter(START, "d4 Nf6 c4 e6".split(" ")))].m.join(",")') + " | " + ((d.querySelector("#treeCard [data-undo='tr']") || {}).parentNode || { textContent: "no undo" }).textContent.replace(/\s+/g, " ").trim());
       // spot the difference
       d.querySelector('[data-nav="train"]').click(); await sleep(50);
       L("focus on Train: " + d.querySelector("#focusTrain").textContent.replace(/\s+/g, " ").trim());

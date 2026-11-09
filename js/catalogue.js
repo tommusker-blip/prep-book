@@ -257,7 +257,7 @@ function startCatalogueJob(sig, color, sk) {
 function drawCatalogue(root, targets) {
   const box = $("#catBody"), C = S.color === "white" ? "White" : "Black";
   if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet. Add moves in Build, or use Build my tree from my games on the Games tab.</p>`; return; }
-  const bi = branchInfo(S.color);
+  const bi = branchInfo(S.color), fp = focusPath().join(" ");
   /* v0.9.24: compact. One line per entry: the name (up to two lines, so long names show), then
      covered and score in fixed columns under one header; the moves, accuracy, comment and the
      buttons are inside. Build / Train set the focus (focus.js). */
@@ -271,7 +271,7 @@ function drawCatalogue(root, targets) {
     const s = c.stats || {}, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = bi[c.key] && bi[c.key].cards;
     const scoreCls = s.score == null || s.games < 3 ? "" : s.score >= 0.55 ? "good" : s.score <= 0.42 ? "bad" : "";
     const covCls = s.cover == null ? "" : s.cover < 0.6 ? "bad" : s.cover >= 0.85 ? "good" : "";
-    const focused = focusOn() && focusPath().join(" ") === ps;
+    const focused = fp && fp === ps;
     return `<details class="cat${focused ? " focused" : ""}"${open ? " open" : ""} data-catpath="${esc(ps)}">
       <summary>
         <span class="catname">${esc(short(c.label, parent))}</span>

@@ -4,6 +4,7 @@
    my repertoire move is different, trained one straight after the other, so the difference
    sticks: "with the bishop on c4 I play d3, with it on b5 I play O-O".
    - Only positions where it's my move and I have a training card; the moves must not overlap.
+   - Not a position and one further down its own line (that is the same line a move later).
    - Closest pairs first, then the ones that need work most (cardNeed()); each position is used
      in one pair only. With a focus (focus.js), at least one of the two is inside it.
    - At most SIM_POOL positions are compared (the ones that need work most), to stay quick.
@@ -14,10 +15,10 @@ let simMemo = { sig: "", pairs: [] };
 function similarPairs(color = S.color) {
   const w = walk(color), R = rep(color), sig = color + "|" + S.book + "|" + w.sig + "|" + focusPath(color).join(" ");
   if (simMemo.sig === sig) return simMemo.pairs;
-  const now = Date.now();
+  const now = Date.now(), inF = focusTest(color), focused = focusOn(color);
   let list = Object.entries(R.cards).map(([key, card]) => {
     const node = w.nodes[key], n = R.pos[key];
-    return node && n && n.m.length ? { key, arr: boardArr(node.fen), m: n.m, path: node.path, need: cardNeed(card, now), inF: inFocus(node.path, color) } : null;
+    return node && n && n.m.length ? { key, arr: boardArr(node.fen), m: n.m, path: node.path, ps: node.path.join(" "), need: cardNeed(card, now), inF: inF(node.path) } : null;
   }).filter(Boolean);
   if (list.length > SIM_POOL) list = list.sort((a, b) => b.need - a.need).slice(0, SIM_POOL);
   const cand = [];
@@ -25,7 +26,9 @@ function similarPairs(color = S.color) {
     const a = list[i];
     for (let j = i + 1; j < list.length; j++) {
       const b = list[j];
-      if (focusOn(color) && !a.inF && !b.inF) continue;
+      if (focused && !a.inF && !b.inF) continue;
+      // one further down the other's line isn't a look-alike, it's the same line a move later
+      if (b.ps.startsWith(a.ps + " ") || a.ps.startsWith(b.ps + " ")) continue;
       let d = 0;
       for (let s = 0; s < 64 && d <= SIM_DIFF; s++) if (a.arr[s] !== b.arr[s]) d++;
       if (!d || d > SIM_DIFF || a.m.some(x => b.m.includes(x))) continue;

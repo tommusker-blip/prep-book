@@ -17,21 +17,24 @@ function setFocus(path, color = S.color) {
   Store.save("settings");
 }
 const clearFocus = (color = S.color) => setFocus([], color);
-// Is this path (array or string) inside the focus? Everything is when there's none.
-function inFocus(path, color = S.color) {
-  const f = focusPath(color).join(" "), p = Array.isArray(path) ? path.join(" ") : path;
-  return !f || p === f || p.startsWith(f + " ");
+// Is this path (array or string) inside the focus? Everything is when there's none. focusTest()
+// works the focus out once and returns the check, for lists: focusPath() replays the moves and
+// checks the tree, far too slow to repeat for every card or pair (v0.9.25: that froze Train).
+function focusTest(color = S.color) {
+  const f = focusPath(color).join(" ");
+  return path => { const p = Array.isArray(path) ? path.join(" ") : path; return !f || p === f || p.startsWith(f + " "); };
 }
+const inFocus = (path, color = S.color) => focusTest(color)(path);
 function focusName(color = S.color) {
   const p = focusPath(color), o = p.length ? openingFor(p) : null;
   return o ? o.name : numbered(0, p);
 }
-// The bar shown on Build and on the Train page while a focus is set
+// The bar shown on Build's My lines tab and on the Train page while a focus is set
 function focusBar(where) {
   if (!focusOn()) return "";
   const p = focusPath();
   const act = where === "build"
-    ? `<button type="button" class="btn ghost quick" data-focustrain>Practise it</button>`
+    ? `<button type="button" class="btn ghost quick" data-focustrain>Practise</button>`
     : `<button type="button" class="btn ghost quick" data-focusbuild>Build it</button>`;
   return `<div class="focusbar" role="status"><span class="ftxt"><span class="flbl">Focus</span> <b>${esc(focusName())}</b> <span class="mono muted">${esc(numbered(0, p))}</span></span>
     <span class="fbtns">${act}<button type="button" class="btn ghost quick" data-focusclear aria-label="Clear the focus: stop focusing on this opening">✕</button></span></div>`;
@@ -42,9 +45,9 @@ function drawFocusBars() {
   if (t) t.innerHTML = focusBar("train");
 }
 // Gaps for Gap ›: only inside the focus
-const focusGaps = list => list.filter(g => inFocus(g.opp ? g.path.concat(g.opp) : g.path));
-// Training cards inside the focus
-const focusCard = key => { const n = rep().pos[key]; return !!n && inFocus(n.path || ""); };
+const focusGaps = list => { const t = focusTest(); return list.filter(g => t(g.opp ? g.path.concat(g.opp) : g.path)); };
+// Training cards inside the focus: focusCards() returns the check for one key
+const focusCards = () => { const t = focusTest(), R = rep(); return key => { const n = R.pos[key]; return !!n && t(n.path || ""); }; };
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 function focusBuild(path) { setFocus(path); S.build[S.color] = path.slice(); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 }); }

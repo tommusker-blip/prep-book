@@ -68,9 +68,7 @@ function movesPane(fen, key, n, path, mine) {
   } else {
     h = `<p class="lbl">Opponent's options</p>${quickOppButtons(fen, key, n)}${candRows(fen, key, n, path)}`;
   }
-  // v0.9.24: my note on this position (My lines tab), and routes here from my other lines
-  const note = noteFor(key);
-  return (exploring() ? exploreBar() : "") + (note ? `<p class="help notel"><b>Your note:</b> ${esc(note)}</p>` : "") + h.replace(/<div class="cands">|$/, m => routesBox(fen, key, path) + m);
+  return (exploring() ? exploreBar() : "") + h; // notes, routes and the focus are on the My lines tab (v0.9.25)
 }
 function refreshBuild(key) {
   if (autoPending && autoPending === curPath().join(" ")) return; // the reply is on its way

@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09z", date: "9 Nov 2026", title: "Train no longer freezes; a tidier Build",
+    items: [
+      "Fixed: the Train tab could freeze with a big repertoire. The new look-alike positions check was far too slow; it now takes a fraction of a second.",
+      "Build's Moves tab is back to just the moves. The focus, your notes and the routes from your other openings are on the My lines tab, which now sits after Ideas here.",
+      "The map on the Openings page has three views: Coverage, Played (how many of your games through each opening were still in your prep at each move) and Results (your score in the games that left your prep at that move).",
+      "Spot the difference no longer pairs a position with the same line a move later.",
+    ],
+  },
+  {
     id: "2026-11-09y", date: "9 Nov 2026", title: "Focus on an opening, a coverage map, My lines and more",
     items: [
       "Build's move rows: Played % and Score % now each have three columns, Peers, Masters and You, labelled once at the top. Every number has the same weight; faint ones rest on only a few games.",

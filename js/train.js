@@ -17,7 +17,7 @@ function renderTrainHome() {
   const R = rep();
   walk();
   const cards = Object.values(R.cards);
-  const due = dueCards().filter(focusCard); // with a focus (focus.js), only inside it
+  const due = dueCards().filter(focusCards()); // with a focus (focus.js), only inside it
   drawFocusBars();
   const flagged = Object.values(R.cards).filter(c => c.flag).length;
   const learned = cards.filter(c => c.reps >= 2).length;
@@ -51,10 +51,10 @@ function renderTrainHome() {
   renderIdeaCard();
 }
 function startTraining() {
-  let q = dueCards().filter(focusCard);
+  let q = dueCards().filter(focusCards());
   if (!q.length) {
     const R = rep();
-    q = Object.entries(R.cards).filter(([k]) => focusCard(k)).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
+    const inF = focusCards(); q = Object.entries(R.cards).filter(([k]) => inF(k)).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
   }
   Object.assign(T, { mode: "cards", queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run", sim: null });
   nextCard();

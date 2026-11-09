@@ -208,6 +208,12 @@ when it loads; the others just define things.
     repertoire move; if so it waits with Compare in Build (`leaveToBuild()`, both rows open) or Carry
     on. A practised line's end has Build from here / Next line (auto-advance after 2.5 s).
   - `tests/smoke.html#focus` covers the map, focus, My lines, notes, routes and spot the difference.
+  - v0.9.25: Train froze on big trees: `similarPairs()` called `focusOn()` per pair, and
+    `focusPath()` replays the moves and checks the tree (about 2 ms each). Use `focusTest()` /
+    `focusCards()` (worked out once) for any list; never call `focusPath()`/`inFocus()` in a loop.
+    Build's Moves tab only has the rows: focus bar, note and routes are on My lines (tab order
+    Moves, Ideas here, My lines). The map has three views: Coverage, Played (games still in prep
+    at each move, from `stats.exits`), Results (score % of games that left prep at that move).
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
