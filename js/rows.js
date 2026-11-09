@@ -226,6 +226,7 @@ function candRow(fen, key, c, ex, path) {
       <div class="cbars"><span class="lbl">You</span>${c.mine ? barFor(c.mine, "Your games") + `<span class="help">${wdlLine(c.mine)}</span>` : `<span class="help">Not in your games</span>`}</div>
       ${b ? `<p class="help">Expected score for you: <b>${pctOf(b.score)}</b> (${esc(b.basis)})</p>` : ""}
       <p class="help">${replies ? `Usually ${replies}` : S.token ? (exA ? (exA.total ? "No common replies at your level" : "Peers rarely reach this position") : "Loading likely replies…") : "Add a Lichess token for likely replies"}${bestReply ? ` · Stockfish's best reply: ${esc(bestReply)}` : ""}</p>
+      ${myTurn ? fitLine(fen, c, path) : ""}
       ${fu && fu.good ? `<p class="help">Good replies for your opponent (within ${(adv().good / 100).toFixed(1)} of their best): <b>${fu.good.map(esc).join(", ")}</b> (${fu.label.toLowerCase()})${fu.find != null ? ` · players at your level find one ${pctOf(fu.find)} of the time (n = ${nOf(fu.exA.total)})` : ""}</p>` : ""}
     </div>`;
   }
@@ -273,6 +274,10 @@ function candRows(fen, key, n, path) {
   const myTurn = isMine(key, S.color);
   const weak = myTurn ? all.filter(c => unplayable(fen, key, c)) : [], showing = showWeak.has(key);
   const list = showing ? all : all.filter(c => !weak.includes(c));
+  // Best to worst by the engine: the loss against the best move here, for whoever is moving.
+  // Moves without an eval yet go last, in the order above (prepared, then most played).
+  const lossOf = c => { const e = engineFor(fen, key, c.san); return e && e.loss != null ? e.loss : null; };
+  list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   // Column key: written out under the rows rather than behind an ⓘ in the header
   const legend = `<p class="help legend"><b>Eval</b> + good for White, − for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); colour compares the move with the best here: <span class="ev s-good">strong</span>, <span class="ev s-ok">playable</span>, <span class="ev s-weak">weak</span>${myTurn ? "; g a gambit" : ""}. <b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""}. <b>Score</b> your colour's score after it. <b>You</b> your games · score.${myTurn ? " <b>Rep</b> good replies left for your opponent; purple is a practical weapon." : ""} Outline: blue ${myTurn ? "in your repertoire" : "prepared"}${myTurn ? "" : ", orange not prepared"}. Tap a row for all its numbers.</p>`;
@@ -287,4 +292,20 @@ function deepRow(fen, key, list, myTurn) {
   const pending = rowsPending(fen, key, list);
   if (deepKeys.has(key)) return pending ? `<p class="help deeprow" aria-live="polite">Analysing deeper…</p>` : "";
   return `<div class="row deeprow"><button type="button" class="btn ghost" data-deep>Deeper analysis</button>${info(`Each move gets a quick engine check (depth ${QUICK_DEPTH}) so Build stays fast. Deeper analysis checks every move at depth ${DEEP_DEPTH}${myTurn ? " and works out the Rep column: how many good replies your opponent has after each of your top moves, and how often players at your level find them" : ""}. It takes a few seconds, longer on a phone.`, "About deeper analysis")}</div>`;
+}
+/* ----- "Fits your prep" for a candidate of mine (v0.9.7) -----
+   The synergy score from ideas.js (memorability()): the chance of transposing into my lines
+   after the likely replies (Lichess, the top 8), or how alike the setup is to my other lines.
+   Shown in the expanded row once the replies after the move are loaded. */
+function fitFor(fen, c, path) {
+  const p1 = fenAfter(fen, [c.san]), exA = p1 && cachedExplorer(p1);
+  if (!exA || !exA.total) return null;
+  const replies = exA.moves.slice().sort((a, b) => b.n - a.n).slice(0, 8).map(m => ({ p2: fenAfter(p1, [m.san]), f: m.n / exA.total })).filter(r => r.p2);
+  return memorability({ san: c.san, p1, replies, cover: replies.reduce((s, r) => s + r.f, 0) }, path, S.color);
+}
+function fitLine(fen, c, path) {
+  const m = fitFor(fen, c, path);
+  if (!m) return "";
+  const why = [m.transP >= 0.05 ? `transposes into your lines after ${pctOf(m.transP)} of replies` : "", m.setup >= 0.3 && m.like ? `same setup as your ${esc(numbered(0, m.like))} (${pctOf(m.setup)} alike)` : ""].filter(Boolean).join("; ");
+  return `<p class="help">Fits your prep: <b>${pctOf(m.score)}</b>${why ? ` (${why})` : " (a new kind of position for you)"}</p>`;
 }

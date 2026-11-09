@@ -400,7 +400,7 @@ function render() {
   if (S.view === "settings") renderSettings();
   if (S.view === "updates") renderUpdates();
   if (S.view === "report") renderReport();
-  if (S.view === "openings") renderCatalogue();
+  if (S.view === "openings") { renderAddOpening(); renderCatalogue(); }
   if (S.view === "idea") renderIdea();
 }
 
@@ -588,7 +588,6 @@ async function findIdeasHere() {
   ideaRun = null;
   if (S.view === "build") renderBuild();
 }
-const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 function lineHtml(path, clickable) {
   if (!path.length) return `<span class="muted">Start position</span>`;
   return path.map((m, i) => {
@@ -699,15 +698,6 @@ function setBuildMode(mode) {
   S.buildMode = mode;
   if (mode === "explore") S.explore = { ...(S.explore || {}), [S.color]: curPath().slice() };
   renderBuild();
-}
-// Moves of mine in `moves` that differ from what the repertoire already plays there
-function lineConflicts(moves, color = S.color) {
-  const out = [];
-  for (let i = 0; i < moves.length; i++) {
-    const fen = fenAfter(START, moves.slice(0, i)), key = fen && K(fen), n = key && rep(color).pos[key];
-    if (key && isMine(key, color) && n && n.m.length && !n.m.includes(moves[i])) out.push({ i, san: moves[i], have: n.m.slice(), path: moves.slice(0, i) });
-  }
-  return out;
 }
 // Save an explored line into the repertoire. how: "add" (extra options) or "replace"
 function saveLine(moves, how = "add") {
@@ -1571,6 +1561,7 @@ async function boot() {
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
+    else if (onAddOpeningClick(d)) { /* Openings > Add an opening */ }
     else if (d.idea) openIdeaLine(d.idea, S.view);
     else if (d.ilfind) { startIdeaSearch(ideaTargets(S.color).filter(t => t.n >= 3 && !IDEAL[ideaId(S.color, t.path)]).slice(0, 5)); renderIdeaCard(); }
     else if ("ideafind" in d) { startIdeaSearch(ideaTargets(S.color, d.ideafind).filter(t => !IDEAL[ideaId(S.color, t.path)]).slice(0, 3)); renderCatalogue(); }
@@ -1626,6 +1617,7 @@ async function boot() {
   $("#tStop").onclick = endSession;
   // Catalogue: remember which entries are open across redraws
   $("#catBody").addEventListener("toggle", e => { const p = e.target.dataset && e.target.dataset.catpath; if (p == null) return; if (e.target.open) catOpen.add(p); else catOpen.delete(p); }, true);
+  $("#addOpenBox").addEventListener("change", e => { const v = e.target.dataset && e.target.dataset.aovar; if (v != null) aoTick(v, e.target.checked); });
   $("#pzBack").onclick = () => pzStep(-1);
   $("#iBack").onclick = () => ideaGo(IV.i - 1);
   $("#iFwd").onclick = () => ideaGo(IV.i + 1);

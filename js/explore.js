@@ -22,6 +22,8 @@ function bandsFor(cc) {
   return est - b < 100 && b > BANDS[0] ? [b - 200, b] : [b, Math.min(b + 200, top)];
 }
 const bandLabel = band => { const lo = Math.min(...band), hi = Math.max(...band); return `${lo}–${hi === 2500 ? "2500+" : hi + 199}`; };
+// Where explorer numbers come from, in words
+const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 // src: my rating bands (default), "masters" (the Lichess masters database) or another band ("2200,2500")
 function cachedExplorer(fen, src = bandKey()) { return EXPL[K(fen) + "|" + src] || null; }
 function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeout(() => lsSet("pb_expl", EXPL), 1500); }

@@ -496,3 +496,13 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .warnt{color:var(--warn);font-weight:600}
 label.check{display:flex;align-items:center;gap:8px;font-size:.88rem}
 label.check input{width:18px;height:18px}
+
+/* ---------- Openings > Add an opening (v0.9.7) ---------- */
+#addOpenBox input[type=search]{width:100%;margin-top:4px}
+.aores{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:50vh;overflow:auto}
+.aohead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.aoline{font-size:.82rem;margin:6px 0}
+.aocolor{align-items:center;gap:8px;margin:4px 0 0}
+.aovars{display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow:auto;padding-right:4px}
+.aovar{align-items:flex-start;font-size:.85rem}
+.aovar input{margin-top:2px;flex:0 0 auto}

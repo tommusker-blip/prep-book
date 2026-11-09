@@ -5,6 +5,16 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09l", date: "9 Nov 2026", title: "Add an opening by name",
+    items: [
+      "Openings → Add an opening: search all 3,865 named openings and variations (for example Benko, Najdorf or A57), pick one, choose White or Black, and its moves go into your repertoire.",
+      "It also lists that opening's deeper variations: tick the ones you want and they're added too, so you have a few lines to build around.",
+      "If you already play a different move somewhere along the line, the new move is added as another option; nothing is replaced.",
+      "In Build, the candidate moves are now ranked by the engine, best first.",
+      "Tap one of your candidate moves in Build to see how well it fits your prep: the chance it transposes into your lines, or how alike its setup is to your other lines.",
+    ],
+  },
+  {
     id: "2026-11-09k", date: "9 Nov 2026", title: "Faster Openings tab, grouped by name",
     items: [
       "The Openings tab is kept once worked out, so coming back to it is instant. When something has changed, a progress bar shows while it updates.",

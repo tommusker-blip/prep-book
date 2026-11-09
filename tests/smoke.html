@@ -104,6 +104,33 @@ f.onload = () => {
       L("catalogue ideas: " + [...d.querySelectorAll("#catBody .ideablock")].map(b => b.textContent.replace(/\s+/g, " ").trim().slice(0, 90)).join(" || "));
       L("DONE");
     })();
+    if (mode === "addopen") (async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const until = async (cond, ms = 10000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(50); return cond(); };
+      w.eval('S.color = "white"; S.settings.autoOpp = "off"; render()');
+      d.querySelector('[data-nav="openings"]').click();
+      d.querySelector("#addOpenBtn").click();
+      await until(() => d.querySelector("#aoSearch"));
+      const inp = d.querySelector("#aoSearch");
+      inp.value = "benko"; inp.dispatchEvent(new w.Event("input", { bubbles: true }));
+      await until(() => d.querySelector("#addOpenBox [data-aopick]"));
+      L("results: " + [...d.querySelectorAll("#addOpenBox [data-aopick] .gt")].slice(0, 4).map(x => x.textContent).join(" | "));
+      L("search box kept focus: " + (d.activeElement && d.activeElement.id));
+      d.querySelector("#addOpenBox [data-aopick]").click();
+      L("picked: " + d.querySelector("#addOpenBox .aohead b").textContent + " | " + d.querySelector("#addOpenBox .aoline").textContent);
+      d.querySelector('#addOpenBox [data-aocolor="black"]').click();
+      const boxes = d.querySelectorAll("#addOpenBox [data-aovar]");
+      boxes[0].click(); boxes[1].click(); // tick two variations
+      await sleep(50);
+      L("variations listed: " + d.querySelectorAll("#addOpenBox [data-aovar]").length + " | ticked: " + d.querySelectorAll("#addOpenBox [data-aovar]:checked").length + " | " + d.querySelector("#addOpenBox [data-aoadd]").textContent);
+      d.querySelector("#addOpenBox [data-aoadd]").click();
+      await sleep(100);
+      const pos = s => w.eval(`(rep("black").pos[K(fenAfter(START, ${JSON.stringify(s.split(" "))}))] || { m: [] }).m.join(",")`);
+      L("after adding: colour=" + G("S").color + " | 2...c5 " + pos("d4 Nf6 c4") + " | 3...b5 " + pos("d4 Nf6 c4 c5 d5") + " | panel hidden: " + d.querySelector("#addOpenBox").hidden);
+      await until(() => d.querySelector("#catBody details.cat"));
+      L("catalogue now: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | "));
+      L("DONE");
+    })();
     if (mode === "drag") (async () => {
       // v0.9: drag and drop, and a selected piece surviving background refreshes
       const sleep = ms => new Promise(r => setTimeout(r, ms));

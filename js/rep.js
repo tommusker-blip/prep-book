@@ -69,6 +69,15 @@ function addMove(path, san, color = S.color, replaces = null) {
   n.m.push(san);
   return "added";
 }
+// Moves of mine in `moves` that differ from what the repertoire already plays there
+function lineConflicts(moves, color = S.color) {
+  const out = [];
+  for (let i = 0; i < moves.length; i++) {
+    const fen = fenAfter(START, moves.slice(0, i)), key = fen && K(fen), n = key && rep(color).pos[key];
+    if (key && isMine(key, color) && n && n.m.length && !n.m.includes(moves[i])) out.push({ i, san: moves[i], have: n.m.slice(), path: moves.slice(0, i) });
+  }
+  return out;
+}
 function removeMove(path, san, color = S.color) {
   const key = K(fenAfter(START, path));
   const n = rep(color).pos[key];

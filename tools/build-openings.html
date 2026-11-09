@@ -9,8 +9,8 @@
 <p>Downloads the Lichess <a href="https://github.com/lichess-org/chess-openings">chess-openings</a> TSV files (CC0),
 replays each line with chess.js and keys the final position with the app's own <code>K()</code>.
 Run this from a local server (for example <code>npx serve</code>) or on the Pages site, then save the output over
-<code>js/openings.js</code>. Rerun it whenever <code>K()</code> in <code>js/core.js</code> changes.</p>
-<p><button id="go">Build</button> <a id="dl" hidden download="openings.js">Download openings.js</a></p>
+<code>js/openings.js</code>. Rerun it whenever <code>K()</code> in <code>js/core.js</code> changes. It also makes <code>js/openlines.js</code> (each opening's moves, for the "Add an opening" search).</p>
+<p><button id="go">Build</button> <a id="dl" hidden download="openings.js">Download openings.js</a> <a id="dl2" hidden download="openlines.js">Download openlines.js</a></p>
 <p id="status"></p>
 <textarea id="out" readonly></textarea>
 <div id="toast" hidden></div>
@@ -21,7 +21,7 @@ Run this from a local server (for example <code>npx serve</code>) or on the Page
 const BASE = "https://raw.githubusercontent.com/lichess-org/chess-openings/master/";
 document.getElementById("go").onclick = async () => {
   const st = document.getElementById("status");
-  const best = {}, bad = [];
+  const best = {}, bad = [], all = [];
   let lines = 0;
   for (const f of ["a", "b", "c", "d", "e"]) {
     st.textContent = `Fetching ${f}.tsv…`;
@@ -33,6 +33,7 @@ document.getElementById("go").onclick = async () => {
       const c = new Chess();
       if (!sans.every(s => c.move(s))) { bad.push(line); continue; }
       lines++;
+      all.push([eco, name, sans.join(" ")]);
       const k = K(c.fen());
       // When two lines reach the same position, keep the shorter (more canonical) one
       if (!best[k] || sans.length < best[k][2]) best[k] = [eco, name, sans.length];
@@ -50,6 +51,18 @@ const OPENINGS = ${JSON.stringify(keyed)};
   const dl = document.getElementById("dl");
   dl.href = URL.createObjectURL(new Blob([js], { type: "text/javascript" }));
   dl.hidden = false;
+  const js2 = `"use strict";
+// The moves of every named opening in the Lichess chess-openings dataset (CC0,
+// https://github.com/lichess-org/chess-openings), for the searchable "Add an opening" menu.
+// Loaded only when that menu is first opened. Regenerate with tools/build-openings.html.
+// Format: [ECO, name, "SAN SAN …"]
+const OPENING_LINES = [
+${all.map(x => JSON.stringify(x)).join(",\n")},
+];
+`;
+  const dl2 = document.getElementById("dl2");
+  dl2.href = URL.createObjectURL(new Blob([js2], { type: "text/javascript" }));
+  dl2.hidden = false;
   st.textContent = `${lines} lines, ${Object.keys(keyed).length} positions, ${bad.length} unreadable.`;
 };
 </script>

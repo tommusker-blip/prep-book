@@ -173,6 +173,15 @@ when it loads; the others just define things.
   a group starting where their moves part, and children drop the parent's name prefix. The page
   is cached (`catMemo`, keyed by `catSig()`: book, colour, tree, games, analysis, explorer
   data) and built in steps (`statNode()`) with a progress bar; idea targets are worked out once.
+- `js/addopening.js` (v0.9.7): Openings > Add an opening. Searches `OPENING_LINES`
+  (`js/openlines.js`, every named opening with its moves, 370 KB, loaded only when the panel
+  opens; made by `tools/build-openings.html` alongside `openings.js`). A picked opening can
+  bring its deeper variations (dataset lines that continue it). Lines go in with `addMove()`;
+  a different move of mine becomes another option (`lineConflicts()`, now in `rep.js`).
+- Build rows are ordered by the engine (loss against the best move, for the side moving);
+  moves without an eval yet come last. An expanded row of mine shows "Fits your prep"
+  (`fitFor()`/`fitLine()` in `rows.js`, using `memorability()` from `ideas.js`) once the
+  Lichess replies after the move are loaded. `srcLine()` moved to `explore.js`.
 - Idea lines (v0.9.5), an add-on kept out of the repertoire and cards:
   - `js/structures.js`: about 20 pawn structures matched on pawns alone (`structureOf()`,
     first match wins), each with plans for both sides and its break squares.

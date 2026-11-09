@@ -25,6 +25,8 @@
 <script src="../js/report.js"></script>
 <script src="../js/autobuild.js"></script>
 <script src="../js/catalogue.js"></script>
+<script src="../js/openlines.js"></script>
+<script src="../js/addopening.js"></script>
 <script src="../js/structures.js"></script>
 <script src="../js/idealines.js"></script>
 <script>
@@ -541,6 +543,43 @@ async function ideaLineTests() {
     S.games = []; S.acc = {}; igMemo = { sig: "", sets: [] };
   });
 }
+t("add an opening: search, variations, and adding lines to a repertoire", () => {
+  reset();
+  const hits = searchOpenings("benko");
+  eq(hits[0][1], "Benko Gambit", hits.map(h => h[1]).slice(0, 3).join(" | "));
+  eq(searchOpenings("A57 accepted").every(h => h[0] === "A57" && /Accepted/.test(h[1])), true);
+  const vars = variationsOf(hits[0][2]);
+  eq(vars.length > 3 && vars.every(v => v[2].startsWith(hits[0][2] + " ")), true);
+  line("black", "d4 Nf6 c4 e6"); // I already play 2...e6
+  eq(aoConflicts([hits[0][2]], "black"), 1, "2...c5 differs from my 2...e6");
+  const n = addOpeningLines([hits[0][2], vars[0][2]], "black");
+  eq(n > 0, true);
+  const pos = s => rep("black").pos[K(fenAfter(START, s.split(" ")))];
+  eq(pos("d4 Nf6 c4").m, ["e6", "c5"], "added as another option, nothing replaced");
+  eq(pos("d4 Nf6 c4 c5 d5").m, ["b5"]);
+  eq(pos(vars[0][2].split(" ").slice(0, -1).join(" ")).m.includes(vars[0][2].split(" ").slice(-1)[0]), true, "the variation is in too");
+});
+t("rows: candidate moves are ranked by the engine, best first", () => {
+  if (typeof notHere === "undefined") window.notHere = () => () => true; // app.js isn't loaded here: no engine work is queued
+  reset(); resetEx(); S.color = "white"; S.settings.adv = undefined; showWeak.clear();
+  const fen = fenAfter(START, ["e4", "e5"]), key = K(fen), set = (san, cp) => (EVALC[K(fenAfter(fen, [san]))] = { cp, d: 14 });
+  setEx("e4 e5", 10000, 4000, 1000, 5000, [mv("Nc3", 4000, 1600, 400, 2000), mv("Nf3", 3000, 1200, 300, 1500), mv("Bc4", 2000, 800, 200, 1000)]);
+  EVALC[key] = { cp: 40, d: 14 }; set("Nf3", -40); set("Bc4", -20); set("Nc3", -10); // Nf3 best, then Bc4, then Nc3
+  const order = [...candRows(fen, key, null, ["e4", "e5"]).matchAll(/data-cand="([^"]+)"/g)].map(m => m[1]);
+  eq(order.slice(0, 3), ["Nf3", "Bc4", "Nc3"], order.join(" "));
+  for (const s of ["Nf3", "Bc4", "Nc3"]) delete EVALC[K(fenAfter(fen, [s]))];
+  delete EVALC[key];
+});
+t("rows: a candidate that transposes into my lines fits my prep", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "e4 e5 Nf3 Nc6 Bc4"); line("white", "Nf3 e5 e4 Nc6");
+  // From 1.Nf3 e5, 2.e4 Nc6 transposes into my 1.e4 line: after 2.e4 most replies are 2...Nc6
+  const fen = fenAfter(START, ["Nf3", "e5"]);
+  setEx("Nf3 e5 e4", 1000, 400, 100, 500, [mv("Nc6", 900, 360, 90, 450), mv("d6", 100, 40, 10, 50)]);
+  const m = fitFor(fen, { san: "e4" }, ["Nf3", "e5"]);
+  eq(m && m.transP >= 0.85, true, JSON.stringify(m));
+  eq(/Fits your prep: <b>\d+%<\/b>/.test(fitLine(fen, { san: "e4" }, ["Nf3", "e5"])), true);
+});
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3");
