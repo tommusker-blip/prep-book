@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09v", date: "9 Nov 2026", title: "Fewer pop-ups in Build",
+    items: [
+      "The dark messages at the bottom of Build are gone for things you can already see: going to a gap, removing a move, saving an explored line, every reply being prepared, and the rating bands following your chess.com rating.",
+      "They still appear when something goes wrong (the engine or Lichess), or when Gap › has nowhere to go.",
+    ],
+  },
+  {
     id: "2026-11-09u", date: "9 Nov 2026", title: "Masters next to your peers",
     items: [
       "Build's Played and Score columns now show masters too: your peers' figure on top, and a grey M line under it from the Lichess masters database.",

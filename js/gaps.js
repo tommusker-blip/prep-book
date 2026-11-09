@@ -74,8 +74,6 @@ function jumpToGap(id, list = rankedGaps()) {
   gapLast = g.id;
   S.build[S.color] = g.opp ? g.path.concat(g.opp) : g.path.slice();
   renderBuild();
-  const { line } = gapLabel(g);
-  toast(`Gap ${list.indexOf(g) + 1} of ${list.length}${line ? ": " + line : ""}`);
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
 }
 

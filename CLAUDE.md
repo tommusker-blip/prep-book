@@ -468,7 +468,8 @@ and accuracy into their own table, with one row per game.
     are chosen by `pickReply()` in `js/practice.js`: frequency × need ×
     coverage × recency.
 - Promotion always makes a queen.
-- Errors are shown as toasts, and there is no offline queue beyond
+- Errors are shown as toasts (since v0.9.21 Build only uses them for errors and "no gaps found",
+  not for things already visible on screen), and there is no offline queue beyond
   `localStorage`.
 
 ## Suggestion logic (v0.6)

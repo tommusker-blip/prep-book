@@ -153,7 +153,7 @@ async function autoOpponent(path) {
   if (!cachedExplorer(fen) && S.token && !explorerBlocked) await Promise.race([explorer(fen, { prio: PRIO.now }).catch(() => null), new Promise(r => setTimeout(r, 8000))]);
   if (!same()) return done();
   const p = mode === "gap" ? gapReply(path) : pickOpp(fen, key, rep().pos[key], mode);
-  if (!p) { done(); if (mode === "gap" && cachedExplorer(fen)) toast("Every common reply here is prepared: pick one to carry on."); return; }
+  if (!p) { done(); return; } // nothing to play: every common reply is prepared, as the rows show
   setTimeout(() => { if (same()) { autoPending = null; goMove(p.san); } else done(); }, 250);
 }
 
@@ -260,7 +260,7 @@ function exploreSave(whole) {
   const done = how => {
     saveLine(moves, how);
     if (!whole) S.buildMode = "commit";
-    toast(whole ? `Saved the line (${moves.length} moves) to your repertoire.` : "Saved up to here. You're building again: moves are saved.");
+    // no message: the board's orange edge going away shows the mode changed
     renderBuild();
   };
   if (!conflicts.length) return done("add");
@@ -336,7 +336,7 @@ function showAddOrReplace(newSan, have) {
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("jump", d => { S.build[S.color] = curPath().slice(0, +d.jump); renderBuild(); });
 onClick("go", d => goMove(d.go));
-onClick("remove", d => { removeMove(curPath(), d.remove); Store.save(repDoc(S.color)); renderBuild(); toast("Removed " + d.remove + " and the line after it."); });
+onClick("remove", d => { removeMove(curPath(), d.remove); Store.save(repDoc(S.color)); renderBuild(); });
 onClick("addopt", d => commitBuildMove(d.addopt));
 onClick("replace", d => commitBuildMove(d.replace, d.old), true);
 onClick("cancel", d => renderBuild(), true);

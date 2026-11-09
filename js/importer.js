@@ -15,7 +15,7 @@ async function fetchRating(force = false) {
     const want = bandsFor(rating);
     if (S.settings.bandAuto !== false && want.join(",") !== S.settings.band.join(",")) {
       S.settings.band = want;
-      toast(`Lichess rating bands set to ${bandLabel(want)} to match your chess.com rapid rating (${rating}).`);
+      // no message: Settings shows the bands and why
     }
     Store.save("settings");
     if (S.view === "settings") renderSettings();

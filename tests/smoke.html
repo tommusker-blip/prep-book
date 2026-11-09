@@ -375,7 +375,7 @@ f.onload = () => {
       L("opponent rows after 1.e4: " + rowText());
       // Gap ›: jumps to the next gap and says which one (the Gaps tab moved to Settings in v0.9.8)
       d.querySelector("#quickGap").click();
-      L("after Gap ›: at " + (G("S").build.white.join(" ") || "start") + " | toast: " + d.querySelector("#toast").textContent);
+      L("after Gap ›: at " + (G("S").build.white.join(" ") || "start"));
       d.querySelector('[data-gapmode="impact"]').click();
       L("rating impact mode: " + G("S").settings.gapMode + " | pressed: " + d.querySelector('[data-gapmode="impact"]').getAttribute("aria-pressed"));
       d.querySelector('[data-gapmode="freq"]').click();
