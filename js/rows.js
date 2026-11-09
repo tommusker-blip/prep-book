@@ -253,20 +253,24 @@ function positionSummary(fen, key, ex) {
   }
   return parts.length ? `<p class="possum">${parts.join(" · ")}${tip.length ? " " + info(tip.join(" "), "About this position") : ""}</p>` : "";
 }
-/* ----- unplayable moves (v0.9.1) -----
-   At a club player's level a move that leaves me worse than adv().unplayable (default 1.5 pawns)
-   isn't worth showing on my turn. Kept anyway: my repertoire moves, a gambit (the position after
-   it has "Gambit" in its opening name), and moves close to the engine's best (when every move
-   is bad, the least bad ones still show). Opponent moves always show. */
+/* ----- weak moves are hidden on my turn (v0.9.1, v0.9.12) -----
+   On my turn a move isn't shown when it's more than the mistake margin worse than the best
+   (dubious or bad), or leaves me worse than adv().unplayable. Kept anyway: my repertoire moves,
+   gambits (the position after it has "Gambit" in its opening name) and hidden gems (they score
+   well at my level): those are the "interesting" !? moves. Opponent moves always show. */
 const showWeak = new Set(); // positions where I asked to see the hidden moves
 function isGambit(fen, san) {
   const after = fenAfter(fen, [san]), o = after && typeof OPENINGS !== "undefined" && OPENINGS[K(after)];
   return !!(o && /gambit/i.test(o[1]));
 }
-function unplayable(fen, key, c) {
+function unplayable(fen, key, c, ex = cachedExplorer(fen)) {
   if (c.prep) return false;
-  const e = engineFor(fen, key, c.san);
-  return !!(e && e.mine < -adv().unplayable && (e.loss == null || e.loss > adv().good) && !isGambit(fen, c.san));
+  const e = engineFor(fen, key, c.san), a = adv();
+  if (!e || e.loss == null) return false;
+  const weak = e.loss > a.mistake || (e.mine < -a.unplayable && e.loss > a.good);
+  if (!weak || isGambit(fen, c.san)) return false;
+  const n = rep(S.color).pos[key];
+  return !(c.peer && ex && ex.total && judgeMove(c.peer, ex, S.color, n ? n.m : []));
 }
 function candRows(fen, key, n, path) {
   const ex = cachedExplorer(fen), all = candidates(fen, key, n);
@@ -275,13 +279,13 @@ function candRows(fen, key, n, path) {
   queueFollowups(fen, key, all);
   if (!all.length) return positionSummary(fen, key, ex) + `<p class="help">${S.token ? "Loading what players at your level play here…" : "Play a move on the board, or add a Lichess token in Settings to see what players at your level play."}</p>`;
   const myTurn = isMine(key, S.color);
-  const weak = myTurn ? all.filter(c => unplayable(fen, key, c)) : [], showing = showWeak.has(key);
+  const weak = myTurn ? all.filter(c => unplayable(fen, key, c, ex)) : [], showing = showWeak.has(key);
   const list = showing ? all : all.filter(c => !weak.includes(c));
   // Best to worst by the engine: the loss against the best move here, for whoever is moving.
   // Moves without an eval yet go last, in the order above (prepared, then most played).
   const lossOf = c => { const e = engineFor(fen, key, c.san); return e && e.loss != null ? e.loss : null; };
   list.sort((a, b) => { const x = lossOf(a), y = lossOf(b); if (x == null || y == null) return (x == null) - (y == null) || a.rank - b.rank; return x - y || a.rank - b.rank; });
-  const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
+  const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} weak move${weak.length === 1 ? "" : "s"}` : `${weak.length} weak move${weak.length === 1 ? "" : "s"} hidden (${weak.map(c => esc(c.san)).join(", ")}): over ${(adv().mistake / 100).toFixed(1)} worse than the best, or leaving you below −${(adv().unplayable / 100).toFixed(1)}`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
   return positionSummary(fen, key, ex) + `<div class="cands">
       <div class="crow chead c5"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span><span>Tags</span></div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
@@ -344,23 +348,18 @@ function gameMovesHere(key, color = S.color) {
   return list.filter(x => x.n >= 2 && x.n / total >= 0.15).sort((a, b) => b.n - a.n).slice(0, 3).map(x => ({ ...x, f: x.n / total }));
 }
 /* ----- marks and tags (v0.9.11) -----
-   The mark on the move is the chess annotation for whoever is moving, from the engine loss
-   against the best move: ! strong (within the good margin), none for playable, ?! weak (beyond
-   the mistake margin), ? bad (beyond twice that), and !? for a move the engine rates weak that
-   is a gambit or scores well at my level. */
+   One mark only (v0.9.12): !? on a move the engine likes less (over half the mistake margin
+   worse than the best) that is a gambit or scores well at my level. Dubious and bad moves are
+   hidden on my turn instead (unplayable()). */
 function moveMark(e, interesting) {
-  if (!e || e.loss == null) return { s: "", k: "", t: "" };
-  const a = adv();
-  if (e.loss <= a.good) return { s: "!", k: "m-good", t: "strong" };
-  if (e.loss <= a.mistake) return { s: "", k: "", t: "playable" };
-  if (interesting) return { s: "!?", k: "m-int", t: "interesting: weak for the engine, but a gambit or it scores well" };
-  return e.loss > 2 * a.mistake ? { s: "?", k: "m-bad", t: "bad" } : { s: "?!", k: "m-bad", t: "dubious" };
+  if (!e || e.loss == null || !interesting || e.loss <= adv().mistake / 2) return { s: "", k: "", t: "" };
+  return { s: "!?", k: "m-int", t: "interesting: the engine likes it less, but it's a gambit or it scores well" };
 }
-// The Tags column: ⚔ practical weapon, 💎 hidden gem / scores well, 🃏 gambit, ⇄ transposes
+// The Tags column: ⚔ practical weapon, 💎 hidden gem / scores well, 🎲 gambit, ⇄ transposes
 // into my prep, ⚠ the sources disagree against me. At most two symbols in the row; all of them,
 // in words, in the expanded row.
 const TAGS = {
-  weapon: { s: "⚔", t: "Practical weapon" }, gem: { s: "💎", t: "Hidden gem" }, gambit: { s: "🃏", t: "Gambit" },
+  weapon: { s: "⚔", t: "Practical weapon" }, gem: { s: "💎", t: "Hidden gem" }, gambit: { s: "🎲", t: "Gambit" },
   trans: { s: "⇄", t: "Transposes into your prep" }, warn: { s: "⚠", t: "Watch out" },
 };
 function rowTags(o) {
@@ -369,7 +368,7 @@ function rowTags(o) {
   if (o.gem) list.push(["gem", `💎 ${esc(o.gem)}.`]);
   if (o.warn) list.push(["warn", `⚠ ${esc(o.warn)}.`]);
   if (o.trans) list.push(["trans", "⇄ Leads into a position you've already prepared, by another move order."]);
-  if (o.gambit) list.push(["gambit", "🃏 A gambit: material for time or attack."]);
+  if (o.gambit) list.push(["gambit", "🎲 A gambit: material for time or attack."]);
   const shown = list.slice(0, 2);
   return {
     html: shown.map(([k]) => `<span class="tag t-${k}" aria-label="${TAGS[k].t}">${TAGS[k].s}</span>`).join("") + (list.length > 2 ? `<span class="tag more" aria-label="more tags">+</span>` : ""),
@@ -386,14 +385,12 @@ function rowsLegend(myTurn, ex) {
       <p><span class="sw sw-prep"></span>${myTurn ? "In your repertoire" : "A reply you've prepared"}</p>
       ${myTurn ? "" : `<p><span class="sw sw-gap"></span>A gap: a reply you haven't prepared</p>`}
       <p><span class="sw sw-trans"></span>Transposes into a position you've prepared</p>
-      <p class="rk-h">Marks on the move (for whoever is moving)</p>
-      <p><b class="mark m-good">!</b> strong: within ${p(a.good)} of the best · no mark: playable</p>
-      <p><b class="mark m-bad">?!</b> dubious: over ${p(a.mistake)} worse · <b class="mark m-bad">?</b> bad: over ${p(2 * a.mistake)} worse</p>
-      <p><b class="mark m-int">!?</b> interesting: weak for the engine, but a gambit or it scores well</p>
+      <p class="rk-h">Mark</p>
+      <p><b class="mark m-int">!?</b> interesting: the engine likes it less, but it's a gambit or it scores well at your level${myTurn ? ". Weaker moves of yours are hidden (Show brings them back)" : ""}</p>
       <p class="rk-h">Tags</p>
       ${myTurn ? `<p><span class="tag">💎</span> hidden gem: rarely played, or the engine likes it less, but it scores well at your level</p>
       <p><span class="tag">⚔</span> practical weapon: your opponent has only 1 or 2 good replies and often misses them (after Deeper analysis)</p>` : ""}
-      <p><span class="tag">🃏</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
+      <p><span class="tag">🎲</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
       <p class="rk-h">Columns</p>
       <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
       <p><b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""} · <b>Score</b> your colour's score after it · <b>You</b> your games · your score</p>

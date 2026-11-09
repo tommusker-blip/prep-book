@@ -446,17 +446,20 @@ async function jobTests() {
 }
 
 /* ----- gaps: frequency vs rating impact (item 4) ----- */
-t("rows: on my turn, moves worse than −1.5 are hidden unless prepared or a gambit", () => {
+t("rows: on my turn, weak moves are hidden unless prepared, a gambit or a gem", () => {
   S.color = "white"; S.settings.adv = undefined;
   const fen = fenAfter(START, ["e4", "e5"]), key = K(fen), set = (san, cp) => (EVALC[K(fenAfter(fen, [san]))] = { cp, d: 14 });
   EVALC[key] = { cp: 30, d: 14 };
-  set("Ke2", 200); set("f4", 200); set("Nf3", -30); set("Qh5", 120);
+  set("Ke2", 200); set("f4", 200); set("Nf3", -30); set("Qh5", 120); set("Bb5", 100);
   eq(unplayable(fen, key, { san: "Ke2", prep: false }), true, "−2.0: hidden");
   eq(unplayable(fen, key, { san: "f4", prep: false }), false, "King's Gambit: shown");
   eq(unplayable(fen, key, { san: "Ke2", prep: true }), false, "my repertoire move: shown");
   eq(unplayable(fen, key, { san: "Qh5", prep: false }), false, "−1.2: shown");
   eq(unplayable(fen, key, { san: "Nf3", prep: false }), false);
-  for (const s of ["Ke2", "f4", "Nf3", "Qh5"]) delete EVALC[K(fenAfter(fen, [s]))];
+  eq(unplayable(fen, key, { san: "Bb5", prep: false }), false, "1.3 worse than the best: shown (playable)");
+  set("Bb5", 160);
+  eq(unplayable(fen, key, { san: "Bb5", prep: false }), true, "1.9 worse than the best, though only −1.6: hidden");
+  for (const s of ["Ke2", "f4", "Nf3", "Qh5", "Bb5"]) delete EVALC[K(fenAfter(fen, [s]))];
   delete EVALC[key];
 });
 t("rows: the eval is from White's side whoever I play, coloured by strength", () => {
@@ -602,9 +605,9 @@ t("catalogue: removing an entry takes out its line, and Undo puts it back", () =
 });
 t("rows: marks on the move, tags, and transpositions", () => {
   reset(); resetEx(); S.color = "white"; S.settings.adv = undefined;
-  eq(moveMark({ loss: 20 }).s, "!"); eq(moveMark({ loss: 100 }).s, ""); eq(moveMark({ loss: 200 }).s, "?!");
-  eq(moveMark({ loss: 400 }).s, "?"); eq(moveMark({ loss: 200 }, true).s, "!?", "weak but a gambit or a gem");
-  eq(rowTags({ gambit: true, trans: true, weapon: false }).html.includes("🃏"), true);
+  eq(moveMark({ loss: 20 }).s, ""); eq(moveMark({ loss: 200 }).s, "", "only !? is used"); eq(moveMark({ loss: 20 }, true).s, "", "a gambit the engine is happy with is just good");
+  eq(moveMark({ loss: 200 }, true).s, "!?", "weak but a gambit or a gem");
+  eq(rowTags({ gambit: true, trans: true, weapon: false }).html.includes("🎲"), true);
   line("white", "e4 e5 Nf3"); line("white", "Nf3 e5");
   // After 1.Nf3 e5 I have no move yet, but 2.e4 reaches 1.e4 e5 2.Nf3, which is in my tree
   const fen = fenAfter(START, ["Nf3", "e5"]), key = K(fen);

@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09q", date: "9 Nov 2026", title: "Simpler move marks",
+    items: [
+      "Gambits are now marked with 🎲, which shows clearly on phones.",
+      "Only one mark is left on the moves: !? for an interesting move, one the engine likes less but that's a gambit or scores well at your level.",
+      "On your turn, dubious and bad moves are hidden: anything more than 1.5 worse than the best move, as well as moves that leave you below −1.5. Gambits, hidden gems and your own repertoire moves still show, and Show brings the rest back.",
+    ],
+  },
+  {
     id: "2026-11-09p", date: "9 Nov 2026", title: "Clearer move rows: a key, marks and symbols",
     items: [
       "Each row now shows its state across the whole row: blue for your repertoire or a prepared reply, orange for a gap, and a dashed blue outline for a move that transposes into a position you've already prepared.",
