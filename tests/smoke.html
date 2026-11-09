@@ -354,6 +354,18 @@ f.onload = () => {
       L(`scan done: ${d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim()} | requests=${calls.length} min gap=${Math.min(...gaps)}ms`);
       L("sections: " + [...d.querySelectorAll("#sugOut h4")].map(h => h.textContent).join(" / "));
       L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
+      // v0.9.10: act on a suggestion without going through Build
+      const myAt = () => w.eval('(rep("white").pos[K(fenAfter(START, ["e4","e5"]))] || { m: [] }).m.join(",")');
+      L("gem actions: " + [...d.querySelectorAll('#sugOut .sugacts')].map(x => x.textContent.replace(/\s+/g, " ").trim()).join(" / ") + " | my moves: " + myAt());
+      const act = t => [...d.querySelectorAll("#sugOut [data-sugact]")].find(b => b.textContent.startsWith(t));
+      act("Add as an option").click();
+      L("after Add: " + myAt() + " | " + d.querySelector("#sugOut .catwhen").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector("#sugOut [data-sugundo]").click();
+      L("after Undo: " + myAt());
+      act("Replace").click();
+      L("after Replace: " + myAt() + " | Nf3 line pruned: " + !w.eval('rep("white").pos[K(fenAfter(START, ["e4","e5","Nf3"]))]'));
+      d.querySelector("#sugOut [data-sugundo]").click();
+      L("after Undo: " + myAt());
       d.querySelector('#sugOut [data-sug^="gems"]').click();
       const rowText = () => [...d.querySelectorAll("#prompt .cand")].map(r => r.querySelector(".crow").textContent.replace(/\s+/g, " ").trim()).join(" | ");
       L("gem opens: view=" + G("S").view + " " + G("S").build.white.join(" ") + " | rows: " + rowText());

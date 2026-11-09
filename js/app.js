@@ -638,7 +638,7 @@ function renderSuggest() {
       <ol class="gaplist">${shown.map((r, i) => `<li>${fmt(r, i)}</li>`).join("")}</ol>
       ${rows.length > shown.length ? `<button type="button" class="btn ghost" data-more="${id}">Show more</button>` : ""}`;
   };
-  const row = (id, i, title, line, detail) => `<button type="button" class="gap-row" data-sug="${id}:${i}"><span class="gt">${title}</span><span class="gl mono">${esc(line || "start")}</span><span class="gd">${detail}</span></button>`;
+  const row = (id, i, title, line, detail) => `<div class="sugrow"><button type="button" class="gap-row" data-sug="${id}:${i}"><span class="gt">${title}</span><span class="gl mono">${esc(line || "start")}</span><span class="gd">${detail}</span></button>${["memorable", "trick", "gems", "better"].includes(id) ? sugActs(id, i, s[id][i]) : ""}</div>`;
   const ti = treeIdeas();
   s.memorable = ti.memorable; s.trick = ti.trick;
   const html =
@@ -655,7 +655,7 @@ function renderSuggest() {
     section("struct", "Same pawn structure", "Named openings that reach the same pawn structure as one of your lines, so your plans carry over.", s.struct,
       (r, i) => `<div class="gap-row"><span class="gt">${esc(r.eco)} ${esc(r.name)}</span><span class="gd">Same pawns as your ${esc(r.myName || "line")}: <span class="mono">${esc(r.mine.join(" "))}</span></span>
         <span class="row" style="margin-top:4px"><button type="button" class="btn ghost" data-sug="struct:${i}">Go to your line</button><a class="btn ghost" href="${lichessAnalysis(r.key)}" target="_blank" rel="noopener">Open on Lichess</a></span></div>`);
-  out.innerHTML = html || `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree to look for suggestions." : "No suggestions with the current thresholds. You can change them in Settings."}</p>`;
+  out.innerHTML = sugUndoNote() + (html || `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree to look for suggestions." : "No suggestions with the current thresholds. You can change them in Settings."}</p>`);
   out._s = s;
 }
 function onScanTick(finished) {
@@ -1564,6 +1564,8 @@ async function boot() {
     else if (d.ideas === "here") findIdeasHere();
     else if (d.ideas === "tree") findIdeasInTree(S.color, onIdeaTick);
     else if (d.more) { sugOpen[d.more] += 10; renderSuggest(); }
+    else if (d.sugact) onSugAct(d.sugact);
+    else if ("sugundo" in d) undoSugAct();
     else if (d.sug) {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
       S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 });
@@ -1690,3 +1692,40 @@ async function boot() {
   setView("build");
 }
 boot();
+/* ----- acting on a suggestion (v0.9.10) -----
+   Gems, better-scoring alternatives, tricks and easy-to-remember moves are all a move of mine
+   at one of my positions. Each gets Add as an option, and Replace <my move> for every move I
+   have there (addMove() with `replaces`; the old move's line is pruned by walk(), its card is
+   reset). A copy of the repertoire is kept for Undo while nothing else has changed. */
+let sugUndo = null;
+const sugMove = (id, r) => (id === "memorable" || id === "trick" ? r.c.san : r.san);
+function sugActs(id, i, r) {
+  const path = r.path, san = sugMove(id, r), n = rep(S.color).pos[K(fenAfter(START, path))], mine = n ? n.m : [];
+  if (mine.includes(san)) return `<span class="help sugin">In your repertoire</span>`;
+  return `<span class="row sugacts">${mine.map((m, j) => `<button type="button" class="btn ghost quick" data-sugact="${id}:${i}:${j}">Replace ${esc(m)}</button>`).join("")}<button type="button" class="btn ghost quick" data-sugact="${id}:${i}:add">${mine.length ? "Add as an option" : "Add to my repertoire"}</button></span>`;
+}
+function onSugAct(spec) {
+  const [id, i, how] = spec.split(":"), r = $("#sugOut")._s[id][+i];
+  if (!r) return;
+  const color = S.color, R = rep(color), path = r.path, san = sugMove(id, r);
+  const n = R.pos[K(fenAfter(START, path))], old = how === "add" ? null : n && n.m[+how];
+  const snap = { color, book: S.book, pos: JSON.parse(JSON.stringify(R.pos)), cards: JSON.parse(JSON.stringify(R.cards)) };
+  const res = addMove(path, san, color, old);
+  if (res === "same") return;
+  walk(color);
+  Store.save(repDoc(color));
+  sugUndo = { ...snap, after: walk(color).sig, text: old ? `Replaced ${moveLabel(path, old)} with ${moveLabel(path, san)}` : `Added ${moveLabel(path, san)} as ${n && n.m.length > 1 ? "another option" : "your move"}` };
+  renderSuggest();
+}
+function undoSugAct() {
+  const u = sugUndo;
+  if (!u || u.book !== S.book || walk(u.color).sig !== u.after) return;
+  const R = rep(u.color);
+  R.pos = u.pos; R.cards = u.cards;
+  walk(u.color);
+  Store.save(repDoc(u.color));
+  sugUndo = null;
+  renderSuggest();
+}
+const sugUndoNote = () => (sugUndo && sugUndo.book === S.book && sugUndo.color === S.color && walk(S.color).sig === sugUndo.after
+  ? `<p class="help catwhen" role="status">${esc(sugUndo.text)}. <button type="button" class="btn ghost quick" data-sugundo>Undo</button></p>` : "");

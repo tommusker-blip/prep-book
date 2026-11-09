@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09o", date: "9 Nov 2026", title: "Act on suggestions directly",
+    items: [
+      "Openings → Suggestions: hidden gems, better-scoring alternatives, practical tricks and easy-to-remember moves now have buttons to Replace your move with the suggestion, or Add it as another option, without going to Build.",
+      "Replacing a move also takes out the line that followed it. Undo straight after puts everything back.",
+      "Moves already in your repertoire say so. Tap the suggestion itself to look at it in Build first.",
+    ],
+  },
+  {
     id: "2026-11-09n", date: "9 Nov 2026", title: "Suggestions move to the Openings page",
     items: [
       "The Whole tree tab has moved out of Build to the Openings page, as Suggestions next to Your openings: a review of your whole repertoire in one place.",

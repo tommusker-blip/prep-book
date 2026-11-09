@@ -116,6 +116,9 @@ when it loads; the others just define things.
   `refreshBuild()`, which only redraws the move rows and the arrows (`BB.setArrows()`).
   Suggestions (Openings > Suggestions, `S.otab`, `showOpeningsTab()`) only redraw while that tab
   is showing (`sidePanes()`/`sideSoon()`, `sugShowing()`); a suggestion opens in Build.
+  v0.9.10: gems, better alternatives, tricks and easy-to-remember rows have Replace <my move> /
+  Add as an option (`sugActs()`, `onSugAct()`: `addMove()` with `replaces`), with Undo
+  (`sugUndo`, only while the tree hasn't changed since).
   `buildState()` cuts a path that no longer plays out back to its legal start.
 - Board (`Board()` in `app.js`): tap-to-move and drag-and-drop (pointer
   events). It redraws only when what it shows changes, keeps a selected piece
