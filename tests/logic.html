@@ -25,6 +25,8 @@
 <script src="../js/report.js"></script>
 <script src="../js/autobuild.js"></script>
 <script src="../js/catalogue.js"></script>
+<script src="../js/structures.js"></script>
+<script src="../js/idealines.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -477,6 +479,61 @@ t("catalogue: groups the tree by named lines and main splits, with numbers for e
   eq(every.every(c => c.depth <= CAT_DEPTH && typeof c.comment === "string" && c.stats.cover >= 0 && c.stats.cover <= 1), true);
   eq(every.some(c => c.children.length === 1 && c.children[0].named && c.children[0].reach >= 0.9 * c.reach && c.named), false, "single named children are folded");
 });
+t("structures: common pawn structures are recognised", () => {
+  const at = l => { const f = fenAfter(START, l.split(" ")); const s = structureOf(f); return s ? s.id : null; };
+  eq(at("e4 e6 d4 d5 e5 c5 c3 Nc6"), "french");
+  eq(at("e4 c6 d4 d5 e5 Bf5"), "caro-adv");
+  eq(at("d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5"), "carlsbad");
+  eq(at("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5"), "kid");
+  eq(at("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6"), "dragon");
+  eq(at("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5"), "sic-e5");
+  eq(at("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3"), "spanish");
+  eq(at("d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 cxd4 Nxd4"), "iqp-b");
+  eq(at("e4 e5 Nf3"), null);
+});
+t("idea lines: key moments are the structure's breaks, pawn levers and regroupings", () => {
+  const l = describeIdeaLine("black", "e4 e6 d4 d5 e5".split(" "), "c5 c3 Nc6 Nf3 Qb6 a3 c4 Nbd2 Na5".split(" "), Array(9).fill("masters"));
+  eq(l.structure, "french");
+  eq(l.moments[0].san, "c5", JSON.stringify(l.moments));
+  eq(/typical in this structure/.test(l.moments[0].why), true);
+  eq(l.moments.length <= 3 && l.moments.every(m => m.j % 2 === 0), true, "only my (Black's) moves");
+});
+async function ideaLineTests() {
+  await at("idea lines: built from masters moves, fall back, and stop when sources run out", async () => {
+    const realEx = explorer, realAn = Engine.analyse, realFailed = Engine.failed;
+    const script = "c5 c3 Nc6 Nf3 Qb6 a3".split(" ");
+    const startLen = 5;
+    explorer = async (fen, opts) => {
+      const ply = +fen.split(" ")[5] * 2 - (fen.split(" ")[1] === "w" ? 2 : 1); // plies played
+      const k = ply - startLen;
+      if (opts.src === "masters" && k >= 0 && k < script.length) return { total: 100, moves: [{ san: script[k], n: 60 }, { san: "h6", n: 1 }] };
+      return { total: 0, moves: [] };
+    };
+    Engine.failed = false;
+    Engine.analyse = async () => ({ cp: 0, best: null, d: 12 });
+    try {
+      IL.stop = false;
+      const line = await buildIdeaLine("black", "e4 e6 d4 d5 e5".split(" "));
+      eq(line.moves, script);
+      eq(line.src.every(s => s === "masters"), true);
+      eq(line.structure, "french");
+      eq(line.moments[0].san, "c5");
+    } finally { explorer = realEx; Engine.analyse = realAn; Engine.failed = realFailed; }
+  });
+  await at("idea lines: targets are where prep ends in lines my games reach, worst accuracy after book first", async () => {
+    reset(); GAMEKEYS.clear();
+    line("white", "e4 e5 Nf3 Nc6 Bc4"); line("white", "e4 c5 Nf3");
+    const mk = (id, moves, post) => ({ id, my: "white", result: "1-0", moves });
+    S.games = [mk("a", "e4 e5 Nf3 Nc6 Bc4 Bc5"), mk("b", "e4 e5 Nf3 Nc6 Bc4 Nf6"), mk("c", "e4 c5 Nf3 d6"), mk("d", "e4 c5 Nf3 Nc6")];
+    S.acc = { a: { v: 2, post: [90] }, b: { v: 2, post: [88] }, c: { v: 2, post: [50] }, d: { v: 2, post: [40] } };
+    igMemo = { sig: "", sets: [] };
+    const t0 = ideaTargets("white");
+    eq(t0.map(x => x.path.join(" ")), ["e4 c5 Nf3", "e4 e5 Nf3 Nc6 Bc4"]);
+    eq([t0[0].n, t0[0].post], [2, 45]);
+    eq(ideaTargets("white", "e4 e5").map(x => x.path.join(" ")), ["e4 e5 Nf3 Nc6 Bc4"], "only under the entry");
+    S.games = []; S.acc = {}; igMemo = { sig: "", sets: [] };
+  });
+}
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3");
@@ -666,7 +723,7 @@ t("practice: a chosen starting position is used, and falls back to the start if 
   S.settings.practiceRoot = undefined;
 });
 
-jobTests().then(() => {
+jobTests().then(ideaLineTests).then(() => {
   const fails = results.filter(r => r.startsWith("FAIL")).length;
   document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
   document.title = fails ? "FAIL" : "PASS";

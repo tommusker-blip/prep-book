@@ -22,7 +22,8 @@ function bandsFor(cc) {
   return est - b < 100 && b > BANDS[0] ? [b - 200, b] : [b, Math.min(b + 200, top)];
 }
 const bandLabel = band => { const lo = Math.min(...band), hi = Math.max(...band); return `${lo}–${hi === 2500 ? "2500+" : hi + 199}`; };
-function cachedExplorer(fen) { return EXPL[K(fen) + "|" + bandKey()] || null; }
+// src: my rating bands (default), "masters" (the Lichess masters database) or another band ("2200,2500")
+function cachedExplorer(fen, src = bandKey()) { return EXPL[K(fen) + "|" + src] || null; }
 function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeout(() => lsSet("pb_expl", EXPL), 1500); }
 
 // Lookups run in the job queue's "net" lane (G3), one at a time and about a second apart, so
@@ -30,15 +31,18 @@ function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeou
 // Resolves to the data, or {error: "auth" | "rate" | "http" | "net"}; rejects with Jobs.STALE
 // if the request went stale while waiting.
 function fetchExplorer(fen, opts = {}) {
-  const hit = cachedExplorer(fen);
+  const src = opts.src || bandKey();
+  const hit = cachedExplorer(fen, src);
   if (hit) return Promise.resolve(hit);
   return Jobs.add("net", async () => {
-    const again = cachedExplorer(fen);
+    const again = cachedExplorer(fen, src);
     if (again) return again;
     const wait = explNext - Date.now();
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
     explNext = Date.now() + EXPL_GAP;
-    const url = `https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid&ratings=${bandKey()}&moves=20&topGames=0&recentGames=0&fen=${encodeURIComponent(fen)}`;
+    const url = src === "masters"
+      ? `https://explorer.lichess.ovh/masters?moves=12&topGames=0&fen=${encodeURIComponent(fen)}`
+      : `https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid&ratings=${src}&moves=20&topGames=0&recentGames=0&fen=${encodeURIComponent(fen)}`;
     let r;
     try { r = await fetch(url, { headers: { Authorization: "Bearer " + S.token } }); }
     catch (e) { return { error: "net" }; }
@@ -50,18 +54,19 @@ function fetchExplorer(fen, opts = {}) {
       total: d.white + d.draws + d.black, w: d.white, d: d.draws, b: d.black,
       moves: (d.moves || []).map(m => ({ san: m.san, n: m.white + m.draws + m.black, w: m.white, d: m.draws, b: m.black })),
     };
-    EXPL[K(fen) + "|" + bandKey()] = small;
+    EXPL[K(fen) + "|" + src] = small;
     explVer++;
     const keys = Object.keys(EXPL);
     if (keys.length > EXPL_MAX) for (const k of keys.slice(0, keys.length - EXPL_MAX + 200)) delete EXPL[k];
     saveExplSoon();
     return small;
-  }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + bandKey(), stale: opts.stale || null });
+  }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + src, stale: opts.stale || null });
 }
 // Cached data, or fetch it. Returns null when there's no token, Lichess can't be used, or the
 // request went stale.
 async function explorer(fen, opts = {}) {
-  const hit = cachedExplorer(fen);
+  const src = opts.src || bandKey();
+  const hit = cachedExplorer(fen, src);
   if (hit) return hit;
   if (!S.token || explorerBlocked) return null;
   let d;

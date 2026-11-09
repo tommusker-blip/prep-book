@@ -64,6 +64,46 @@ f.onload = () => {
       L("Train this line: view=" + G("S").view + " mode=" + G("T").mode + " root=" + G("T").root.join(" "));
       L("DONE");
     })();
+    if (mode === "idea") (async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const until = async (cond, ms = 15000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(50); return cond(); };
+      w.eval(`S.color = "black"; S.settings.autoOpp = "off";
+        for (const l of ["e4 e6 d4 d5 e5", "e4 e6 d4 d5 Nc3 Nf6"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "black"); p.push(m); } }
+        walk("black");
+        const l = describeIdeaLine("black", "e4 e6 d4 d5 e5".split(" "), "c5 c3 Nc6 Nf3 Qb6 a3 c4 Nbd2 Na5".split(" "), Array(9).fill("masters"));
+        l.n = 7; l.post = 61; IDEAL[l.id] = l;`);
+      const V = () => G("S").view, IVx = () => G("IV");
+      d.querySelector('[data-nav="train"]').click();
+      await until(() => d.querySelector("#ideaBody [data-idea]"));
+      L("train card: " + d.querySelector("#ideaBody").textContent.replace(/\s+/g, " ").trim().slice(0, 160));
+      d.querySelector("#ideaBody [data-idea]").click();
+      L("viewer: view=" + V() + " title=" + d.querySelector("#iTitle").textContent + " | structure: " + (d.querySelector("#iPlans h3") || {}).textContent);
+      L("at prep end: " + d.querySelector("#iNote .lbl, #iNote .help").textContent.trim() + " | arrows: " + G("IB").arrows.map(a => a.kind + ":" + a.from + a.to).join(" "));
+      L("moments marked in the list: " + [...d.querySelectorAll("#iLine .mv.moment")].map(b => b.textContent).join(" "));
+      d.querySelector('#iLine [data-ilply="2"]').click();
+      L("tap 1...e6 in the list: i=" + IVx().i + " note: " + d.querySelector("#iNote").textContent.trim().slice(0, 60));
+      d.querySelector("#iStart").click(); d.querySelector("#iFwd").click();
+      L("▶ from prep end: i=" + IVx().i + " note: " + d.querySelector("#iNote").textContent.replace(/\s+/g, " ").trim().slice(0, 70));
+      // Quiz: answer every key moment with the line's move
+      d.querySelector("#iNote [data-iquiz]").click();
+      const moments = IVx().line.moments.length;
+      for (let k = 0; k < moments; k++) {
+        await until(() => IVx().quiz && IVx().quiz.waiting);
+        const m = IVx().line.moments[IVx().quiz.k], fen = IVx().frames[IVx().i].fen;
+        const mv = w.eval(`(() => { const c = new Chess(${JSON.stringify(fen)}); return c.move(${JSON.stringify(m.san)}); })()`);
+        d.querySelector(`#iBoard [data-sq="${mv.from}"]`).click(); d.querySelector(`#iBoard [data-sq="${mv.to}"]`).click();
+        await until(() => IVx().quiz.last || IVx().mode === "done");
+        L(`moment ${k + 1}: ${m.san} → ${d.querySelector("#iNote .lbl").textContent}`);
+      }
+      await until(() => IVx().mode === "done");
+      L("quiz end: " + d.querySelector("#iNote .lbl").textContent + " | saved: " + JSON.stringify(IVx().line.quiz));
+      d.querySelector("#iClose").click();
+      L("Back returns to: " + V());
+      d.querySelector('[data-nav="openings"]').click();
+      await until(() => d.querySelector("#catBody details.cat"));
+      L("catalogue ideas: " + [...d.querySelectorAll("#catBody .ideablock")].map(b => b.textContent.replace(/\s+/g, " ").trim().slice(0, 90)).join(" || "));
+      L("DONE");
+    })();
     if (mode === "drag") (async () => {
       // v0.9: drag and drop, and a selected piece surviving background refreshes
       const sleep = ms => new Promise(r => setTimeout(r, ms));

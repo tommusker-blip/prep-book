@@ -401,6 +401,7 @@ function render() {
   if (S.view === "updates") renderUpdates();
   if (S.view === "report") renderReport();
   if (S.view === "openings") renderCatalogue();
+  if (S.view === "idea") renderIdea();
 }
 
 /* ----- build ----- */
@@ -840,6 +841,7 @@ function renderTrainHome() {
   $("#tRootReset").hidden = !root.length;
   $("#tLines").disabled = !cards.length;
   renderMistakeCard();
+  renderIdeaCard();
 }
 function startTraining() {
   let q = dueCards();
@@ -1568,6 +1570,13 @@ async function boot() {
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }
+    else if (d.idea) openIdeaLine(d.idea, S.view);
+    else if (d.ilfind) { startIdeaSearch(ideaTargets(S.color).filter(t => t.n >= 3 && !IDEAL[ideaId(S.color, t.path)]).slice(0, 5)); renderIdeaCard(); }
+    else if ("ideafind" in d) { startIdeaSearch(ideaTargets(S.color, d.ideafind).filter(t => !IDEAL[ideaId(S.color, t.path)]).slice(0, 3)); renderCatalogue(); }
+    else if ("ilstop" in d) IL.stop = true;
+    else if (d.ilply) ideaGo(+d.ilply);
+    else if ("iquiz" in d) startIdeaQuiz();
+    else if ("iquitquiz" in d) { IV.mode = "view"; IV.quiz = null; IV.token++; renderIdea(); }
     else if ("catbuild" in d) { S.build[S.color] = d.catbuild ? d.catbuild.split(" ") : []; setView("build"); window.scrollTo({ top: 0 }); }
     else if ("cattrain" in d) { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: d.cattrain ? d.cattrain.split(" ") : [] }; Store.save("settings"); setView("train"); startLines(); }
     else if (d.pz) onPuzzleChoice(d.pz);
@@ -1617,6 +1626,10 @@ async function boot() {
   // Catalogue: remember which entries are open across redraws
   $("#catBody").addEventListener("toggle", e => { const p = e.target.dataset && e.target.dataset.catpath; if (p == null) return; if (e.target.open) catOpen.add(p); else catOpen.delete(p); }, true);
   $("#pzBack").onclick = () => pzStep(-1);
+  $("#iBack").onclick = () => ideaGo(IV.i - 1);
+  $("#iFwd").onclick = () => ideaGo(IV.i + 1);
+  $("#iStart").onclick = () => ideaGo(IV.start);
+  $("#iClose").onclick = () => { IV.token++; setView(IV.back || "train"); };
   $("#pzFwd").onclick = () => pzStep(1);
   $("#pzHere").onclick = () => pzStep("start");
   $("#fetchBtn").onclick = fetchChessCom;

@@ -135,6 +135,7 @@ function renderCatalogue() {
       <div class="catbody">
         <p class="help">${esc(c.comment)}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
         <div class="row catbtns"><button type="button" class="btn ghost" data-catbuild="${esc(ps)}">Build</button><button type="button" class="btn ghost" data-cattrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train this line</button></div>
+        ${ideaBlock(ps, c.children.map(k => k.path.join(" ")))}
         ${c.children.length ? `<div class="catkids">${c.children.map(entry).join("")}</div>` : ""}
       </div>
     </details>`;

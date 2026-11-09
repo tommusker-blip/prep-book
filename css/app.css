@@ -484,3 +484,12 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .catbody{padding:0 12px 10px}
 .catbtns{margin:6px 0 4px}
 .catkids{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding-left:10px;border-left:2px solid var(--line)}
+
+/* ---------- idea lines (v0.9.5) ---------- */
+#iLine .mv.prep{color:var(--muted)}
+#iLine .mv.moment{box-shadow:inset 0 -2px 0 var(--good);font-weight:600}
+#iLine{max-height:6em;overflow-y:auto}
+.plans{margin:2px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px;font-size:.88rem}
+.ideablock{margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--line)}
+.ideablock .gaplist{margin:4px 0 6px}
+#ideaBody .gaplist,.ideablock .gaplist{display:flex;flex-direction:column;gap:6px;padding:0;list-style:none}

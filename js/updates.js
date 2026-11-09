@@ -5,6 +5,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09j", date: "9 Nov 2026", title: "Idea lines: deeper lines with the plan behind them",
+    items: [
+      "New on the Train page, Ideas worth learning: deeper model lines from where your prep ends, in the lines your games actually reach, worst accuracy after book first.",
+      "The moves are what masters play most (Lichess masters database; strong Lichess games where masters run out), checked by Stockfish.",
+      "Each line names its pawn structure (French advance chain, Carlsbad, Maroczy bind and about 20 more) with the usual plans for both sides, and marks the two or three moves that carry the idea in blue.",
+      "Step through it with ◀ ▶ or the move list, or tap Quiz me: the line plays itself and stops at each key moment for you to find the move.",
+      "Also in the Openings tab: each entry has its typical ideas, and a button to find some for that line.",
+      "Idea lines are separate: they're never added to your repertoire or training cards, and Build is unchanged.",
+    ],
+  },
+  {
     id: "2026-11-09i", date: "9 Nov 2026", title: "Opening catalogue",
     items: [
       "New Openings tab: your repertoire grouped by opening, opening out into its main lines. Branches are made where the opening name changes or the line splits into main replies, not for every move.",

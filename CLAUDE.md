@@ -166,6 +166,19 @@ when it loads; the others just define things.
   labelled by its moves, and nesting stops at `CAT_DEPTH`. `catalogueStats()` adds coverage
   (1 − gap reach ÷ reach), score, accuracy in and after book, cards, and `catComment()`.
   Build and Train this line (practice root) buttons per entry.
+- Idea lines (v0.9.5), an add-on kept out of the repertoire and cards:
+  - `js/structures.js`: about 20 pawn structures matched on pawns alone (`structureOf()`,
+    first match wins), each with plans for both sides and its break squares.
+  - `js/idealines.js`: `ideaTargets()` (leaves of the tree my games reach, ranked by games
+    × the accuracy drop after book), `buildIdeaLine()` (most played masters move, then Lichess
+    2200+, then at most 2 engine moves; my moves must lose ≤ 1 pawn at depth 12; up to 16
+    plies), `describeIdeaLine()` (structure plus up to 3 key moments: a structure break, a
+    pawn lever, a space-gaining advance or a regrouping retreat). Lines are kept in
+    `pb_idealines` (local). The viewer is the `idea` view (`openIdeaLine()`, ◀ ▶, a
+    clickable list, and Quiz me). Ways in: Train > Ideas worth learning, and Typical ideas
+    in each catalogue entry (each line shown once, in its most specific entry).
+  - `fetchExplorer()` / `explorer()` / `cachedExplorer()` take a source (`opts.src`): my
+    bands by default, `masters`, or another band such as `2200,2500`.
 - `js/report.js`: the coach data report (backlog 6, without the AI for now).
   `buildCoachReport()` gathers aggregated numbers only: openings from my games (results,
   accuracy in and after book, prep depth, misplays), prep exits, positions where I score below
