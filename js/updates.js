@@ -5,6 +5,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09g", date: "9 Nov 2026", title: "Clearer move rows",
+    items: [
+      "Evals are now from White's side whichever colour you play: + is good for White, − for Black.",
+      "No more ✓ and −x marks. The eval's colour shows how the move compares with the best one: blue strong, plain playable, orange weak. A small g marks a gambit.",
+      "Narrower Move and Eval columns, so the numbers fit without resizing. The column key is written under the rows.",
+      "Tap a row to see all its numbers in full, in case a column is cut short.",
+    ],
+  },
+  {
     id: "2026-11-09f", date: "9 Nov 2026", title: "Mistake review: the whole game",
     items: [
       "◀ now goes all the way back to the first move of the game, not just a few moves.",

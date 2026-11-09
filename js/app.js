@@ -536,7 +536,6 @@ async function autoOpponent(path) {
 // Stockfish verdict on a move: centipawns lost against the best move (depth 14, cached)
 /* ----- my turn: practical, memorable ideas (js/ideas.js) ----- */
 let ideaRun = null; // {key, step} while "Find ideas here" is working
-const pawns = cp => (cp >= 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
 function ideaWhy(c, m) {
   const out = [];
   if (m.joins && m.transP >= 0.2) out.push(`${Math.round(m.transP * 100)}% of replies lead into your prep (${esc(m.joins.join(" ") || "start")})`);

@@ -426,6 +426,19 @@ t("rows: on my turn, moves worse than −1.5 are hidden unless prepared or a gam
   for (const s of ["Ke2", "f4", "Nf3", "Qh5"]) delete EVALC[K(fenAfter(fen, [s]))];
   delete EVALC[key];
 });
+t("rows: the eval is from White's side whoever I play, coloured by strength", () => {
+  S.color = "black"; S.settings.adv = undefined;
+  const fen = fenAfter(START, ["e4"]), key = K(fen);
+  EVALC[key] = { cp: -30, d: 14 };                                   // Black to move: −0.3 for Black
+  EVALC[K(fenAfter(fen, ["e5"]))] = { cp: 40, d: 14 };              // after 1...e5, White to move: +0.4
+  EVALC[K(fenAfter(fen, ["g5"]))] = { cp: 250, d: 14 };             // after 1...g5: +2.5 for White
+  const e5 = engineFor(fen, key, "e5"), g5 = engineFor(fen, key, "g5");
+  eq([e5.white, strengthOf(e5).k], [40, "s-good"]);
+  eq([g5.white, strengthOf(g5).k], [250, "s-weak"]);
+  eq(/\+0\.4/.test(engineCell(e5)) && !/✓/.test(engineCell(e5)), true, engineCell(e5));
+  for (const s of ["e5", "g5"]) delete EVALC[K(fenAfter(fen, [s]))];
+  delete EVALC[key]; S.color = "white";
+});
 t("gaps: rating impact can rank a rare losing position above a common fine one", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.settings.adv = undefined;
   line("white", "e4 e5 Nf3");

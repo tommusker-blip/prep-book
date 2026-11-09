@@ -28,6 +28,8 @@ const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == n
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600); }
 function fenAfter(fen, sans) { const c = new Chess(fen); for (const s of sans) { if (!c.move(s, { sloppy: true })) return null; } return c.fen(); }
+// An eval in pawns with its sign, e.g. +0.4 or −1.2
+const pawns = cp => (cp >= 0 ? "+" : "−") + (Math.abs(cp) / 100).toFixed(1);
 
 /* ---------- state ---------- */
 const S = {

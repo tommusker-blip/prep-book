@@ -83,7 +83,8 @@ function engineFor(fen, key, san) {
   const meMoving = isMine(key, S.color);
   const mine = meMoving ? -ea.cp : ea.cp;              // ea.cp is from the side to move after it
   const loss = before ? Math.max(0, before.cp + ea.cp) : null; // mover's best minus what they got
-  return { mine, loss, mate: ea.mate != null, best: ea.best, after };
+  const white = after.split(" ")[1] === "w" ? ea.cp : -ea.cp;     // from White's side: + good for White
+  return { mine, white, loss, mate: ea.mate != null, best: ea.best, after };
 }
 let rowsTimer = null;
 function rowsChanged(key) { // refresh the rows once a burst of results has arrived, if still here
@@ -158,13 +159,21 @@ function candidates(fen, key, n) {
 
 /* ----- the rows ----- */
 const candOpen = new Set(); // "key|san" of expanded rows
-function engineCell(e, myTurn) {
+// Eval cell: the eval after the move from White's side (+ good for White, − for Black, whoever
+// I play), coloured by how the move compares with the best move here: strong (within the good
+// margin), playable (up to a mistake) or weak. The only mark is "g" for a gambit shown although
+// the engine rates it weak.
+function strengthOf(e) {
+  if (!e || e.loss == null) return { k: "", t: "" };
+  if (e.loss <= adv().good) return { k: "s-good", t: "strong" };
+  if (e.loss <= adv().mistake) return { k: "s-ok", t: "playable" };
+  return { k: "s-weak", t: "weak" };
+}
+const evalText = e => (e.mate ? (e.white > 0 ? "+M" : "−M") : pawns(e.white));
+function engineCell(e, gambit) {
   if (!e) return Engine.failed ? "–" : `<span class="muted">…</span>`;
-  const v = e.mate ? (e.mine > 0 ? "mate" : "−mate") : pawns(e.mine);
-  if (e.loss == null) return v;
-  if (e.loss <= adv().good) return `${v} <span class="ok" aria-label="a good move">✓</span>`;
-  // my move: show what it gives up; their move: a slip that helps me
-  return myTurn ? `${v} <span class="bad">−${(e.loss / 100).toFixed(1)}</span>` : `${v} <span class="ok">?!</span>`;
+  const s = strengthOf(e);
+  return `<span class="ev ${s.k}" aria-label="${evalText(e)}${s.t ? ", " + s.t : ""}">${evalText(e)}</span>${gambit ? `<span class="gtag" aria-label="a gambit">g</span>` : ""}`;
 }
 function candRow(fen, key, c, ex, path) {
   const myTurn = isMine(key, S.color), e = engineFor(fen, key, c.san);
@@ -188,7 +197,7 @@ function candRow(fen, key, c, ex, path) {
     : `<span class="crep muted">${!Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX ? "…" : "–"}</span>`;
   const head = `<div class="crow${myTurn ? " c5" : ""}">
       <span class="cmove"><button type="button" class="chip ${state}" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${stateText ? ", " + stateText : ""}">${esc(c.san)}</button></span>
-      <span class="ceng">${engineCell(e, myTurn)}</span>
+      <span class="ceng">${engineCell(e, myTurn && strengthOf(e).k === "s-weak" && isGambit(fen, c.san))}</span>
       <span class="cpeer">${c.peer && f != null ? `<span class="freq" aria-label="played in ${pctOf(f)} of peer games (${nOf(c.peer.n)})"><i style="width:${Math.max(2, Math.round(f * 100))}%"></i><b>${pctOf(f)}</b></span>` : `<span class="muted">–</span>`}</span>
       <span class="cscore">${c.peer && peerScore != null ? pctOf(peerScore) : `<span class="muted">–</span>`}</span>
       <span class="cyou">${c.mine ? `${c.mine.n} · ${pctOf(wdlScore(c.mine))}` : `<span class="muted">–</span>`}</span>
@@ -200,7 +209,18 @@ function candRow(fen, key, c, ex, path) {
     if (after && !exA && S.token && !explorerBlocked) explorer(after, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
     const replies = exA && exA.total ? exA.moves.slice().sort((a, x) => x.n - a.n).slice(0, 2).map(m => `${esc(m.san)} (${pctOf(m.n / exA.total)}, you score ${pctOf(scoreFor(m, S.color))})`).join(", ") : "";
     const bestReply = e && e.best ? uciToSan(e.after, e.best) : "";
+    // Every number from the row in full, in case a narrow screen cuts a column short
+    const st = strengthOf(e);
+    const full = [
+      `<b>${esc(moveLabel(path, c.san))}</b>`,
+      e ? `eval ${evalText(e)} from White's side${st.t ? ` (${st.t}${e.loss > 0 ? `, ${(e.loss / 100).toFixed(1)} below the best` : ", the best"})` : ""}` : "eval not ready",
+      f != null ? `played in ${pctOf(f)} of ${nOf(ex.total)} peer games` : "no peer games",
+      peerScore != null ? `your colour scores ${pctOf(peerScore)} after it` : "",
+      c.mine ? `you: ${c.mine.n} game${c.mine.n === 1 ? "" : "s"}, ${pctOf(wdlScore(c.mine))}` : "not in your games",
+      fu && fu.label ? `${fu.count} good repl${fu.count === 1 ? "y" : "ies"} for your opponent` : "",
+    ].filter(Boolean).join(" · ");
     detail = `<div class="cdetail">
+      <p class="help cfull">${full}</p>
       ${flagText ? `<p class="flagtext">${esc(flagText)}</p>` : ""}
       <div class="cbars"><span class="lbl">Peers</span>${c.peer ? barFor(peerWdl(c.peer), "Peers at your level") + `<span class="help">${wdlLine(peerWdl(c.peer))}</span>` : `<span class="help">No peer games with this move</span>`}</div>
       <div class="cbars"><span class="lbl">You</span>${c.mine ? barFor(c.mine, "Your games") + `<span class="help">${wdlLine(c.mine)}</span>` : `<span class="help">Not in your games</span>`}</div>
@@ -221,7 +241,7 @@ function positionSummary(fen, key, ex) {
     tip.push(`You score ${pctOf(wdlScore(me))} from here in ${me.n} game${me.n === 1 ? "" : "s"}: ${wdlLine(me)}.`);
   }
   if (peer != null) { parts.push(`peers ${pctOf(peer)}`); tip.push(`Peers at your rating score ${pctOf(peer)} from your side (${nOf(ex.total)} games).`); }
-  if (pe) { const mine = sideOf(key) === myChar(S.color) ? pe.cp : -pe.cp; parts.push(`engine ${pawns(mine)}${pe.best ? `, best ${esc(uciToSan(fen, pe.best))}` : ""}`); }
+  if (pe) { const white = fen.split(" ")[1] === "w" ? pe.cp : -pe.cp; parts.push(`eval ${pawns(white)}${pe.best ? `, best ${esc(uciToSan(fen, pe.best))}` : ""}`); } // + good for White
   if (me && me.n >= 3 && peer != null) {
     const b = blended(me, peer);
     if (b.score < peer - 0.05) { parts.push(`<span class="bad">below par</span>`); tip.push(`Below par: your expected score here (${pctOf(b.score)}, ${b.basis}) is more than 5 points under the peers'. Worth reviewing.`); }
@@ -254,10 +274,12 @@ function candRows(fen, key, n, path) {
   const weak = myTurn ? all.filter(c => unplayable(fen, key, c)) : [], showing = showWeak.has(key);
   const list = showing ? all : all.filter(c => !weak.includes(c));
   const weakRow = weak.length ? `<p class="help weakrow">${showing ? `Showing ${weak.length} move${weak.length === 1 ? "" : "s"} that leave${weak.length === 1 ? "s" : ""} you worse than −${(adv().unplayable / 100).toFixed(1)}` : `${weak.length} move${weak.length === 1 ? "" : "s"} hidden: worse than −${(adv().unplayable / 100).toFixed(1)} for you (${weak.map(c => esc(c.san)).join(", ")})`} <button type="button" class="btn ghost quick" data-showweak>${showing ? "Hide them" : "Show"}</button></p>` : "";
+  // Column key: written out under the rows rather than behind an ⓘ in the header
+  const legend = `<p class="help legend"><b>Eval</b> + good for White, − for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); colour compares the move with the best here: <span class="ev s-good">strong</span>, <span class="ev s-ok">playable</span>, <span class="ev s-weak">weak</span>${myTurn ? "; g a gambit" : ""}. <b>Played</b> how often players at your level choose it${ex ? ` (${srcLine(ex)})` : ""}. <b>Score</b> your colour's score after it. <b>You</b> your games · score.${myTurn ? " <b>Rep</b> good replies left for your opponent; purple is a practical weapon." : ""} Outline: blue ${myTurn ? "in your repertoire" : "prepared"}${myTurn ? "" : ", orange not prepared"}. Tap a row for all its numbers.</p>`;
   return positionSummary(fen, key, ex) + `<div class="cands">
-      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move ${info(`Move: a blue outline means ${myTurn ? "it's in your repertoire" : "you've prepared it"}${myTurn ? "" : ", orange means a gap (not prepared)"}. Engine: Stockfish, from your side (a quick depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis); ✓ means within ${(adv().good / 100).toFixed(1)} of the best move. Played: how common the move is among players at your level (share of their games here, with a bar). Score: your colour's score after it${ex ? ` (${srcLine(ex)})` : ""}. You: your games · your score.${myTurn ? ` Rep (after Deeper analysis): how many good replies your opponent has (within ${(adv().good / 100).toFixed(1)} of their best); purple means a practical weapon, few good replies that players at your level often miss.` : ""} Tap a row for details, or a move to play it.`, "What the columns mean")}</span><span>Engine</span><span>Played</span><span>Score</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
+      <div class="crow chead${myTurn ? " c5" : ""}"><span>Move</span><span>Eval</span><span>Played</span><span>Score</span><span>You</span>${myTurn ? "<span>Rep</span>" : ""}</div>
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
-    </div>${weakRow}${deepRow(fen, key, all, myTurn)}`;
+    </div>${weakRow}${deepRow(fen, key, all, myTurn)}${legend}`;
 }
 // Under the rows: the "Deeper analysis" button, or progress while it runs
 function deepRow(fen, key, list, myTurn) {

@@ -146,6 +146,10 @@ when it loads; the others just define things.
   `maxLoss` cp at depth 12; on the opponent's turn, every reply seen `minGames` times.
   Existing moves are kept and followed. The plan is previewed, then `applyAutoBuild()`.
   Options in `S.settings.autobuild`.
+- Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
+  `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,
+  beyond = weak (orange). No ✓ marks; `g` tags a weak gambit. The column key is a line
+  under the rows, not an ⓘ, and an expanded row starts with every value in full (`.cfull`).
 - Build rows hide my moves that leave me worse than `adv().unplayable` (default 150 cp)
   unless prepared, a gambit by opening name, or within the good margin of the best
   (`unplayable()`, `showWeak`). Peers are two columns: Played (share, with a bar) and Score.
