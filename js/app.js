@@ -402,7 +402,7 @@ function render() {
   if (S.view === "settings") renderSettings();
   if (S.view === "updates") renderUpdates();
   if (S.view === "report") renderReport();
-  if (S.view === "openings") { renderAddOpening(); renderCatalogue(); }
+  if (S.view === "openings") showOpeningsTab();
   if (S.view === "idea") renderIdea();
 }
 
@@ -480,13 +480,22 @@ function refreshBuild(key) {
   if (window.scrollY !== y) window.scrollTo(0, y);
   sideSoon();
 }
-// Gaps and suggestions: only for the open tab, and at most every 1.5 s while results arrive
+// Suggestions are on the Openings page (v0.9.9). While results arrive (scans, Lichess, ideas),
+// they're redrawn at most every 1.5 s, and only while that tab is showing.
 let sideTimer = null;
+const sugShowing = () => S.view === "openings" && S.otab === "sug";
 function sidePanes() {
   clearTimeout(sideTimer); sideTimer = null;
-  if (S.ptab === "lichess") renderSuggest();
+  if (sugShowing()) renderSuggest();
 }
-function sideSoon() { if (!sideTimer && S.ptab === "lichess") sideTimer = setTimeout(() => { sideTimer = null; if (S.view === "build") sidePanes(); }, 1500); }
+function sideSoon() { if (!sideTimer && sugShowing()) sideTimer = setTimeout(() => { sideTimer = null; sidePanes(); }, 1500); }
+// The Openings page's two tabs
+function showOpeningsTab() {
+  const tab = S.otab === "sug" ? "sug" : "cat";
+  document.querySelectorAll("[data-otab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.otab === tab)));
+  document.querySelectorAll("[data-opane]").forEach(p => (p.hidden = p.dataset.opane !== tab));
+  if (tab === "sug") renderSuggest(); else { renderAddOpening(); renderCatalogue(); }
+}
 /* ----- opponent's turn: quick picks ----- */
 // "common": the most played reply at my level. "weak": my weakest spot here, which is the most
 // common reply I haven't prepared, or (if all are prepared) the one I score worst against.
@@ -651,8 +660,8 @@ function renderSuggest() {
 }
 function onScanTick(finished) {
   renderBg();
-  if (S.view !== "build") return;
-  if (finished) renderBuild(); else renderScanBox();
+  if (sugShowing()) { if (finished) renderSuggest(); else renderScanBox(); }
+  else if (finished && S.view === "build") renderBuild();
 }
 function renderIdeaBox() {
   const box = $("#ideaBox");
@@ -671,8 +680,8 @@ function renderIdeaBox() {
 }
 function onIdeaTick(finished) {
   renderBg();
-  if (S.view !== "build") return;
-  if (finished) renderBuild(); else renderIdeaBox();
+  if (sugShowing()) { if (finished) renderSuggest(); else renderIdeaBox(); }
+  else if (finished && S.view === "build") renderBuild();
 }
 function goMove(san) {
   const c = new Chess(buildState().fen);
@@ -691,7 +700,7 @@ const exploring = () => S.buildMode === "explore";
 // Build's panel tabs (Moves, Gaps, Ideas, Lichess): one section at a time, so on a phone the
 // board and the section stay close together
 function showPane() {
-  if (S.ptab === "gaps") S.ptab = "moves"; // the Gaps tab moved to Settings (v0.9.8)
+  if (S.ptab === "gaps" || S.ptab === "lichess") S.ptab = "moves"; // Gaps moved to Settings (v0.9.8), suggestions to Openings (v0.9.9)
   const tab = S.ptab || "moves";
   document.querySelectorAll("[data-ptab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.ptab === tab)));
   document.querySelectorAll("[data-pane]").forEach(p => (p.hidden = p.dataset.pane !== tab));
@@ -1557,10 +1566,11 @@ async function boot() {
     else if (d.more) { sugOpen[d.more] += 10; renderSuggest(); }
     else if (d.sug) {
       const [id, i] = d.sug.split(":"), r = $("#sugOut")._s[id][+i];
-      S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); renderBuild(); window.scrollTo({ top: 0, behavior: "smooth" });
+      S.build[S.color] = (id === "struct" ? r.mine : r.path).slice(); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 });
     }
     else if (d.bmode) setBuildMode(exploring() ? "commit" : "explore");
-    else if (d.ptab) { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "lichess") renderBuild(); }
+    else if (d.ptab) { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas") renderBuild(); }
+    else if (d.otab) { S.otab = d.otab; showOpeningsTab(); }
     else if ("exwhole" in d) exploreSave(true);
     else if ("exhere" in d) exploreSave(false);
     else if (d.exsave) { const done = $("#prompt")._exsave; if (done) done(d.exsave); }

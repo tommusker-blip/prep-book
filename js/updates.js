@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-09n", date: "9 Nov 2026", title: "Suggestions move to the Openings page",
+    items: [
+      "The Whole tree tab has moved out of Build to the Openings page, as Suggestions next to Your openings: a review of your whole repertoire in one place.",
+      "Scan my tree and Find ideas across my tree are there too. Tap any suggestion to open it in Build.",
+      "Build now has two tabs: Moves, and Ideas here for the position on the board.",
+    ],
+  },
+  {
     id: "2026-11-09m", date: "9 Nov 2026", title: "Openings kept, Remove, and a preview board",
     items: [
       "The Openings tab is now saved on your device, so it opens at once, even after closing the app. When your tree, games or analysis change, it updates in the background with a thin progress bar, and you can still use the page meanwhile. Recalculate picks up new Lichess data.",

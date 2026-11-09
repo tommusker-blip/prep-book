@@ -105,15 +105,17 @@ when it loads; the others just define things.
     replies, and peers find one 50% of the time or less.
 - Build layout: the opening name (with its ⓘ) and the moves sit above the board,
   one line each; the moves line scrolls sideways. On phones the board column is pinned under the header
-  (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Ideas here, Whole tree; the Gaps tab went in v0.9.8:
+  (`--hdr` = header height + its bottom margin, so it locks without moving first), and the panel has tabs (Moves, Ideas here; the Gaps tab went in v0.9.8:
   Gap › does its job, and its ranking, the auto-reply and the auto-build shortcut are in
-  Settings > Building your tree). The
+  Settings > Building your tree, and the suggestions tab moved to the Openings page in v0.9.9).
+  The
   control row has Start, Back, Next, Explore, Gap and Practise (lines from this position).
   On phones the tabs and the rows' column headers are pinned too (`--bcol`, `--ptabs`, measured in `boot()`).
 - Build redraws (v0.9): `renderBuild()` redraws everything after the position or
   the tree changes. Engine and Lichess results go through `rowsChanged()` to
   `refreshBuild()`, which only redraws the move rows and the arrows (`BB.setArrows()`).
-  Suggestions only run while their tab is open (`sidePanes()`).
+  Suggestions (Openings > Suggestions, `S.otab`, `showOpeningsTab()`) only redraw while that tab
+  is showing (`sidePanes()`/`sideSoon()`, `sugShowing()`); a suggestion opens in Build.
   `buildState()` cuts a path that no longer plays out back to its legal start.
 - Board (`Board()` in `app.js`): tap-to-move and drag-and-drop (pointer
   events). It redraws only when what it shows changes, keeps a selected piece

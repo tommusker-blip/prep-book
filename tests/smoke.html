@@ -345,7 +345,7 @@ f.onload = () => {
     w.eval('S.token = "test-token"; S.settings.autoOpp = "off"');
     play("#board", "e2", "e4"); play("#board", "e7", "e5"); play("#board", "g1", "f3");
     d.querySelector("#toStart").click();
-    d.querySelector('[data-ptab="lichess"]').click(); // panes are only filled while their tab is open
+    d.querySelector('[data-nav="openings"]').click(); d.querySelector('[data-otab="sug"]').click(); // suggestions are on the Openings page (v0.9.9)
     L("scan box: " + d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim());
     d.querySelector("#scanBox [data-scan]").click();
     const wait = n => {
@@ -356,7 +356,7 @@ f.onload = () => {
       L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
       d.querySelector('#sugOut [data-sug^="gems"]').click();
       const rowText = () => [...d.querySelectorAll("#prompt .cand")].map(r => r.querySelector(".crow").textContent.replace(/\s+/g, " ").trim()).join(" | ");
-      L("gem opens: " + G("S").build.white.join(" ") + " | rows: " + rowText());
+      L("gem opens: view=" + G("S").view + " " + G("S").build.white.join(" ") + " | rows: " + rowText());
       L("arrows at 1.e4 e5: " + [...d.querySelectorAll("#board .arw")].map(a => a.getAttribute("class").split(" ")[1] + ":" + (+a.querySelector("line").getAttribute("stroke-width")).toFixed(2)).join(" "));
       d.querySelector("#back").click();
       L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
