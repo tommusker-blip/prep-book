@@ -457,6 +457,14 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 #iLine{max-height:6em;overflow-y:auto}
 #iLine .mv.prep{color:var(--muted)}
 #iLine .mv.moment{box-shadow:inset 0 -2px 0 var(--good);font-weight:600}
+/* ---------- game review ---------- */
+#rvLine{max-height:7.5em;overflow-y:auto}
+#rvLine .mv.prep{box-shadow:inset 0 -2px 0 var(--good)}
+#rvLine .mv.dev{box-shadow:inset 0 0 0 2px var(--bad);font-weight:600}
+#rvLine .mk{color:var(--bad);font-weight:600;margin-left:1px}
+.rvacts{margin:8px 0 0;gap:6px;flex-wrap:wrap}
+.rvtiles{margin-top:8px}
+.rvworst{margin-top:4px}
 .plans{margin:2px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px;font-size:.88rem}
 .ideablock{margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--line)}
 .ideablock .gaplist{margin:4px 0 6px}

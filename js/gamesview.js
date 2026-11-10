@@ -110,12 +110,7 @@ function renderGames() {
   $("#engBtn").textContent = analysing ? "Stop" : todo ? `Analyse all (${todo.toLocaleString("en-GB")} left)` : "All games analysed";
   $("#engBtn").disabled = !todo && !analysing;
   // recent games
-  $("#gList").innerHTML = A.slice(0, 15).map(({ g, a, s }) => {
-    const opp = g.my === "white" ? g.black : g.white, oe = g.my === "white" ? g.belo : g.welo;
-    const res = s === 1 ? '<span class="pill ok">Won</span>' : s === 0.5 ? '<span class="pill">Draw</span>' : s === 0 ? '<span class="pill gap">Lost</span>' : "";
-    const z = S.acc[g.id];
-    return `<li><button type="button" class="linkish" data-open="${esc(a.path.join(" "))}"><span class="tt">${res} vs ${esc(opp)} <span class="muted">(${oe || "?"})</span></span><span class="sub">${esc(g.date)} · ${esc(typeLabel[a.type])} at move ${Math.floor(a.ply / 2) + 1}${z && z.inb.length ? ` · book accuracy ${Math.round(z.inb.reduce((p, q) => p + q, 0) / z.inb.length)}%` : ""}</span></button></li>`;
-  }).join("") || `<li class="muted">No games yet.</li>`;
+  $("#gList").innerHTML = recentGamesHtml(A); // review.js: each game opens its review
 }
 /* ----- Games > Build my tree from my games (autobuild.js) ----- */
 function renderAutoBuild() {

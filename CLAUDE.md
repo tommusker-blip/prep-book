@@ -214,6 +214,17 @@ when it loads; the others just define things.
     Build's Moves tab only has the rows: focus bar, note and routes are on My lines (tab order
     Moves, Ideas here, My lines). The map has three views: Coverage, Played (games still in prep
     at each move, from `stats.exits`), Results (score % of games that left prep at that move).
+- v0.9.26:
+  - Gap filter (`gaps.js`, `S.settings.gapOnly`: `all` default / `faced` / `good`). `oppFaced()`
+    = key -> san -> `{n, good, checked}` from my games by position key; "good" = the mover lost ≤
+    `adv().good` at the game's depth-10 analysis (unanalysed games don't count). With a filter,
+    my-move-missing and line-ends gaps need the position in my games (`myPosStats`).
+  - Game review (`js/review.js`, view `review`, board `RVB`): Games > Recent games
+    (`recentGamesHtml()`, `data-review`, Show more) opens it. `revMoves()` (prep / dev / ?! ?
+    marks from `S.acc` ev), `revAccuracy()` (worked out against the tree as it is now, not the
+    stored `inb`/`post`), `revNote()` the deviation card; `revAct()` changes the tree through
+    `RepUndo` kind "rev". The prep move's eval is asked at depth 12 (`askPrepEval()`).
+    `tests/smoke.html#review`.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

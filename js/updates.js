@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-10a", date: "10 Nov 2026", title: "Review your recent games; fewer, better gaps",
+    items: [
+      "Games > Recent games: tap a game to review its opening. It shows your accuracy in your prep and just after it, marks your inaccurate moves (?! and ?), and outlines in orange the move where the game left your prep.",
+      "Where you played something other than your prep, you can make your game move the repertoire move, add it as another option, take Stockfish's move instead, or open both in Build to compare. Where your opponent surprised you, you can add their move together with your reply from the game. Every change can be undone.",
+      "Settings > Building your tree has a new choice for Gap ›: all gaps, only replies played against you, or only replies played against you that were good moves, so you don't prep against blunders.",
+    ],
+  },
+  {
     id: "2026-11-09z", date: "9 Nov 2026", title: "Train no longer freezes; a tidier Build",
     items: [
       "Fixed: the Train tab could freeze with a big repertoire. The new look-alike positions check was far too slow; it now takes a fraction of a second.",

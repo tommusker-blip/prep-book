@@ -34,6 +34,7 @@
 <script src="../js/covermap.js"></script>
 <script src="../js/similar.js"></script>
 <script src="../js/transpose.js"></script>
+<script src="../js/review.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -508,6 +509,31 @@ t("gaps: move by move ranks every common gap at move 2 before any at move 3 (v0.
   S.settings.gapRank = "freq";
   eq(gapMoveNo(rankedGaps("white")[0]) > 1, true, "most frequent can go deep first");
   S.settings.gapRank = undefined;
+});
+t("gaps: only replies played against me, and only good ones (v0.9.26)", () => {
+  reset(); resetEx(); GAMEKEYS.clear(); S.color = "white"; S.settings.gapOnly = undefined; S.settings.gapRank = undefined;
+  line("white", "e4 e5 Nf3");
+  setEx("e4 e5 Nf3", 1000, 400, 100, 500, [mv("Nc6", 600, 240, 60, 300), mv("d6", 250, 100, 25, 125), mv("f6", 150, 60, 15, 75)]);
+  const ev = (blackLoss) => [20, 30, 25, 30, 30 + blackLoss, 40];
+  S.games = [
+    { id: "f1", my: "white", tc: "rapid", result: "1-0", moves: "e4 e5 Nf3 Nc6 Bc4" },
+    { id: "f2", my: "white", tc: "rapid", result: "1-0", moves: "e4 e5 Nf3 f6 Nxe5" },
+  ];
+  S.acc = { f1: { v: 2, ev: ev(0), bm: [] }, f2: { v: 2, ev: ev(300), bm: [] } };
+  S.games.forEach(gameKeys); touchData();
+  const opps = () => rankedGaps("white").filter(g => g.opp).map(g => g.opp).sort().join(" ");
+  eq(opps(), "Nc6 d6 f6", "all");
+  S.settings.gapOnly = "faced";
+  eq(opps(), "Nc6 f6", "only what I've faced");
+  S.settings.gapOnly = "good";
+  eq(opps(), "Nc6", "3...f6 was a mistake");
+  S.settings.gapOnly = undefined;
+  // the review of the f6 game: the game left the tree at 3...f6, with my 4.Nxe5 after it
+  const g = S.games[1], a = analyseGame(g), m = revMoves(g, a);
+  eq(a.type + " " + a.ply, "end 3");
+  eq(m.map(x => (x.prep ? "p" : x.dev ? "D" : "-")).join(""), "pppD-");
+  eq(revAccuracy(g, a).inb, 100, "my book moves lost nothing");
+  S.games = []; S.acc = {}; GAMEKEYS.clear(); touchData();
 });
 t("catalogue: coverage counts gaps only up to the chosen move (v0.9.24)", () => {
   reset(); resetEx(); GAMEKEYS.clear(); S.games = []; S.settings.coverTo = undefined;

@@ -11,9 +11,48 @@
                 Only unprepared positions count, in both modes, so adding the move clears the
                 gap. Prepared lines I score badly in are in the coach report (belowPar()). */
 const GAP_BONUS = 0.02;
+/* Which gaps count (v0.9.26, Settings: S.settings.gapOnly):
+     "all"   - every gap, as above (the default)
+     "faced" - only what my games actually reached: an opponent reply played against me, my move
+               missing in a position I've had on the board, a line ending where my games went on
+     "good"  - as "faced", and an opponent reply only if it was a good move in at least one of
+               those games: within the `good` margin (adv()) of the best at the games' depth-10
+               analysis. Blunders I've faced aren't worth prep; games not analysed don't count.
+   oppFaced() finds them from my games by position key (so transpositions count). */
+const gapOnly = () => (["faced", "good"].includes(S.settings.gapOnly) ? S.settings.gapOnly : "all");
+let facedMemo = {};
+function oppFaced(color = S.color) {
+  const sig = gamesSig() + "|" + accSig() + "|" + GAMEKEYS.size + "|" + adv().good;
+  if (facedMemo[color] && facedMemo[color].sig === sig) return facedMemo[color].map;
+  const map = {}, margin = adv().good;
+  for (const g of S.games) {
+    if (g.my !== color || !GAMEKEYS.has(g.id)) continue;
+    const keys = GAMEKEYS.get(g.id), moves = g.moves ? g.moves.split(" ") : [], z = S.acc[g.id], ev = z && z.v === 2 ? z.ev : null;
+    for (let i = 0; i + 1 < keys.length && i < moves.length; i++) {
+      if (isMine(keys[i], color)) continue;
+      const o = (map[keys[i]] = map[keys[i]] || {}), m = (o[moves[i]] = o[moves[i]] || { n: 0, good: 0, checked: 0 });
+      m.n++;
+      if (ev && ev[i + 1] != null) {
+        // their loss, from their side: White's eval falls when White errs, rises when Black does
+        const loss = Math.max(-1000, Math.min(1000, (i % 2 === 0 ? 1 : -1) * (ev[i] - ev[i + 1])));
+        m.checked++;
+        if (loss <= margin) m.good++;
+      }
+    }
+  }
+  facedMemo[color] = { sig, map };
+  return map;
+}
 function findGaps(color = S.color) {
-  const R = rep(color), games = oppSeen(color), gaps = [];
+  const R = rep(color), games = oppSeen(color), gaps = [], only = gapOnly();
   walk(color);
+  const faced = only === "all" ? null : oppFaced(color);
+  const reached = key => !faced || !!myPosStats(key, color);
+  const keepReply = (key, san) => {
+    if (!faced) return true;
+    const f = (faced[key] || {})[san];
+    return !!f && (only === "faced" || f.good > 0);
+  };
   const expect = (mine, peer) => {
     const b = blended(mine, peer);
     return b ? { score: b.score, basis: b.basis } : { score: 0.5, basis: "no data yet" };
@@ -28,18 +67,18 @@ function findGaps(color = S.color) {
     const n = R.pos[key], ex = cachedExplorer(fen);
     const peerHere = ex && ex.total ? posAverage(ex, color) : null;
     if (isMine(key, color)) {
-      if (!n || !n.m.length) add({ id: "m|" + key, path, text: "Your move is missing", detail: path.length ? "after " + path.slice(-1)[0] : "first move" }, reach, expect(myPosStats(key, color), peerHere));
+      if ((!n || !n.m.length) && reached(key)) add({ id: "m|" + key, path, text: "Your move is missing", detail: path.length ? "after " + path.slice(-1)[0] : "first move" }, reach, expect(myPosStats(key, color), peerHere));
       continue;
     }
     const prepared = n ? n.m : [], cand = {};
     if (ex && ex.total) for (const m of ex.moves) if (m.n / ex.total >= 0.03) cand[m.san] = { f: m.n / ex.total, peer: scoreFor(m, color) };
     for (const [s, c] of Object.entries(games[key] || {})) (cand[s] = cand[s] || {}).g = c;
     for (const [s, v] of Object.entries(cand)) {
-      if (prepared.includes(s)) continue;
+      if (prepared.includes(s) || !keepReply(key, s)) continue;
       const r = v.f != null ? reach * v.f : (v.g || 0) * 0.02;
       add({ id: "o|" + key + "|" + s, path, opp: s, text: `No answer to ${moveLabel(path, s)}`, f: v.f, g: v.g }, r, expect(myMoveStats(key, s, color), v.peer != null ? v.peer : null));
     }
-    if (!prepared.length && !Object.keys(cand).length)
+    if (!prepared.length && !Object.keys(cand).length && reached(key))
       add({ id: "e|" + key, path, text: path.length ? "Line ends here" : "No opponent first moves yet", detail: path.length ? "add the replies you expect" : "start with 1.e4 and 1.d4" }, reach * 0.5, expect(myPosStats(key, color), peerHere));
   }
   return gaps;
@@ -73,6 +112,7 @@ function nextGapTarget(list) {
 // The Gap › ranking choice (Settings > Building your tree)
 function renderGaps() {
   document.querySelectorAll("[data-gapmode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.gapmode === gapMode())));
+  document.querySelectorAll("[data-gaponly]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.gaponly === gapOnly())));
 }
 // Jump the board to a gap. For an unprepared reply, play it on the board so it's my move. It
 // isn't saved until I answer it (commitBuildMove() saves the missing reply along with my move).
@@ -87,3 +127,4 @@ function jumpToGap(id, list = rankedGaps()) {
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("gapmode", d => { S.settings.gapRank = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });
+onClick("gaponly", d => { S.settings.gapOnly = d.gaponly; gapLast = null; Store.save("settings"); renderGaps(); });

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.25">
+<link rel="stylesheet" href="css/app.css?v=0.9.26">
 </head>
 <body>
 
@@ -200,11 +200,30 @@
       <p class="help" id="engStatus" aria-live="polite" style="margin-top:6px">Checks your opening moves with Stockfish on this device, newest games first. Runs until done or stopped, and results are saved as it goes.</p>
     </div>
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h3>Coach report <span class="info" role="button" tabindex="0" aria-label="About the coach report" data-tip="A compact summary of your openings, results, gaps, training and mistakes: aggregated numbers and line names only, no raw games. Read it here, or copy it into an AI coach such as Claude for training advice.">i</span></h3><p class="help">Everything a coach would want to know, in one page.</p></div><button type="button" class="btn ghost" data-nav="report">Open</button></div>
-    <div class="card"><h3>Recent games</h3><ul class="list" id="gList" style="margin-top:8px"></ul></div>
+    <div class="card"><h3>Recent games</h3><p class="help">Tap a game to review its opening: your accuracy, where you left your prep, and what to change in your tree.</p><ul class="list" id="gList" style="margin-top:8px"></ul></div>
     <div>
       <button type="button" class="btn ghost" id="clearGames">Clear imported games</button>
       <div class="confirm" id="confirmClear" hidden><p>Remove all imported games and engine results? Your repertoire and training history stay.</p>
         <div class="row"><button type="button" class="btn" id="confirmYes">Clear games</button><button type="button" class="btn ghost" id="confirmNo">Cancel</button></div></div>
+    </div>
+  </div>
+</section>
+
+<section data-view="review" hidden>
+  <div class="layout">
+    <div class="boardcol">
+      <div id="rvBoard" class="board" aria-label="Game review board"></div>
+      <div class="navrow pznav">
+        <button type="button" class="btn ghost" id="rvBack" aria-label="Back one move">◀</button>
+        <button type="button" class="btn ghost" data-rvgo aria-label="Go to where the game left your prep">Left prep</button>
+        <button type="button" class="btn ghost" id="rvFwd" aria-label="Forward one move">▶</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="settingshead"><h2 id="rvTitle">Game review</h2><button type="button" class="btn ghost" data-nav="games">Back</button></div>
+      <div class="line" id="rvLine"></div>
+      <div class="card" id="rvNote"></div>
+      <div class="card" id="rvSum"></div>
     </div>
   </div>
 </section>
@@ -266,6 +285,9 @@
       <div class="field"><span class="lbl" style="margin:0">Gap › in Build goes to</span>
         <div class="seg small" role="group" aria-label="Rank gaps by"><button type="button" data-gapmode="depth" aria-pressed="true">Move by move</button><button type="button" data-gapmode="freq" aria-pressed="false">Most frequent</button><button type="button" data-gapmode="impact" aria-pressed="false">Rating impact</button></div>
         <p class="help">A gap is a position you'll reach without an answer: your move missing, an opponent reply you haven't prepared, or a line that stops. <b>Move by move</b> grows the tree evenly: every gap at move 2 first, then move 3, then 4, biggest first within a move. <b>Most frequent</b> goes to the one you'll meet most often, wherever it is, so it can go deep down a popular line. <b>Rating impact</b> weighs that by how far below 50% you'd score there, from your own games blended with peer data.</p>
+        <span class="lbl" style="margin:6px 0 0">Which gaps</span>
+        <div class="seg small" role="group" aria-label="Which gaps count"><button type="button" data-gaponly="all" aria-pressed="true">All</button><button type="button" data-gaponly="faced" aria-pressed="false">Played against me</button><button type="button" data-gaponly="good" aria-pressed="false">Played against me, and good</button></div>
+        <p class="help"><b>Played against me</b> only counts what your own games reached: opponent replies you've actually faced, and positions you've actually had. <b>And good</b> also drops replies that were mistakes (worse than the good margin in Advanced) in every game you met them, so you don't prep against blunders. It needs your games analysed (Games &gt; Analyse all).</p>
         <label for="gapFloor" class="help">Move by move skips gaps you'd meet in under <input type="number" id="gapFloor" inputmode="decimal" min="0" max="20" step="0.5" style="width:4.5em"> % of games until the bigger ones are done.</label></div>
       <div class="field"><label for="coverTo">Count coverage on the Openings page up to move</label><input type="number" id="coverTo" inputmode="numeric" min="2" max="15" step="1" style="width:5em">
         <p class="help">Every line has to stop somewhere, so gaps after this move don't count against an opening. Covered then means: the share of games at your level through that opening that are still in your prep after this move.</p></div>
@@ -326,40 +348,41 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.25"></script>
-<script src="js/openings.js?v=0.9.25"></script>
-<script src="js/book.js?v=0.9.25"></script>
-<script src="js/store.js?v=0.9.25"></script>
-<script src="js/games.js?v=0.9.25"></script>
-<script src="js/evals.js?v=0.9.25"></script>
-<script src="js/rep.js?v=0.9.25"></script>
-<script src="js/jobs.js?v=0.9.25"></script>
-<script src="js/engine.js?v=0.9.25"></script>
-<script src="js/explore.js?v=0.9.25"></script>
-<script src="js/ideas.js?v=0.9.25"></script>
-<script src="js/rows.js?v=0.9.25"></script>
-<script src="js/gaps.js?v=0.9.25"></script>
-<script src="js/practice.js?v=0.9.25"></script>
-<script src="js/puzzles.js?v=0.9.25"></script>
-<script src="js/report.js?v=0.9.25"></script>
-<script src="js/autobuild.js?v=0.9.25"></script>
-<script src="js/catalogue.js?v=0.9.25"></script>
-<script src="js/addopening.js?v=0.9.25"></script>
-<script src="js/structures.js?v=0.9.25"></script>
-<script src="js/idealines.js?v=0.9.25"></script>
-<script src="js/focus.js?v=0.9.25"></script>
-<script src="js/treeview.js?v=0.9.25"></script>
-<script src="js/covermap.js?v=0.9.25"></script>
-<script src="js/similar.js?v=0.9.25"></script>
-<script src="js/transpose.js?v=0.9.25"></script>
-<script src="js/updates.js?v=0.9.25"></script>
-<script src="js/importer.js?v=0.9.25"></script>
-<script src="js/board.js?v=0.9.25"></script>
-<script src="js/build.js?v=0.9.25"></script>
-<script src="js/suggest.js?v=0.9.25"></script>
-<script src="js/train.js?v=0.9.25"></script>
-<script src="js/gamesview.js?v=0.9.25"></script>
-<script src="js/settings.js?v=0.9.25"></script>
-<script src="js/app.js?v=0.9.25"></script>
+<script src="js/core.js?v=0.9.26"></script>
+<script src="js/openings.js?v=0.9.26"></script>
+<script src="js/book.js?v=0.9.26"></script>
+<script src="js/store.js?v=0.9.26"></script>
+<script src="js/games.js?v=0.9.26"></script>
+<script src="js/evals.js?v=0.9.26"></script>
+<script src="js/rep.js?v=0.9.26"></script>
+<script src="js/jobs.js?v=0.9.26"></script>
+<script src="js/engine.js?v=0.9.26"></script>
+<script src="js/explore.js?v=0.9.26"></script>
+<script src="js/ideas.js?v=0.9.26"></script>
+<script src="js/rows.js?v=0.9.26"></script>
+<script src="js/gaps.js?v=0.9.26"></script>
+<script src="js/practice.js?v=0.9.26"></script>
+<script src="js/puzzles.js?v=0.9.26"></script>
+<script src="js/report.js?v=0.9.26"></script>
+<script src="js/autobuild.js?v=0.9.26"></script>
+<script src="js/catalogue.js?v=0.9.26"></script>
+<script src="js/addopening.js?v=0.9.26"></script>
+<script src="js/structures.js?v=0.9.26"></script>
+<script src="js/idealines.js?v=0.9.26"></script>
+<script src="js/focus.js?v=0.9.26"></script>
+<script src="js/treeview.js?v=0.9.26"></script>
+<script src="js/covermap.js?v=0.9.26"></script>
+<script src="js/similar.js?v=0.9.26"></script>
+<script src="js/transpose.js?v=0.9.26"></script>
+<script src="js/updates.js?v=0.9.26"></script>
+<script src="js/importer.js?v=0.9.26"></script>
+<script src="js/board.js?v=0.9.26"></script>
+<script src="js/build.js?v=0.9.26"></script>
+<script src="js/suggest.js?v=0.9.26"></script>
+<script src="js/train.js?v=0.9.26"></script>
+<script src="js/gamesview.js?v=0.9.26"></script>
+<script src="js/review.js?v=0.9.26"></script>
+<script src="js/settings.js?v=0.9.26"></script>
+<script src="js/app.js?v=0.9.26"></script>
 </body>
 </html>

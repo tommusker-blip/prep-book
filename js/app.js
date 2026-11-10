@@ -19,6 +19,7 @@ function render() {
   if (S.view === "report") renderReport();
   if (S.view === "openings") showOpeningsTab();
   if (S.view === "idea") renderIdea();
+  if (S.view === "review") renderReview();
 }
 
 /* ---------- header: background work in progress (any screen) ---------- */
@@ -132,6 +133,8 @@ async function boot() {
   $("#catBody").addEventListener("toggle", e => { const p = e.target.dataset && e.target.dataset.catpath; if (p == null) return; if (e.target.open) catOpen.add(p); else catOpen.delete(p); }, true);
   $("#addOpenBox").addEventListener("change", e => { const v = e.target.dataset && e.target.dataset.aovar; if (v != null) aoTick(v, e.target.checked); });
   $("#pzBack").onclick = () => pzStep(-1);
+  $("#rvBack").onclick = () => revGo(RV.i - 1);
+  $("#rvFwd").onclick = () => revGo(RV.i + 1);
   $("#iBack").onclick = () => ideaGo(IV.i - 1);
   $("#iFwd").onclick = () => ideaGo(IV.i + 1);
   $("#iStart").onclick = () => ideaGo(IV.start);

@@ -100,6 +100,35 @@ f.onload = () => {
       L("Build from here: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
       L("DONE");
     })();
+    if (mode === "review") (async () => {
+      // v0.9.26: Games > Recent games > a game: accuracy, where I left prep, change my tree
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      w.eval(`S.settings.autoOpp = "off";
+        for (const l of ["e4 e5 Nf3 Nc6 Bb5"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+        walk("white");
+        S.games.push({ id: "rv1", my: "white", tc: "rapid", result: "1-0", date: "2026-11-09", white: "me", black: "them", welo: 1550, belo: 1540, moves: "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6" });
+        S.acc.rv1 = { v: 2, d: 10, ev: [20, 30, 25, 30, 30, 10, 15, 20, 18], bm: ["e2e4","e7e5","g1f3","b8c6","f1b5","f8c5","c2c3","g8f6",""], inb: [], post: [], exitCp: 30 };
+        touchData(); gameKeys(S.games[S.games.length - 1]);`);
+      d.querySelector('[data-nav="games"]').click(); await sleep(50);
+      L("list: " + d.querySelector("#gList li").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('#gList [data-review="rv1"]').click(); await sleep(100);
+      L("view=" + G("S").view + " | moves: " + [...d.querySelectorAll("#rvLine .mv")].map(b => b.textContent + (b.classList.contains("prep") ? "·p" : "") + (b.classList.contains("dev") ? "·D" : "")).join(" ") + " | arrows: " + d.querySelectorAll("#rvBoard .arw").length);
+      L("note: " + d.querySelector("#rvNote").textContent.replace(/\s+/g, " ").trim());
+      L("summary: " + d.querySelector("#rvSum").textContent.replace(/\s+/g, " ").trim());
+      d.querySelector('#rvNote [data-rvact="replace"]').click(); await sleep(50);
+      L("after Make Bc4 my move: " + G('rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" ")))].m.join(",")') + " | " + d.querySelector("#rvNote").textContent.replace(/\s+/g, " ").trim().slice(0, 140));
+      d.querySelector('#rvNote [data-undo="rev"]').click(); await sleep(50);
+      L("after Undo: " + G('rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" ")))].m.join(",")'));
+      d.querySelector("#rvFwd").click();
+      L("▶ goes to ply " + G("RV").i);
+      d.querySelector('#rvNote [data-rvbuild]').click(); await sleep(50);
+      L("Open in Build: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
+      // gap filter buttons
+      d.querySelector('[data-nav="settings"]').click(); await sleep(50);
+      d.querySelector('[data-gaponly="good"]').click();
+      L("gap filter: " + G("S").settings.gapOnly + " pressed=" + d.querySelector('[data-gaponly="good"]').getAttribute("aria-pressed"));
+      L("DONE");
+    })();
     if (mode === "catalogue") (async () => {
       const sleep = ms => new Promise(r => setTimeout(r, ms));
       w.eval(`S.settings.autoOpp = "off";
