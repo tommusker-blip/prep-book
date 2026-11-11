@@ -305,6 +305,11 @@ when it loads; the others just define things.
     archives from the month of my newest game on (`archiveList()`, `importArchives()`, shared with the
     Import button; fetches use `cache: "no-cache"`). Needs games already imported; off with
     `S.settings.autoImport = false` (Settings checkbox `#setAutoImport`). Test: `importTests()` (stub fetch).
+  - v0.9.41: Structures without named structures. `structAt()` keeps each game's features as items
+    (`c:<centre>`, `me|them:<feat>:<file>`); `stCombos(d)` finds sets of up to `ST_SET` items in ≥
+    `ST_SUPPORT` of games (and `ST_MIN_GAMES`), drops a set that nearly always comes with one more item
+    (`ST_CLOSED`), and gives the most common, best and worst (shrunk score, ≥ 10 games), each with its
+    newest game as the example (`data-review`). `comboText()` words them. Per-file tables in a `<details>`.
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".

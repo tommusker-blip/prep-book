@@ -353,7 +353,7 @@ div.gap-row{cursor:default}
 .ststep b{min-width:4.5rem;text-align:center}
 .sttiles2{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));gap:8px;margin:4px 0 12px}
 .sttile2{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:6px 8px}
-.sttile2.good,.stnamed.good{border-left-color:var(--good)} .sttile2.bad,.stnamed.bad{border-left-color:var(--bad)}
+.sttile2.good,.stcombo.good{border-left-color:var(--good)} .sttile2.bad,.stcombo.bad{border-left-color:var(--bad)}
 .sttile2 p{margin:0}
 .stbig{font-family:var(--f-display);font-size:1.5rem;font-weight:700;line-height:1.1}
 .stfeat{margin:0 0 12px}
@@ -363,10 +363,16 @@ div.gap-row{cursor:default}
 .stany{text-align:center;font-family:var(--f-display);font-size:1rem;border-radius:4px;padding:2px 0;border-bottom:3px solid transparent}
 .stany.good{border-bottom-color:var(--good)} .stany.bad{border-bottom-color:var(--bad)}
 .stfc{height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:.62rem;background:color-mix(in srgb,var(--accent) var(--v,0%),var(--surface));border:1px solid var(--line)}
-.stnamedlist{display:flex;flex-direction:column;gap:6px;margin:4px 0 10px}
-.stnamed{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:6px 8px}
-.stnamed p{margin:0}
-.stnamed b{font-family:var(--f-display);font-size:1.1rem;margin-right:6px}
+.stcombos{display:flex;flex-direction:column;gap:6px;margin:4px 0 12px}
+.stcombo{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:6px 8px;background:linear-gradient(90deg,var(--accent-soft) var(--w),transparent var(--w))}
+.stcombo p{margin:0}
+.stctext{font-size:.88rem}
+.stwho{font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.stc{font-weight:600}
+.stcombo .stcnum{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.stcnum b{font-family:var(--f-display);font-size:1.3rem}
+.stcnum .btn{margin-left:auto}
+.stdetail summary{cursor:pointer;color:var(--accent);font-size:.86rem;margin:4px 0 8px}
 /* focus on one opening (focus.js) */
 .focusbar{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:4px 8px;padding:6px 8px 6px 10px;margin-bottom:8px;border:1px solid var(--accent);border-left-width:4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));font-size:.84rem}
 .focusbar .ftxt{min-width:0}

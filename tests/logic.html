@@ -614,6 +614,18 @@ t("pawn structures: features by file and the type of centre (v0.9.39)", () => {
   eq(feats("d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 cxd4 Nxd4", "b").isolated, "d");
   eq(feats("e4 d5 exd5 c6 dxc6 e5 cxb7", "w").passed, "bc", "b7, and c2 with no black b-, c- or d-pawn left");
 });
+t("pawn structures: indicators linked into structures, most common and best (v0.9.41)", () => {
+  const games = [];
+  for (let i = 0; i < 10; i++) games.push({ id: "a" + i, sc: 1, items: ["me:missing:3", "them:missing:2"] });
+  for (let i = 0; i < 6; i++) games.push({ id: "b" + i, sc: 0, items: ["me:missing:3"] });
+  for (let i = 0; i < 4; i++) games.push({ id: "c" + i, sc: 0.5, items: ["c:open"] });
+  const d = { n: 20, avg: 0.6, games }, cb = stCombos(d);
+  const txt = c => c.items.join("+") + " " + c.n;
+  eq(cb.common.map(txt), ["me:missing:3 16", "me:missing:3+them:missing:2 10"], "their missing c-pawn always comes with my missing d-pawn: shown as the pair; the open centre is under 5 games");
+  eq(cb.best.map(txt), ["me:missing:3+them:missing:2 10"]);
+  eq(cb.common[1].ex, "a0", "example: the first (newest) game with it");
+  eq(comboText(["c:fixed", "me:isolated:3", "them:missing:2"]).replace(/<[^>]+>/g, ""), "Fixed centre · You isolated d-pawn · Them no c-pawn");
+});
 async function importTests() {
   await at("chess.com: new games come in by themselves, fetching only the latest months (v0.9.40)", async () => {
     reset();

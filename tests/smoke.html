@@ -213,7 +213,8 @@ f.onload = () => {
       L("back out: root='" + G("PIC").sun.root.join(" ") + "'");
       d.querySelector('[data-mapview="structures"]').click(); await sleep(50);
       L("centre: " + [...d.querySelectorAll("#picPane .sttile2")].map(t => t.querySelector(".stname").textContent.trim() + " " + t.querySelector(".stbig").textContent).join(", "));
-      L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" ") + " | named: " + [...d.querySelectorAll("#picPane .stnamed p:first-child")].map(p => p.textContent).join(" · "));
+      L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" "));
+      L("structures: " + [...d.querySelectorAll("#picPane .stcombo")].map(c => c.querySelector(".stctext").textContent + " = " + c.querySelector(".stcnum b").textContent).join(" | ") + " | example buttons " + d.querySelectorAll("#picPane .stcombo [data-review]").length);
       d.querySelector("[data-pstmove=\"14\"]").click(); await sleep(30); d.querySelector("[data-pstby=\"by\"]").click(); await sleep(50);
       L("by move: rows " + d.querySelectorAll("#picPane .maprow:not(.mhead)").length + " | move now " + G("PIC").st.move);
       d.querySelector('[data-mapview="tree"]').click(); await sleep(50);

@@ -146,7 +146,7 @@ function picShowBoard() {
    - for each side, by file: missing pawns (no pawn of that side on the file), isolated, doubled,
      backward (no own pawn beside or behind it, and its square in front covered by an enemy pawn)
      and passed pawns;
-   - named structures (structureOf()) where one matches, with their plans.
+   - linked into structures (v0.9.41, stCombos()): sets of features that come up together, with frequency and score.
    Each figure is the share of my games with it, and my score in those games against my average
    (pulled towards the average on few games: shrink()). "By move" shows the shares from move 4 to 20. */
 const ST_MOVES = [4, 6, 8, 10, 12, 14, 16, 18, 20];
@@ -207,23 +207,69 @@ function structAt(color, move) {
   return picCached("st" + move, picSig(), () => {
     const me = color === "white" ? "w" : "b", them = me === "w" ? "b" : "w";
     const side = () => Object.fromEntries(FEATS.map(([k]) => [k, { any: stCell(), files: Array.from({ length: 8 }, stCell) }]));
-    const d = { n: 0, sum: 0, centre: Object.fromEntries(CENTRES.map(([k]) => [k, stCell()])), me: side(), them: side(), named: new Map() };
+    const d = { n: 0, sum: 0, centre: Object.fromEntries(CENTRES.map(([k]) => [k, stCell()])), me: side(), them: side(), games: [] };
     const add = (c, sc) => { c.n++; c.sum += sc; };
     for (const g of picGames(color)) {
       const k = gameKeys(g)[2 * move];
       if (!k) continue;
-      const sc = myScore(g), P = stPawnFiles(boardCells(k));
-      add(d, sc); add(d.centre[centreType(P, me)], sc);
+      const sc = myScore(g), P = stPawnFiles(boardCells(k)), ct = centreType(P, me), items = ["c:" + ct];
+      add(d, sc); add(d.centre[ct], sc);
       for (const [who, s] of [["me", me], ["them", them]]) {
         const f = sideFeatures(P, s);
-        for (const [feat] of FEATS) { if (f[feat].size) add(d[who][feat].any, sc); f[feat].forEach(x => add(d[who][feat].files[x], sc)); }
+        for (const [feat] of FEATS) { if (f[feat].size) add(d[who][feat].any, sc); f[feat].forEach(x => { add(d[who][feat].files[x], sc); items.push(`${who}:${feat}:${x}`); }); }
       }
-      const st = structureOf(k);
-      if (st) { if (!d.named.has(st.id)) d.named.set(st.id, { s: st, ...stCell() }); add(d.named.get(st.id), sc); }
+      d.games.push({ id: g.id, sc, items: items.sort() });
     }
     d.avg = d.n ? d.sum / d.n : 0.5;
     return d;
   });
+}
+/* v0.9.41: the indicators linked into structures. A structure is a set of up to ST_SET features
+   (the centre, and each side's missing / isolated / doubled / backward / passed pawns by file)
+   that comes up together in at least ST_SUPPORT of my games at that move (and ST_MIN_GAMES games).
+   Sets are only kept where they add something: a feature that nearly always comes with another
+   (in ST_CLOSED of its games) is shown as the pair, not on its own. Most common first; then the
+   ones where I score best and worst against my average (shrunk on few games). The most recent game
+   with each is its example. */
+const ST_SET = 3, ST_SUPPORT = 0.05, ST_MIN_GAMES = 5, ST_CLOSED = 0.9, ST_SHOW = 8;
+function stCombos(d) {
+  if (d.combos) return d.combos;
+  const minN = Math.max(ST_MIN_GAMES, Math.ceil(d.n * ST_SUPPORT)), single = new Map();
+  for (const g of d.games) for (const it of g.items) single.set(it, (single.get(it) || 0) + 1);
+  const freq = new Set([...single].filter(([, n]) => n >= minN).map(([it]) => it));
+  const sets = new Map();
+  const bump = (items, g) => { const k = items.join("|"); let c = sets.get(k); if (!c) sets.set(k, (c = { items, n: 0, sum: 0, ex: g.id })); c.n++; c.sum += g.sc; };
+  for (const g of d.games) { // games come newest first, so each set's example is its most recent game
+    const fi = g.items.filter(it => freq.has(it));
+    for (let a = 0; a < fi.length; a++) {
+      bump([fi[a]], g);
+      for (let b = a + 1; b < fi.length; b++) {
+        bump([fi[a], fi[b]], g);
+        if (ST_SET > 2) for (let c = b + 1; c < fi.length; c++) bump([fi[a], fi[b], fi[c]], g);
+      }
+    }
+  }
+  const all = [...sets.values()].filter(c => c.n >= minN);
+  const byKey = new Map(all.map(c => [c.items.join("|"), c]));
+  // a set that nearly always comes with one more feature is shown as the bigger set
+  for (const y of all) if (y.items.length > 1) y.items.forEach((_, i) => { const x = byKey.get(y.items.filter((__, j) => j !== i).join("|")); if (x && y.n >= ST_CLOSED * x.n) x.covered = true; });
+  const kept = all.filter(c => !c.covered);
+  const diff = c => shrink(c.sum, c.n, d.avg) - d.avg;
+  const common = kept.slice().sort((a, b) => b.n - a.n || a.items.length - b.items.length).slice(0, ST_SHOW);
+  const big = kept.filter(c => c.n >= Math.max(minN, 10));
+  const best = big.filter(c => diff(c) >= 0.03).sort((a, b) => diff(b) - diff(a)).slice(0, 3);
+  const worst = big.filter(c => diff(c) <= -0.03).sort((a, b) => diff(a) - diff(b)).slice(0, 3);
+  return (d.combos = { common, best, worst, minN });
+}
+const FEAT_WORD = { missing: f => `no ${f}-pawn`, isolated: f => `isolated ${f}-pawn`, doubled: f => `doubled ${f}-pawns`, backward: f => `backward ${f}-pawn`, passed: f => `passed ${f}-pawn` };
+// ["c:fixed", "me:isolated:3", "them:missing:2"] -> "Fixed centre · You: isolated d-pawn · Them: no c-pawn"
+function comboText(items) {
+  const centre = items.find(it => it.startsWith("c:")), part = who => items.filter(it => it.startsWith(who + ":")).map(it => { const [, feat, f] = it.split(":"); return FEAT_WORD[feat]("abcdefgh"[+f]); });
+  const me = part("me"), them = part("them"), bits = [];
+  if (centre) { const c = CENTRES.find(([k]) => k === centre.slice(2)); bits.push(`<span class="stc">${esc(c ? c[1] : centre)} centre</span>`); }
+  if (me.length) bits.push(`<span class="stwho">You</span> ${esc(me.join(", "))}`);
+  if (them.length) bits.push(`<span class="stwho">Them</span> ${esc(them.join(", "))}`);
+  return bits.join(" · ");
 }
 // "In 34% of games · I score 52% (+4)"
 function stScore(c, d) {
@@ -234,11 +280,14 @@ function stScore(c, d) {
 const stTone = (c, d) => { if (!c.n) return ""; const diff = shrink(c.sum, c.n, d.avg) - d.avg; return diff >= 0.02 ? "good" : diff <= -0.02 ? "bad" : ""; };
 function renderStructures(color) {
   const o = PIC.st, mv = o.move, d = structAt(color, mv);
-  const stepper = `<div class="row ststep" style="gap:6px;align-items:center"><button type="button" class="btn ghost quick" data-pstmove="${mv - 2}" ${mv <= ST_MOVES[0] ? "disabled" : ""} aria-label="Earlier">◀</button><b>Move ${mv}</b><button type="button" class="btn ghost quick" data-pstmove="${mv + 2}" ${mv >= ST_MOVES[ST_MOVES.length - 1] ? "disabled" : ""} aria-label="Later">▶</button>
-    ${picSeg("pstby", o.by ? "by" : "at", [["at", "At this move"], ["by", "By move"]], "Show")}</div>`;
+  const stepper = `<div class="row ststep" style="gap:6px;align-items:center">${o.by ? "" : `<button type="button" class="btn ghost quick" data-pstmove="${mv - 2}" ${mv <= ST_MOVES[0] ? "disabled" : ""} aria-label="Earlier">◀</button><b>Move ${mv}</b><button type="button" class="btn ghost quick" data-pstmove="${mv + 2}" ${mv >= ST_MOVES[ST_MOVES.length - 1] ? "disabled" : ""} aria-label="Later">▶</button>`}
+    ${picSeg("pstby", o.by ? "by" : "at", [["at", "At one move"], ["by", "By move"]], "Show")}</div>`;
   if (o.by) return stepper + structByMove(color);
   if (!d.n) return stepper + `<p class="help">None of your games as ${color} reach move ${mv}.</p>`;
-  const share = c => pctOf(c.n / d.n);
+  const share = c => pctOf(c.n / d.n), cb = stCombos(d);
+  const comboRow = c => `<div class="stcombo ${stTone(c, d)}" style="--w:${Math.round((c.n / d.n) * 100)}%">
+      <p class="stctext">${comboText(c.items)}</p>
+      <p class="stcnum"><b>${share(c)}</b><span class="help">${c.n} games · ${stScore(c, d)}</span><button type="button" class="btn ghost quick" data-review="${esc(c.ex)}">Example</button></p></div>`;
   const centre = CENTRES.filter(([k]) => d.centre[k].n).sort((a, b) => d.centre[b[0]].n - d.centre[a[0]].n).map(([k, name, help]) => {
     const c = d.centre[k];
     return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;
@@ -251,12 +300,15 @@ function renderStructures(color) {
         <span class="stany ${stTone(row.any, d)}" data-tip="${esc(`${title}: ${name.toLowerCase()} pawns in ${row.any.n} of ${d.n} games at move ${mv}; ${stScore(row.any, d).replace(/<[^>]+>/g, "")}`)}"><b>${share(row.any)}</b></span>
         ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}">${Math.round((c.n / d.n) * 100)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
     }).join("")}</div>`;
-  const named = [...d.named.values()].sort((a, b) => b.n - a.n).map(e => `<div class="stnamed ${stTone(e, d)}"><p><b>${share(e)}</b> ${esc(e.s.name)}</p><p class="help">${stScore(e, d)}</p>${e.s[color] ? `<details class="stplans"><summary>Plans for you</summary><ul>${e.s[color].map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}</div>`).join("");
+  const list = (title, rows, help) => rows.length ? `<p class="lbl">${title}</p>${help ? `<p class="help">${help}</p>` : ""}<div class="stcombos">${rows.map(comboRow).join("")}</div>` : "";
   return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">of your games as ${color} reached move ${mv}; you scored ${pctOf(d.avg)} in them. Blue/orange: you score better/worse than that.</span></p>
+    ${list("Your most common structures", cb.common, `Features that come up together at move ${mv}, in at least ${cb.minN} games. A game can have more than one.`)}
+    ${list("Where you score best", cb.best)}
+    ${list("Where you score worst", cb.worst)}
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
-    ${table("me", "Your pawns")}${table("them", "Their pawns")}
-    ${named ? `<p class="lbl">Named structures</p><div class="stnamedlist">${named}</div>` : ""}
-    <p class="help">Each figure is the share of your games with it at move ${mv}. The file columns are by file (a to h); tap a number for your score in those games. Scores on few games are pulled towards your average.</p>`;
+    <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
+      <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>
+    <p class="help">Scores on few games are pulled towards your average. Example opens your most recent game with that structure.</p>`;
 }
 // The shares from move 4 to 20: when structures form
 function structByMove(color) {
@@ -300,7 +352,7 @@ function renderPicture() {
     renderPicture();
   };
   const v = PIC.view, body = v === "structures" ? renderStructures(color) : renderSun(color);
-  box.innerHTML = (v === "structures" ? `<h3>Pawn structures ${info("How the pawns stand in your own games at a given move: the type of centre, each side's missing, isolated, doubled, backward and passed pawns by file, and named structures with their plans. Each figure is the share of your games, with your score in them against your average.", "About pawn structures")}</h3>` : `<h3>Your tree ${info("Your whole repertoire as rings of moves, one ring per move. A slice is as wide as how often you get there; colour it by your own score or the peers' score at your level. Tap a slice to see the position.", "About the tree")}</h3>`)
+  box.innerHTML = (v === "structures" ? `<h3>Pawn structures ${info("How the pawns stand in your own games at a given move: the type of centre and each side's missing, isolated, doubled, backward and passed pawns by file, linked into structures: the features that come up together. Each figure is the share of your games, with your score in them against your average.", "About pawn structures")}</h3>` : `<h3>Your tree ${info("Your whole repertoire as rings of moves, one ring per move. A slice is as wide as how often you get there; colour it by your own score or the peers' score at your level. Tap a slice to see the position.", "About the tree")}</h3>`)
     + body;
   if (v === "tree") picShowBoard();
 }

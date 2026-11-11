@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11o", v: "0.9.41", date: "11 Nov 2026", title: "Structures: the indicators linked together",
+    items: [
+      "Visualise > Structures now links the indicators into structures: the features that come up together in your games at that move. For example \"You no d-pawn · Them no c-pawn\", or \"Fixed centre · You backward d-pawn\".",
+      "Your most common structures come first, each with how often you get it (large), the number of games and your score against your average. Then the ones where you score best and worst. Example opens your most recent game with it.",
+      "Named structures are gone. The per-file tables are still there, folded away under \"Each indicator by file\".",
+    ],
+  },
+  {
     id: "2026-11-11n", v: "0.9.40", date: "11 Nov 2026", title: "New games come in by themselves",
     items: [
       "When the app opens, or comes back to the screen, it checks chess.com for new rapid games (at most every 10 minutes). It only fetches the month of your newest game and any later ones, so your other games aren't loaded again. A short message says how many arrived. You can turn it off in Settings, next to your chess.com username.",
