@@ -914,6 +914,15 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   // once Lichess says 2...e6 is rare there, the chain is left out
   setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("g6", 600, 240, 60, 300), mv("e5", 380, 150, 40, 190), mv("e6", 20, 8, 2, 10)]);
   eq(findConnections("white").some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "2% isn't likely");
+  // v0.9.28: a minimum chance for the whole chain; most likely first
+  setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("e6", 200, 80, 20, 100), mv("g6", 600, 240, 60, 300)]);
+  CON.list = findConnections("white"); localStorage.removeItem("pb_conskip"); S.settings.conMin = undefined;
+  eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "20% is under the default 25%");
+  S.settings.conMin = 0.1;
+  eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), true, "and over 10%");
+  const ps = conQueue().map(c => c.p);
+  eq(ps.every((p, i) => !i || ps[i - 1] >= p), true, "most likely first: " + ps.join(","));
+  S.settings.conMin = undefined; CON.list = [];
 });
 
 /* ----- coach report: aggregated numbers only ----- */

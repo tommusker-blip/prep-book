@@ -5,6 +5,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11b", date: "11 Nov 2026", title: "Connect: likely chains first",
+    items: [
+      "Connect has a filter for the chance of the whole chain (all the opponent moves in it, multiplied together): at least 10%, 25% (the default) or 50%. The most likely chains now come first, and the count of the ones hidden is shown.",
+    ],
+  },
+  {
     id: "2026-11-11a", date: "11 Nov 2026", title: "Connect your lines, and more variety in training",
     items: [
       "New on the Openings page: Connect. It checks your whole tree for short chains of likely moves that lead from one of your positions into another of your lines, so you can fill a gap by steering into a line you know, or swap a move for one that joins a line you know (the old branch is removed). You go through them one at a time on a board, with the other replies each chain leaves open. Suggestions is now called Ideas, for the tricks, gems and better-scoring moves.",

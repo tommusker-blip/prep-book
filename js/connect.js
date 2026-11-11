@@ -43,15 +43,15 @@ function conNodes(color) {
 // The steps of a chain, with the opponent's frequencies as they're known now
 function conSteps(srcFen, moves, color) {
   const c = new Chess(srcFen), steps = [];
-  let p = 1, unlikely = false, unknown = 0;
+  let p = 1, pKnown = 1, unlikely = false, unknown = 0;
   for (const san of moves) {
     const fen = c.fen(), mine = isMine(K(fen), color);
     const f = mine ? null : oppFreq(fen, san);
-    if (!mine) { if (f == null) unknown++; else if (f < CON_MIN) unlikely = true; p *= f == null ? CON_UNKNOWN : f; }
+    if (!mine) { if (f == null) unknown++; else { if (f < CON_MIN) unlikely = true; pKnown *= f; } p *= f == null ? CON_UNKNOWN : f; }
     steps.push({ fen, san, mine, f });
     if (!c.move(san)) break;
   }
-  return { steps, p, unlikely, unknown };
+  return { steps, p, pKnown, unlikely, unknown };
 }
 // Chains from one tree position into others. ctx: {byLen, inTree, nodes, R, color}
 function connectFrom(src, ctx) {
@@ -111,9 +111,26 @@ function findConnections(color = S.color) {
   return nodes.flatMap(x => connectFrom(x, ctx)).sort((a, b) => conScore(b) - conScore(a));
 }
 // Chains still to review: not skipped, still not in the tree, frequencies brought up to date
+/* v0.9.28: a minimum chance for the whole chain (S.settings.conMin, synced; default 25%), and the
+   most likely chains first. A chain's chance is the product of its opponent moves' frequencies.
+   Moves without data don't count against the filter (they'd never be fetched otherwise), but
+   they count as CON_UNKNOWN in the order, and the top few chains' data is fetched in the
+   background, so a chain drops out once its real chance is known to be too low. */
+const CON_MINS = [0.1, 0.25, 0.5], CON_PREFETCH = 5;
+const conMin = () => (S.settings.conMin != null ? S.settings.conMin : 0.25);
 function conQueue() {
-  const skip = conSkips(), R = rep(S.color);
-  return CON.list.filter(c => !skip[conId(c)] && !(R.pos[c.src] && R.pos[c.src].m.includes(c.moves[0]))).map(c => ({ ...c, ...conSteps(fenAfter(START, c.path), c.moves, S.color) })).filter(c => !c.unlikely);
+  const skip = conSkips(), R = rep(S.color), min = conMin();
+  return CON.list.filter(c => !skip[conId(c)] && !(R.pos[c.src] && R.pos[c.src].m.includes(c.moves[0])))
+    .map(c => ({ ...c, ...conSteps(fenAfter(START, c.path), c.moves, S.color) }))
+    .filter(c => !c.unlikely && c.pKnown >= min)
+    .sort((a, b) => b.p - a.p || conScore(b) - conScore(a));
+}
+const conHidden = () => { const skip = conSkips(), min = conMin(); return CON.list.filter(c => !skip[conId(c)]).map(c => conSteps(fenAfter(START, c.path), c.moves, S.color)).filter(c => !c.unlikely && c.pKnown < min).length; };
+function conFilterHtml() {
+  const hidden = conHidden();
+  return `<div class="field conmin"><span class="lbl" style="margin:0">Chance of the whole chain, at least</span>
+    <div class="seg small" role="group" aria-label="Minimum chance of the whole chain">${CON_MINS.map(v => `<button type="button" data-conmin="${v}" aria-pressed="${v === conMin()}">${Math.round(v * 100)}%</button>`).join("")}</div>
+    ${hidden ? `<p class="help">${hidden} less likely chain${hidden === 1 ? "" : "s"} hidden.</p>` : ""}</div>`;
 }
 
 /* ----- the Connect tab ----- */
@@ -122,12 +139,15 @@ function renderConnect() {
   if (!box) return;
   const C = S.color === "white" ? "White" : "Black";
   sweepConnections(S.color, done => { if (S.view === "openings" && S.otab === "connect") { if (done) renderConnect(); else { const p = $("#conProg"); if (p) { p.max = CON.total; p.value = CON.done; } } } });
-  const head = `<h3>Connect your lines ${info("Looks through your whole tree for short chains of likely moves (up to 4 plies) that lead from one of your positions into another of your lines by a different move order. Fill a gap: an opponent reply you haven't prepared, answered with moves that steer back into a line you know. Simplify: a different move of yours that reaches a line you know; Replace drops the branch under your old move. Every opponent move in a chain is one players at your level make at least 5% of the time (where Lichess data is loaded). Each chain can leave other replies open along the way: those are listed, so you can judge if the chain is worth it.", "About connecting lines")}</h3>
+  const head = `<h3>Connect your lines ${info("Looks through your whole tree for short chains of likely moves (up to 4 plies) that lead from one of your positions into another of your lines by a different move order. Fill a gap: an opponent reply you haven't prepared, answered with moves that steer back into a line you know. Simplify: a different move of yours that reaches a line you know; Replace drops the branch under your old move. Every opponent move in a chain is one players at your level make at least 5% of the time (where Lichess data is loaded). The chance of a chain is all its opponent moves multiplied together; the filter hides chains below it, and the most likely come first. Each chain can leave other replies open along the way: those are listed, so you can judge if the chain is worth it.", "About connecting lines")}</h3>
     <p class="help">Reach deeper positions you already know, instead of opening new branches. One at a time, for your ${C} repertoire.</p>`;
   if (CON.running || CON.sig !== conSig(S.color)) { box.innerHTML = head + `<p class="help" aria-live="polite">Checking your tree…</p><progress id="conProg" max="${CON.total || 1}" value="${CON.done}"></progress>`; return; }
   const q = conQueue();
-  if (!q.length) { box.innerHTML = head + `<p class="help" style="margin-top:8px">No connections found${Object.keys(conSkips()).length ? " (apart from the ones you skipped)" : ""}. Scan your tree on the Ideas tab so more opponent moves have data.</p>${undoNote("con")}`; return; }
-  CON.sel = Math.min(CON.sel, q.length - 1);
+  if (!q.length) { box.innerHTML = head + conFilterHtml() + `<p class="help" style="margin-top:8px">No connections found${conHidden() ? " at this chance or above" : ""}${Object.keys(conSkips()).length ? " (apart from the ones you skipped)" : ""}. Scan your tree on the Ideas tab so more opponent moves have data.</p>${undoNote("con")}`; return; }
+  // stay on the same chain while the order shifts (new Lichess data), else the same place in the list
+  let at = CON.selId ? q.findIndex(x => conId(x) === CON.selId) : -1;
+  if (at < 0) at = Math.min(CON.sel, q.length - 1);
+  CON.sel = at; CON.selId = conId(q[at]);
   const c = q[CON.sel], R = rep(S.color);
   const from = openingFor(c.path), to = openingFor(c.toPath);
   const all = c.path.concat(c.moves), stepsHtml = c.steps.map((s, j) => {
@@ -146,7 +166,7 @@ function renderConnect() {
   const acts = c.kind === "switch"
     ? n.m.map((m, j) => `<button type="button" class="btn${j ? " ghost" : ""} quick" data-conact="rep:${j}">Replace ${esc(m)}</button>`).join("") + `<button type="button" class="btn ghost quick" data-conact="add">Add as an option</button>`
     : `<button type="button" class="btn quick" data-conact="add">Add the chain</button>`;
-  box.innerHTML = head + `<div class="conhead"><span class="lbl">${CON.sel + 1} of ${q.length}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${CON.sel ? "" : "disabled"} aria-label="Previous connection">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${CON.sel < q.length - 1 ? "" : "disabled"} aria-label="Next connection">▶</button></span></div>
+  box.innerHTML = head + conFilterHtml() + `<div class="conhead"><span class="lbl">${CON.sel + 1} of ${q.length}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${CON.sel ? "" : "disabled"} aria-label="Previous connection">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${CON.sel < q.length - 1 ? "" : "disabled"} aria-label="Next connection">▶</button></span></div>
     <div class="conwrap"><div id="conBoard" class="board aoboard" aria-label="The chain on a board"></div>
     <div class="conbody">
       <p>From <b class="mono">${esc(numbered(0, c.path))}</b>${from ? ` <span class="muted">(${esc(from.name)})</span>` : ""}, you reach it in ${pctOf(c.reach)} of games.</p>
@@ -159,6 +179,7 @@ function renderConnect() {
     </div></div>`;
   conShow(c);
   conFetch(c);
+  q.slice(0, CON_PREFETCH).forEach(x => { if (x !== c) conFetch(x, PRIO.soon); }); // so the order is right near the top
 }
 // Re-made board: Board() keeps its element, so a new one is needed when the pane redraws
 function conShow(c) {
@@ -171,14 +192,14 @@ function conShow(c) {
 }
 // Fetch Lichess data for the chain's opponent moves that have none, then redraw
 const conFetching = new Set();
-function conFetch(c) {
+function conFetch(c, prio = PRIO.now) {
   if (!S.token || explorerBlocked) return;
   for (const s of c.steps) {
     if (s.mine || s.f != null) continue;
     const k = K(s.fen);
     if (conFetching.has(k)) continue;
     conFetching.add(k);
-    explorer(s.fen, { prio: PRIO.now }).then(() => { conFetching.delete(k); if (S.view === "openings" && S.otab === "connect") renderConnect(); }, () => conFetching.delete(k));
+    explorer(s.fen, { prio }).then(() => { conFetching.delete(k); if (S.view === "openings" && S.otab === "connect") renderConnect(); }, () => conFetching.delete(k));
   }
 }
 function conAct(how) {
@@ -198,5 +219,6 @@ function conAct(how) {
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("conact", d => conAct(d.conact));
-onClick("connav", d => { CON.sel = Math.max(0, CON.sel + +d.connav); CON.step = 0; renderConnect(); });
+onClick("connav", d => { CON.sel = Math.max(0, CON.sel + +d.connav); CON.selId = null; CON.step = 0; renderConnect(); });
+onClick("conmin", d => { S.settings.conMin = +d.conmin; Store.save("settings"); CON.sel = 0; CON.selId = null; CON.step = 0; renderConnect(); });
 onClick("constep", d => { CON.step = +d.constep; const q = conQueue(); if (q[CON.sel]) { conShow(q[CON.sel]); document.querySelectorAll("[data-constep]").forEach(b => b.classList.toggle("cur", +b.dataset.constep === CON.step)); } });

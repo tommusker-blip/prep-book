@@ -454,6 +454,7 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .sugacts{margin:0 0 4px;gap:6px;flex-wrap:wrap}
 .sugin{margin:0 0 4px 8px;color:var(--good)}
 /* Openings > Connect (connect.js) */
+.conmin{margin-top:8px}
 .conhead{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 .conwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;margin-top:6px}
 .conbody{display:flex;flex-direction:column;gap:6px;min-width:0}

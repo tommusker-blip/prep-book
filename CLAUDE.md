@@ -241,6 +241,9 @@ when it loads; the others just define things.
     opponent moves ≥ `CON_MIN` where data exists (unknown = `CON_UNKNOWN`, fetched on review by
     `conFetch()`); kinds `gap` / `switch` (Replace prunes the old branch via `walk()`). One at a time
     with a board (`CB`), `RepUndo` kind "con", Skip in `pb_conskip`. `tests/smoke.html#connect`.
+  - v0.9.28: `conMin()` (`S.settings.conMin`, default 0.25) filters on `pKnown` (known opponent moves
+    only, so chains without data still show and get fetched; the top `CON_PREFETCH` are fetched in the
+    background); the queue is sorted by `p` (unknown = `CON_UNKNOWN`); `CON.selId` keeps the chain shown.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
