@@ -923,6 +923,16 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   const ps = conQueue().map(c => c.p);
   eq(ps.every((p, i) => !i || ps[i - 1] >= p), true, "most likely first: " + ps.join(","));
   S.settings.conMin = undefined; CON.list = [];
+  // v0.9.30: an approved position is decided: no chain from it offers to replace the move just approved
+  reset(); resetEx(); localStorage.removeItem("pb_conskip");
+  line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
+  CON.list = findConnections("white");
+  const ok = conQueue().find(c => c.path.join(" ") === "c4 Nf6" && c.moves.join(" ") === "d4");
+  eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").length >= 2, true, "two ways on from 1.c4 Nf6");
+  conDecide(ok, "white"); addMove(["c4", "Nf6"], "d4", "white", "g3"); walk("white");
+  CON.list = findConnections("white");
+  eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").map(c => c.moves.join(" ")), [], "no 'Replace d4' straight after approving it");
+  localStorage.removeItem("pb_conskip"); CON.list = [];
 });
 
 /* ----- coach report: aggregated numbers only ----- */

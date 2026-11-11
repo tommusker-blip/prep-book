@@ -5,6 +5,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11d", date: "11 Nov 2026", title: "Connect: approved moves stay approved",
+    items: [
+      "Once you approve a chain, Connect no longer comes back with another chain from the same position offering to replace the move you just approved. Undo brings those back.",
+    ],
+  },
+  {
     id: "2026-11-11c", date: "11 Nov 2026", title: "Connect: quicker after each change",
     items: [
       "After you add or replace a chain, the next one shows straight away while Connect re-checks your tree in the background (it says \"updating\" meanwhile).",

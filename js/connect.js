@@ -127,9 +127,20 @@ function conValid(c, nodes) {
   for (let i = 0; i < c.moves.length - 1; i++) { if (!ch.move(c.moves[i])) return false; if (nodes[K(ch.fen())]) return false; }
   return true;
 }
+/* v0.9.30: once I approve a chain, the positions where it has my moves are decided. A later
+   "switch" chain from one of them would offer to replace the move I just approved (after 2.d4 was
+   approved from 1.c4 Nf6, a chain 2.Nc3 e6 3.d4 offered "Replace d4"), so those are left out
+   while the approved move is still there (so Undo brings them back). Kept with the skips. */
+const conDecidedKey = (key, color = S.color) => "@" + color + "|" + S.book + "|" + key;
+function conDecide(c, color) {
+  const s = conSkips();
+  c.moves.forEach((m, i) => { const key = K(fenAfter(START, c.path.concat(c.moves.slice(0, i)))); if (isMine(key, color)) s[conDecidedKey(key, color)] = m; });
+  lsSet("pb_conskip", s);
+}
 function conQueue() {
   const skip = conSkips(), R = rep(S.color), min = conMin(), nodes = walk(S.color).nodes;
-  return CON.list.filter(c => !skip[conId(c)] && !(R.pos[c.src] && R.pos[c.src].m.includes(c.moves[0])) && conValid(c, nodes))
+  const decided = c => { const m = skip[conDecidedKey(c.src)]; return !!m && c.kind === "switch" && !!R.pos[c.src] && R.pos[c.src].m.includes(m); };
+  return CON.list.filter(c => !skip[conId(c)] && !(R.pos[c.src] && R.pos[c.src].m.includes(c.moves[0])) && !decided(c) && conValid(c, nodes))
     .map(c => ({ ...c, ...conSteps(fenAfter(START, c.path), c.moves, S.color) }))
     .filter(c => !c.unlikely && c.pKnown >= min)
     .sort((a, b) => b.p - a.p || conScore(b) - conScore(a));
@@ -223,6 +234,7 @@ function conAct(how) {
   // tapped in the list), with that move's row expanded; it used to open at the end of the chain
   if (how === "build") { const j = Math.max(0, CON.step - 1), at = c.path.concat(c.moves.slice(0, j)), next = c.moves[j]; S.build[color] = at; if (next) candOpen.add(K(fenAfter(START, at)) + "|" + next); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 }); return; }
   const n = rep(color).pos[c.src], old = how.startsWith("rep:") && n ? n.m[+how.slice(4)] : null;
+  conDecide(c, color);
   RepUndo.change("con", color, () => {
     c.moves.forEach((m, i) => addMove(c.path.concat(c.moves.slice(0, i)), m, color, i === 0 ? old : null));
     walk(color);
