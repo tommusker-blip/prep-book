@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11n", v: "0.9.40", date: "11 Nov 2026", title: "New games come in by themselves",
+    items: [
+      "When the app opens, or comes back to the screen, it checks chess.com for new rapid games (at most every 10 minutes). It only fetches the month of your newest game and any later ones, so your other games aren't loaded again. A short message says how many arrived. You can turn it off in Settings, next to your chess.com username.",
+      "Openings: the Map tab is now called Visualise.",
+    ],
+  },
+  {
     id: "2026-11-11m", v: "0.9.39", date: "11 Nov 2026", title: "Routes from the start, pawn features, and one Map tab",
     items: [
       "New in Build > My lines: Routes from the start. On a position (say move 10), it finds the likely ways to get there from move 1 by any move order and puts them together as one plan. It shows how often you'd get there, each line with its chance, where opponents step off, and any move that differs from your tree. Add the plan to my tree, with Undo. Choose how often an opponent move must be played to count: 5, 10, 15, 20 or 25% (25% by default).",

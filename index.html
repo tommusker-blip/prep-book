@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.39">
+<link rel="stylesheet" href="css/app.css?v=0.9.40">
 </head>
 <body>
 
@@ -83,7 +83,7 @@
 <section data-view="openings" hidden>
   <div class="stack">
     <div class="settingshead"><h2 id="catHead">Your openings</h2><span class="info" role="button" tabindex="0" aria-label="About the catalogue" data-tip="Your repertoire grouped by key moves: where the opening name changes, or where the line splits into main branches. Covered: how much of what you'll meet at your level is prepared. Score and accuracy come from your own games through that position. Tap an opening to open its branches; Build opens it on the board, and Train this line practises just that branch.">i</span></div>
-    <div class="otabs" role="tablist" aria-label="Openings sections"><button type="button" role="tab" data-otab="cat" aria-selected="true">Openings</button><button type="button" role="tab" data-otab="map" aria-selected="false">Map</button><button type="button" role="tab" data-otab="sug" aria-selected="false">Ideas</button><button type="button" role="tab" data-otab="connect" aria-selected="false">Connect</button></div>
+    <div class="otabs" role="tablist" aria-label="Openings sections"><button type="button" role="tab" data-otab="cat" aria-selected="true">Openings</button><button type="button" role="tab" data-otab="map" aria-selected="false">Visualise</button><button type="button" role="tab" data-otab="sug" aria-selected="false">Ideas</button><button type="button" role="tab" data-otab="connect" aria-selected="false">Connect</button></div>
     <div data-opane="cat" class="stack">
       <div class="row" style="margin:0"><button type="button" class="btn" id="addOpenBtn" data-aotoggle aria-expanded="false" aria-controls="addOpenBox">Add an opening</button></div>
       <div class="card" id="addOpenBox" hidden></div>
@@ -272,6 +272,7 @@
     <div class="card" style="display:flex;flex-direction:column;gap:14px">
       <div class="field"><label for="setUser">chess.com username</label><input type="text" id="setUser" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore placeholder="e.g. MagnusCarlsen"><p class="help">Your username as shown on your chess.com profile, not your email address. Used to fetch your games and to tell which side you played.</p></div>
       <div class="field"><label for="setMonths">Months of games to fetch</label><select id="setMonths"><option value="1">1</option><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
+      <label class="check"><input type="checkbox" id="setAutoImport"> Check chess.com for new games when the app opens (only the latest month is fetched)</label>
       <div class="field"><label for="setToken">Lichess API token</label><input type="text" id="setToken" class="secret" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Saved with your settings, so every device you sign in on uses it.</p></div>
       <div class="field"><span class="lbl" style="margin:0">Lichess rating bands</span><div class="chips" id="bands"></div><p class="help" id="bandHint"></p><p class="help">Lichess ratings usually run higher than chess.com ones. For a 1500–1600 chess.com rapid player, 1600–1999 is a reasonable starting point.</p></div>
     </div>
@@ -354,44 +355,44 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.39"></script>
-<script src="js/openings.js?v=0.9.39"></script>
-<script src="js/book.js?v=0.9.39"></script>
-<script src="js/store.js?v=0.9.39"></script>
-<script src="js/games.js?v=0.9.39"></script>
-<script src="js/evals.js?v=0.9.39"></script>
-<script src="js/rep.js?v=0.9.39"></script>
-<script src="js/jobs.js?v=0.9.39"></script>
-<script src="js/engine.js?v=0.9.39"></script>
-<script src="js/explore.js?v=0.9.39"></script>
-<script src="js/ideas.js?v=0.9.39"></script>
-<script src="js/rows.js?v=0.9.39"></script>
-<script src="js/gaps.js?v=0.9.39"></script>
-<script src="js/practice.js?v=0.9.39"></script>
-<script src="js/puzzles.js?v=0.9.39"></script>
-<script src="js/report.js?v=0.9.39"></script>
-<script src="js/autobuild.js?v=0.9.39"></script>
-<script src="js/catalogue.js?v=0.9.39"></script>
-<script src="js/addopening.js?v=0.9.39"></script>
-<script src="js/structures.js?v=0.9.39"></script>
-<script src="js/idealines.js?v=0.9.39"></script>
-<script src="js/focus.js?v=0.9.39"></script>
-<script src="js/treeview.js?v=0.9.39"></script>
-<script src="js/covermap.js?v=0.9.39"></script>
-<script src="js/picture.js?v=0.9.39"></script>
-<script src="js/similar.js?v=0.9.39"></script>
-<script src="js/transpose.js?v=0.9.39"></script>
-<script src="js/funnel.js?v=0.9.39"></script>
-<script src="js/connect.js?v=0.9.39"></script>
-<script src="js/updates.js?v=0.9.39"></script>
-<script src="js/importer.js?v=0.9.39"></script>
-<script src="js/board.js?v=0.9.39"></script>
-<script src="js/build.js?v=0.9.39"></script>
-<script src="js/suggest.js?v=0.9.39"></script>
-<script src="js/train.js?v=0.9.39"></script>
-<script src="js/gamesview.js?v=0.9.39"></script>
-<script src="js/review.js?v=0.9.39"></script>
-<script src="js/settings.js?v=0.9.39"></script>
-<script src="js/app.js?v=0.9.39"></script>
+<script src="js/core.js?v=0.9.40"></script>
+<script src="js/openings.js?v=0.9.40"></script>
+<script src="js/book.js?v=0.9.40"></script>
+<script src="js/store.js?v=0.9.40"></script>
+<script src="js/games.js?v=0.9.40"></script>
+<script src="js/evals.js?v=0.9.40"></script>
+<script src="js/rep.js?v=0.9.40"></script>
+<script src="js/jobs.js?v=0.9.40"></script>
+<script src="js/engine.js?v=0.9.40"></script>
+<script src="js/explore.js?v=0.9.40"></script>
+<script src="js/ideas.js?v=0.9.40"></script>
+<script src="js/rows.js?v=0.9.40"></script>
+<script src="js/gaps.js?v=0.9.40"></script>
+<script src="js/practice.js?v=0.9.40"></script>
+<script src="js/puzzles.js?v=0.9.40"></script>
+<script src="js/report.js?v=0.9.40"></script>
+<script src="js/autobuild.js?v=0.9.40"></script>
+<script src="js/catalogue.js?v=0.9.40"></script>
+<script src="js/addopening.js?v=0.9.40"></script>
+<script src="js/structures.js?v=0.9.40"></script>
+<script src="js/idealines.js?v=0.9.40"></script>
+<script src="js/focus.js?v=0.9.40"></script>
+<script src="js/treeview.js?v=0.9.40"></script>
+<script src="js/covermap.js?v=0.9.40"></script>
+<script src="js/picture.js?v=0.9.40"></script>
+<script src="js/similar.js?v=0.9.40"></script>
+<script src="js/transpose.js?v=0.9.40"></script>
+<script src="js/funnel.js?v=0.9.40"></script>
+<script src="js/connect.js?v=0.9.40"></script>
+<script src="js/updates.js?v=0.9.40"></script>
+<script src="js/importer.js?v=0.9.40"></script>
+<script src="js/board.js?v=0.9.40"></script>
+<script src="js/build.js?v=0.9.40"></script>
+<script src="js/suggest.js?v=0.9.40"></script>
+<script src="js/train.js?v=0.9.40"></script>
+<script src="js/gamesview.js?v=0.9.40"></script>
+<script src="js/review.js?v=0.9.40"></script>
+<script src="js/settings.js?v=0.9.40"></script>
+<script src="js/app.js?v=0.9.40"></script>
 </body>
 </html>

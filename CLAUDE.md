@@ -300,6 +300,11 @@ when it loads; the others just define things.
       rams: 2 = closed, 1 = fixed; open = at most one advanced centre pawn each; mobile; none) and
       `sideFeatures()` (missing, isolated, doubled, backward, passed, by file); `structByMove()` grid
       over `ST_MOVES`. Named structures from `structureOf()` underneath.
+  - v0.9.40: the Map tab is labelled Visualise (still `S.otab = "map"`). `autoImport()` (importer.js) on
+    boot and when the app becomes visible, at most every `AUTO_IMPORT_GAP` (10 min, `pb_autoimp`): only the
+    archives from the month of my newest game on (`archiveList()`, `importArchives()`, shared with the
+    Import button; fetches use `cache: "no-cache"`). Needs games already imported; off with
+    `S.settings.autoImport = false` (Settings checkbox `#setAutoImport`). Test: `importTests()` (stub fetch).
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".

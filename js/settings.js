@@ -21,6 +21,7 @@ function renderSettings() {
   const gf = $("#gapFloor"); gf.value = Math.round(gapFloor() * 1000) / 10; gf.onchange = () => { const v = parseFloat(gf.value); S.settings.gapFloor = isFinite(v) ? Math.max(0, Math.min(20, v)) : 2; gapLast = null; Store.save("settings"); };
   const ct = $("#coverTo"); ct.value = coverTo(); ct.onchange = () => { const v = parseInt(ct.value, 10); S.settings.coverTo = isFinite(v) ? Math.max(2, Math.min(COVER_MOVES, v)) : 10; ct.value = coverTo(); Store.save("settings"); };
   const ms = $("#setMasters"); ms.checked = mastersOn(); ms.onchange = () => { S.settings.mastersRows = ms.checked; Store.save("settings"); };
+  const ai = $("#setAutoImport"); ai.checked = S.settings.autoImport !== false; ai.onchange = () => { S.settings.autoImport = ai.checked; Store.save("settings"); if (ai.checked) autoImport(); };
   $("#setUser").value = S.settings.user;
   $("#setToken").value = S.token;
   $("#setMonths").value = String(S.settings.months);

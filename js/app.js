@@ -88,12 +88,14 @@ async function boot() {
   fetchRating(); // G4, at most once a day, in the background
   walk("white"); walk("black");
   warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
+  autoImport(); // v0.9.40: new chess.com games, only the latest months, in the background
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible") { Store.flushAll(); return; }
     const docsChanged = await Store.refresh(), gamesChanged = await Games.refresh(); // games after settings (gamesEpoch)
     if (docsChanged || gamesChanged) { walk("white"); walk("black"); applyLook(); syncToken(); renderHeader(); warmGameKeys(() => render()); if (!(S.view === "train" && T.state === "run")) render(); }
+    autoImport();
   });
   document.addEventListener("click", e => { const t = e.target.closest("button"); if (t) dispatchClick(t); });
   $("#back").onclick = () => { curPath().pop(); renderBuild(); };

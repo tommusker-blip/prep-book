@@ -38,6 +38,7 @@
 <script src="../js/picture.js"></script>
 <script src="../js/connect.js"></script>
 <script src="../js/review.js"></script>
+<script src="../js/importer.js"></script>
 <script>
 "use strict";
 const results = [];
@@ -613,6 +614,37 @@ t("pawn structures: features by file and the type of centre (v0.9.39)", () => {
   eq(feats("d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 cxd4 Nxd4", "b").isolated, "d");
   eq(feats("e4 d5 exd5 c6 dxc6 e5 cxb7", "w").passed, "bc", "b7, and c2 with no black b-, c- or d-pawn left");
 });
+async function importTests() {
+  await at("chess.com: new games come in by themselves, fetching only the latest months (v0.9.40)", async () => {
+    reset();
+    const realFetch = window.fetch, realToast = toast, realRender = window.render, realMode = S.storeMode, realUser = S.settings.user;
+    const asked = [], pgn = (d, link, moves) => `[White "tester"]\n[Black "opp"]\n[Result "1-0"]\n[UTCDate "${d}"]\n[TimeControl "600"]\n[Link "${link}"]\n\n${moves} 1-0`;
+    const months = { "2026/09": [], "2026/10": [pgn("2026.10.15", "g1", "1. e4 e5")], "2026/11": [pgn("2026.10.15", "g1", "1. e4 e5"), pgn("2026.11.10", "g2", "1. d4 d5")] };
+    window.fetch = async url => {
+      asked.push(url.replace("https://api.chess.com/pub/player/tester/games/", ""));
+      const body = url.endsWith("/archives") ? { archives: Object.keys(months).map(m => "https://api.chess.com/pub/player/tester/games/" + m) } : { games: (months[url.slice(-7)] || []).map(p => ({ pgn: p, rules: "chess", time_class: "rapid" })) };
+      return { ok: true, json: async () => body };
+    };
+    let toasted = ""; toast = m => { toasted = m; }; window.render = () => {};
+    S.storeMode = "local"; S.settings.user = "tester";
+    try {
+      addGames([gameFromPGN(months["2026/10"][0], "tester", "rapid")]);
+      localStorage.removeItem("pb_autoimp");
+      await autoImport();
+      eq(asked, ["archives", "2026/10", "2026/11"], "the month of my newest game onwards, not 2026/09");
+      eq(S.games.length, 2, "one new game added, the old one kept");
+      eq(toasted, "1 new game from chess.com");
+      asked.length = 0;
+      await autoImport();
+      eq(asked, [], "not again within 10 minutes");
+      S.settings.autoImport = false; localStorage.removeItem("pb_autoimp");
+      await autoImport();
+      eq(asked, [], "off in Settings");
+    } finally {
+      window.fetch = realFetch; toast = realToast; window.render = realRender; S.storeMode = realMode; S.settings.user = realUser; S.settings.autoImport = undefined; localStorage.removeItem("pb_autoimp"); reset();
+    }
+  });
+}
 async function funnelTests() {
   await at("routes from the start: a plan into the position, by move order and percentage (v0.9.39)", async () => {
     reset(); resetEx(); S.color = "white";
@@ -1103,7 +1135,7 @@ t("practice: a chosen starting position is used, and falls back to the start if 
   S.settings.practiceRoot = undefined;
 });
 
-jobTests().then(ideaLineTests).then(funnelTests).then(() => {
+jobTests().then(ideaLineTests).then(funnelTests).then(importTests).then(() => {
   const fails = results.filter(r => r.startsWith("FAIL")).length;
   document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
   document.title = fails ? "FAIL" : "PASS";

@@ -287,7 +287,7 @@ function drawCatalogue(root, targets) {
       </div>
     </details>`;
   };
-  box.innerHTML = `<div class="cathead"><span>Opening</span><span>Covered${info(`To move ${coverTo()}: the share of games at your level through this opening that are still in your prep after move ${coverTo()} (Settings > Building your tree). The Map tab shows it move by move.`, "About covered")}</span><span>Score${info("Your score in your own games through this opening (win 1, draw ½), with the number of games under it.", "About score")}</span></div>` + root.children.map(c => entry(c)).join("");
+  box.innerHTML = `<div class="cathead"><span>Opening</span><span>Covered${info(`To move ${coverTo()}: the share of games at your level through this opening that are still in your prep after move ${coverTo()} (Settings > Building your tree). The Visualise tab shows it move by move.`, "About covered")}</span><span>Score${info("Your score in your own games through this opening (win 1, draw ½), with the number of games under it.", "About score")}</span></div>` + root.children.map(c => entry(c)).join("");
 }
 /* ----- removing an opening (v0.9.8) -----
    An entry's path can start deeper than the line itself (a folded entry: the French is listed

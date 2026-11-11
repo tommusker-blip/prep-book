@@ -1,5 +1,5 @@
 "use strict";
-/* ---------- the coverage map (v0.9.24): Openings > Map ----------
+/* ---------- the coverage map (v0.9.24): Openings > Visualise (was Map) ----------
    Every opening of the catalogue as a row of cells, one per move (1 to MAP_MOVES):
    - Coverage: how much of what you'll meet at your level through that opening is still in your
      prep after that move (the catalogue's curve), darker blue for more.
@@ -96,7 +96,7 @@ function renderCoverMap(fromCat) {
     <p class="help">${help[mapMode] || help.cover}</p>`;
 }
 
-/* v0.9.39: the Map tab also holds the pictures (picture.js): one switch between the opening map,
+/* v0.9.39: the Visualise tab (was Map) also holds the pictures (picture.js): one switch between the opening map,
    the tree and the structures */
 let mapView = "map";
 const MAP_VIEWS = [["map", "Openings map"], ["tree", "Tree"], ["structures", "Structures"]];
