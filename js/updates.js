@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11c", date: "11 Nov 2026", title: "Connect: quicker after each change",
+    items: [
+      "After you add or replace a chain, the next one shows straight away while Connect re-checks your tree in the background (it says \"updating\" meanwhile).",
+      "Open in Build goes to the position where the chain's move is played, with that move's row open, not to the end of the chain.",
+    ],
+  },
+  {
     id: "2026-11-11b", date: "11 Nov 2026", title: "Connect: likely chains first",
     items: [
       "Connect has a filter for the chance of the whole chain (all the opponent moves in it, multiplied together): at least 10%, 25% (the default) or 50%. The most likely chains now come first, and the count of the ones hidden is shown.",

@@ -119,8 +119,13 @@ f.onload = () => {
       d.querySelector("#connectPane [data-conmin=\"0.25\"]").click(); await sleep(50);
       const st = d.querySelector("#connectPane [data-constep='1']"); if (st) { st.click(); await sleep(50); }
       L("acts: " + [...d.querySelectorAll("#connectPane [data-conact]")].map(b => b.textContent).join(", "));
-      const rep0 = d.querySelector('#connectPane [data-conact="rep:0"]');
-      if (rep0) { rep0.click(); await until(() => d.querySelector("#connectPane [data-undo='con']") || d.querySelector("#connectPane .help")); await sleep(300); }
+      // v0.9.29: Open in Build goes to the move shown (step 1 = after the chain's first move), with the next one open
+      const cur0 = G("conQueue()")[G("CON").sel];
+      d.querySelector('#connectPane [data-conact="build"]').click(); await sleep(50);
+      L("Open in Build (step 1 tapped): view=" + G("S").view + " path=" + G("S").build.white.join(" ") + " | chain: " + cur0.path.join(" ") + " | " + cur0.moves.join(" "));
+      d.querySelector('[data-nav="openings"]').click(); d.querySelector('[data-otab="connect"]').click(); await until(() => d.querySelector('#connectPane [data-conact="rep:0"]'));
+      const rep0b = d.querySelector('#connectPane [data-conact="rep:0"]');
+      if (rep0b) { rep0b.click(); await sleep(0); L("straight after Replace: " + ((d.querySelector("#connectPane .conhead") || {}).textContent || d.querySelector("#connectPane").textContent.slice(0, 80)).replace(/\s+/g, " ").trim()); await sleep(1500); }
       L("after Replace: c4 Nf6 -> " + G('(rep("white").pos[K(fenAfter(START, ["c4","Nf6"]))] || {m:[]}).m.join(",")') + " | g3 branch: " + G('!!rep("white").pos[K(fenAfter(START, ["c4","Nf6","g3"]))]') + " | undo: " + !!d.querySelector("#connectPane [data-undo='con']"));
       // the Ideas tab has no Transpositions section any more
       d.querySelector('[data-otab="sug"]').click(); await sleep(50);
