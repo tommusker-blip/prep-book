@@ -371,6 +371,8 @@ div.gap-row{cursor:default}
 .stc{font-weight:600}
 .stcombo .stcnum{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
 .stcnum b{font-family:var(--f-display);font-size:1.3rem}
+.stattn .stcnum b{color:var(--bad)}
+.stattn .help b{color:var(--ink)}
 .stcnum .btn{margin-left:auto}
 .stdetail summary{cursor:pointer;color:var(--accent);font-size:.86rem;margin:4px 0 8px}
 /* focus on one opening (focus.js) */

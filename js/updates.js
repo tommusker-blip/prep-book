@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11p", v: "0.9.42", date: "11 Nov 2026", title: "Structures: what's costing you, and where it comes from",
+    items: [
+      "Visualise > Structures starts with \"Worth your attention\": up to 3 structures where you score below your average, the ones costing you most points first (games × the drop in your score).",
+      "Each one says where it comes from: the openings of those games, and your last prepared choice before it (for example 5.d4 after 1.e4 c5 2.Nf3 d6).",
+      "Two ways to act on it: \"Avoid: other moves in Build\" opens that choice so you can pick a different move, and \"Practise this line\" trains the line if you'd rather get better at it. Example opens a game.",
+    ],
+  },
+  {
     id: "2026-11-11o", v: "0.9.41", date: "11 Nov 2026", title: "Structures: the indicators linked together",
     items: [
       "Visualise > Structures now links the indicators into structures: the features that come up together in your games at that move. For example \"You no d-pawn · Them no c-pawn\", or \"Fixed centre · You backward d-pawn\".",

@@ -310,6 +310,11 @@ when it loads; the others just define things.
     `ST_SUPPORT` of games (and `ST_MIN_GAMES`), drops a set that nearly always comes with one more item
     (`ST_CLOSED`), and gives the most common, best and worst (shrunk score, ≥ 10 games), each with its
     newest game as the example (`data-review`). `comboText()` words them. Per-file tables in a `<details>`.
+  - v0.9.42: Structures "Worth your attention" (`stAttention()`, `attentionHtml()`): kept sets with ≥
+    `ST_ATTN_MIN` games and a shrunk score ≥ 3 points under average, by cost = games × (average − shrunk
+    score); sets mostly covering the same games as one listed are skipped (`ST_OVERLAP`). Each has its
+    families (`stFamily()`) and the deepest my-turn tree position those games passed (`dec`: path +
+    played); actions `data-open` (Build at that choice), `data-focustrain` (practise the line), `data-review`.
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".

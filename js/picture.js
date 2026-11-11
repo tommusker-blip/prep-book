@@ -218,7 +218,7 @@ function structAt(color, move) {
         const f = sideFeatures(P, s);
         for (const [feat] of FEATS) { if (f[feat].size) add(d[who][feat].any, sc); f[feat].forEach(x => { add(d[who][feat].files[x], sc); items.push(`${who}:${feat}:${x}`); }); }
       }
-      d.games.push({ id: g.id, sc, items: items.sort() });
+      d.games.push({ g, id: g.id, sc, items: items.sort() });
     }
     d.avg = d.n ? d.sum / d.n : 0.5;
     return d;
@@ -259,7 +259,61 @@ function stCombos(d) {
   const big = kept.filter(c => c.n >= Math.max(minN, 10));
   const best = big.filter(c => diff(c) >= 0.03).sort((a, b) => diff(b) - diff(a)).slice(0, 3);
   const worst = big.filter(c => diff(c) <= -0.03).sort((a, b) => diff(a) - diff(b)).slice(0, 3);
-  return (d.combos = { common, best, worst, minN });
+  return (d.combos = { common, best, worst, minN, kept });
+}
+/* v0.9.42: worth your attention. Structures where I score below my average, ranked by what they
+   cost: games × (average − my score there, shrunk on few games), in game points. For each, where it
+   comes from, so I can avoid it by choosing another opening move or practise it:
+   - the opening families of those games (deepest name in the dataset up to that move);
+   - my last prepared choice before it: the deepest position of my tree, on my move, that those games
+     went through, and the move I played there. Open in Build shows that choice with its alternatives;
+     Practise trains the line after it.
+   Sets that mostly describe the same games as one already listed (ST_OVERLAP) are left out. */
+const ST_ATTN = 3, ST_OVERLAP = 0.7, ST_ATTN_MIN = 10;
+function stFamily(g, plies) {
+  let name = "";
+  for (const k of gameKeys(g).slice(0, plies + 1)) { const b = bookName(k); if (b) name = b.name; }
+  return name ? family(name) : "Unnamed";
+}
+function stAttention(d, color, move) {
+  if (d.attn) return d.attn;
+  const cb = stCombos(d), R = rep(color), nodes = walk(color).nodes, plies = 2 * move;
+  const cost = c => c.n * (d.avg - shrink(c.sum, c.n, d.avg));
+  const cands = cb.kept.filter(c => c.n >= Math.max(cb.minN, ST_ATTN_MIN) && shrink(c.sum, c.n, d.avg) - d.avg <= -0.03).sort((a, b) => cost(b) - cost(a));
+  const out = [], taken = new Set();
+  for (const c of cands) {
+    if (out.length >= ST_ATTN) break;
+    const games = d.games.filter(x => c.items.every(it => x.items.includes(it)));
+    if (games.filter(x => taken.has(x.id)).length >= ST_OVERLAP * games.length) continue;
+    games.forEach(x => taken.add(x.id));
+    const fam = new Map(), dec = new Map();
+    for (const x of games) {
+      const f = stFamily(x.g, plies), e = fam.get(f) || { name: f, n: 0, sum: 0 };
+      e.n++; e.sum += x.sc; fam.set(f, e);
+      const keys = gameKeys(x.g), moves = x.g.moves.split(" ");
+      let at = -1;
+      for (let i = 0; i < Math.min(keys.length - 1, plies); i++) { const n = R.pos[keys[i]]; if (isMine(keys[i], color) && n && n.m.length && nodes[keys[i]]) at = i; }
+      if (at < 0) continue;
+      const k = keys[at] + "|" + moves[at], e2 = dec.get(k) || { key: keys[at], played: moves[at], n: 0, sum: 0 };
+      e2.n++; e2.sum += x.sc; dec.set(k, e2);
+    }
+    const top = [...dec.values()].sort((a, b) => b.n - a.n)[0];
+    out.push({ c, cost: cost(c), games, fams: [...fam.values()].sort((a, b) => b.n - a.n).slice(0, 2), dec: top ? { ...top, path: nodes[top.key].path } : null });
+  }
+  return (d.attn = out);
+}
+function attentionHtml(d, color, move) {
+  const list = stAttention(d, color, move);
+  if (!list.length) return `<p class="lbl">Worth your attention</p><p class="help">No structure at move ${move} where you score clearly below your average (at least ${ST_ATTN_MIN} games). Try another move with ◀ ▶.</p>`;
+  return `<p class="lbl">Worth your attention ${info("Structures where you score below your average, the ones costing you most first: games × the drop in your score, in game points (a loss against your average costs about half a point more than a draw would). Each shows where it comes from: the openings, and your last prepared choice before it. To avoid it, open that choice in Build and look at the other moves; to get better at it, practise the line.", "About this list")}</p>
+    <div class="stcombos">${list.map(a => {
+      const c = a.c, dec = a.dec, line = dec ? dec.path.concat(dec.played) : null;
+      return `<div class="stcombo stattn bad" style="--w:${Math.round((c.n / d.n) * 100)}%">
+        <p class="stctext">${comboText(c.items)}</p>
+        <p class="stcnum"><b>−${a.cost.toFixed(1)}</b><span class="help">points over ${c.n} games · ${stScore(c, d)}</span></p>
+        <p class="help">From ${a.fams.map(f => `${esc(f.name)} (${f.n}, ${pctOf(f.sum / f.n)})`).join(", ")}.${dec ? ` Your last prepared choice before it: <b class="mono">${esc(moveLabel(dec.path, dec.played))}</b> after <span class="mono">${esc(numbered(0, dec.path) || "the start")}</span> (${dec.n} of these games, you score ${pctOf(dec.sum / dec.n)}).` : ""}</p>
+        <div class="row conacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}">Avoid: other moves in Build</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise this line</button>` : ""}<button type="button" class="btn ghost quick" data-review="${esc(a.games[0].id)}">Example</button></div></div>`;
+    }).join("")}</div>`;
 }
 const FEAT_WORD = { missing: f => `no ${f}-pawn`, isolated: f => `isolated ${f}-pawn`, doubled: f => `doubled ${f}-pawns`, backward: f => `backward ${f}-pawn`, passed: f => `passed ${f}-pawn` };
 // ["c:fixed", "me:isolated:3", "them:missing:2"] -> "Fixed centre · You: isolated d-pawn · Them: no c-pawn"
@@ -302,9 +356,9 @@ function renderStructures(color) {
     }).join("")}</div>`;
   const list = (title, rows, help) => rows.length ? `<p class="lbl">${title}</p>${help ? `<p class="help">${help}</p>` : ""}<div class="stcombos">${rows.map(comboRow).join("")}</div>` : "";
   return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">of your games as ${color} reached move ${mv}; you scored ${pctOf(d.avg)} in them. Blue/orange: you score better/worse than that.</span></p>
+    ${attentionHtml(d, color, mv)}
     ${list("Your most common structures", cb.common, `Features that come up together at move ${mv}, in at least ${cb.minN} games. A game can have more than one.`)}
     ${list("Where you score best", cb.best)}
-    ${list("Where you score worst", cb.worst)}
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
     <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
       <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>
