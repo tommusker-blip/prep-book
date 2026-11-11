@@ -225,6 +225,22 @@ when it loads; the others just define things.
     stored `inb`/`post`), `revNote()` the deviation card; `revAct()` changes the tree through
     `RepUndo` kind "rev". The prep move's eval is asked at depth 12 (`askPrepEval()`).
     `tests/smoke.html#review`.
+- v0.9.27:
+  - Build rows: depth 14 at once (`rowDepth()`); `deepKeys` and the Deeper analysis button are gone.
+  - Gap › replays the line (`buildReplay()` in gaps.js, `BA`): from the start up to 10 plies, else the
+    last `GAP_RUNUP`; `renderBuild()` stops it, `refreshBuild()` leaves the board alone while `BA.on`.
+  - Review positions: `sessionCards()` (rep.js) caps flagged cards at `FLAG_SHARE` and takes turns
+    between first-two-move branches; `misplayNote()` (train.js, from `misplaysAt()`) on flagged cards.
+  - Mistake review: `puzzleQueue()` dedupes by `pzPosId()` (position + move; `pzStateOf()` shares the
+    state), at most `PZ_PER_FAMILY` per family and one per game; "later" waits `PZ_LATER_WAIT` (`t`).
+  - Fits your prep: `setupSim()` = `pawnSim()`² × (0.3 + 0.7 × pieces Jaccard); `pawnSim()` compares
+    whole files of both sides' pawns, over files where either position has moved a pawn.
+  - `js/connect.js`: Openings > Connect (`S.otab = "connect"`; Suggestions is now labelled Ideas,
+    without its Transpositions section). `sweepConnections()` (chunked) / `findConnections()` (sync,
+    tests): `connectFrom()` uses `routesTo()` between tree nodes `k` ≤ `CON_PLIES` plies apart;
+    opponent moves ≥ `CON_MIN` where data exists (unknown = `CON_UNKNOWN`, fetched on review by
+    `conFetch()`); kinds `gap` / `switch` (Replace prunes the old branch via `walk()`). One at a time
+    with a board (`CB`), `RepUndo` kind "con", Skip in `pb_conskip`. `tests/smoke.html#connect`.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

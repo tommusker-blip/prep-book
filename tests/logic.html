@@ -34,6 +34,7 @@
 <script src="../js/covermap.js"></script>
 <script src="../js/similar.js"></script>
 <script src="../js/transpose.js"></script>
+<script src="../js/connect.js"></script>
 <script src="../js/review.js"></script>
 <script>
 "use strict";
@@ -855,6 +856,64 @@ t("puzzles: queue order is due kept ones, then new, then later; seen ones are re
   S.puzzles.map["bs:6"] = { st: "seen" };
   eq(puzzleQueue().map(puzzleId), ["bs:8"]);
   S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear(); PZ.rng = Math.random;
+});
+t("puzzles: the same slip in the same position is one puzzle; later ones wait a day (v0.9.27)", () => {
+  S.puzzles = { map: {} }; MIST.byGame.clear();
+  const { g, a } = shilling(), g2 = { ...g, id: "bs2" };
+  S.games = [g, g2]; S.acc = { bs: a, bs2: a };
+  MIST.byGame.set("bs", gameMistakes(g, a, null)); MIST.byGame.set("bs2", gameMistakes(g2, a, null));
+  PZ.rng = () => 0.9999;
+  eq(puzzleQueue().map(puzzleId), ["bs:6", "bs:8"], "bs2's copies of them aren't asked again");
+  S.puzzles.map["bs:6"] = { st: "seen" };
+  eq(puzzleQueue().map(puzzleId), ["bs:8"], "seen in one game is seen in the other");
+  S.puzzles.map["bs:8"] = { st: "later", t: Date.now() };
+  eq(puzzleQueue().length, 0, "put off today: not yet");
+  S.puzzles.map["bs:8"].t = Date.now() - 2 * DAY;
+  eq(puzzleQueue().map(puzzleId), ["bs:8"]);
+  S.puzzles = { map: {} }; S.games = []; S.acc = {}; MIST.byGame.clear(); PZ.rng = Math.random;
+});
+t("review positions: flagged cards fill at most 40% of a session (v0.9.27)", () => {
+  reset(); S.color = "white";
+  for (const l of ["e4 e5 Nf3 Nc6 Bb5 a6 Ba4", "d4 d5 c4 e6 Nc3 Nf6 Bg5", "c4 e5 Nc3 Nf6 g3 d5 cxd5"]) line("white", l);
+  walk("white");
+  const R = rep("white"), keys = Object.keys(R.cards);
+  keys.filter((k, i) => i % 2 === 0).forEach(k => (R.cards[k].flag = 2));
+  const all = dueCards("white"), sess = sessionCards(all, 5, "white");
+  eq(sess.filter(k => R.cards[k].flag).length, 2, "2 of 5");
+  eq(new Set(sess.map(k => R.pos[k].path.split(" ")[0])).size >= 2, true, "more than one opening");
+});
+t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
+  const a = setupOf(fenOf("e4 e5 Nf3 Nc6 Bc4 Bc5"), "white"), kg = setupOf(fenOf("e4 e5 f4 Nc6 Nf3 Bc5 Bc4"), "white"), same = setupOf(fenOf("e4 e5 Bc4 Bc5 Nf3 Nc6"), "white");
+  eq(Math.round(setupSim(a, kg) * 100), 25, "f2 against f4: a different structure");
+  eq(setupSim(a, same), 1, "the same position by another order");
+  eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
+});
+t("connect: chains of likely moves from one line into another (v0.9.27)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2");
+  line("white", "c4 Nf6 g3");          // my 2.g3: a different move from the Nimzo's move order
+  line("white", "c4 e5 Nc3");          // 2...? no reply prepared after 2.Nc3
+  const list = findConnections("white"), str = c => c.path.join(" ") + " | " + c.moves.join(" ") + " > " + c.toPath.join(" ") + " " + c.kind;
+  const sw = list.find(c => c.path.join(" ") === "c4 Nf6");
+  eq(sw && str(sw), "c4 Nf6 | d4 > d4 Nf6 c4 switch", "1.c4 Nf6 2.d4 = 1.d4 Nf6 2.c4");
+  eq(list.some(c => c.path.join(" ") === "d4 Nf6"), false, "2.c4 is already prepared there");
+  const gap = list.find(c => c.path.join(" ") === "c4 e5 Nc3");
+  eq(gap ? gap.kind : "none", "none", "no line of mine to join after 2.Nc3");
+  // replace 2.g3 with the chain: the old branch goes
+  const c = sw;
+  c.moves.forEach((m, i) => addMove(c.path.concat(c.moves.slice(0, i)), m, "white", i === 0 ? "g3" : null));
+  walk("white");
+  eq(rep("white").pos[K(fenOf("c4 Nf6"))].m.join(), c.moves[0]);
+  eq(!!rep("white").pos[K(fenOf("c4 Nf6 g3"))], false, "2.g3's branch was pruned");
+  // a gap: no reply prepared after 1.c4 Nf6 2.Nc3, and 2...e6 3.d4 joins the Nimzo line
+  reset(); resetEx();
+  line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2");
+  line("white", "c4 Nf6 Nc3");
+  const g = findConnections("white").find(c => c.path.join(" ") === "c4 Nf6 Nc3");
+  eq(g && str(g), "c4 Nf6 Nc3 | e6 d4 > d4 Nf6 c4 e6 Nc3 gap");
+  // once Lichess says 2...e6 is rare there, the chain is left out
+  setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("g6", 600, 240, 60, 300), mv("e5", 380, 150, 40, 190), mv("e6", 20, 8, 2, 10)]);
+  eq(findConnections("white").some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "2% isn't likely");
 });
 
 /* ----- coach report: aggregated numbers only ----- */

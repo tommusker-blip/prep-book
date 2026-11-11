@@ -12,10 +12,10 @@ function sidePanes() {
 function sideSoon() { if (!sideTimer && sugShowing()) sideTimer = setTimeout(() => { sideTimer = null; sidePanes(); }, 1500); }
 // The Openings page's two tabs
 function showOpeningsTab() {
-  const tab = ["sug", "map"].includes(S.otab) ? S.otab : "cat";
+  const tab = ["sug", "map", "connect"].includes(S.otab) ? S.otab : "cat";
   document.querySelectorAll("[data-otab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.otab === tab)));
   document.querySelectorAll("[data-opane]").forEach(p => (p.hidden = p.dataset.opane !== tab));
-  if (tab === "sug") renderSuggest(); else if (tab === "map") renderCoverMap(); else { renderAddOpening(); renderCatalogue(); }
+  if (tab === "sug") renderSuggest(); else if (tab === "map") renderCoverMap(); else if (tab === "connect") renderConnect(); else { renderAddOpening(); renderCatalogue(); }
 }
 
 /* ----- suggestions from Lichess (scan, hidden gems, transpositions, structures, alternatives) ----- */
@@ -62,8 +62,6 @@ function renderSuggest() {
       (r, i) => row("gems", i, `${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · ${r.n.toLocaleString("en-GB")} games · you score ${pc(r.sc)} vs ${pc(r.avg)} on average`)) +
     section("better", "Better-scoring alternatives", "One move away from your choice, and scoring better at your level.", s.better,
       (r, i) => row("better", i, `${esc(moveLabel(r.path, r.san))} instead of ${esc(r.mine.join(" / "))}`, r.path.join(" "), `${pc(r.sc)} vs ${pc(r.myBest)} for yours · ${r.n.toLocaleString("en-GB")} games`)) +
-    section("trans", "Transpositions", "Moves from your positions that lead into another position you've already prepared.", s.trans,
-      (r, i) => row("trans", i, `${r.myTurn ? "You could play" : "Opponent plays"} ${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · joins your line ${esc(r.to.join(" ") || "start")}`)) +
     section("struct", "Same pawn structure", "Named openings that reach the same pawn structure as one of your lines, so your plans carry over.", s.struct,
       (r, i) => `<div class="gap-row"><span class="gt">${esc(r.eco)} ${esc(r.name)}</span><span class="gd">Same pawns as your ${esc(r.myName || "line")}: <span class="mono">${esc(r.mine.join(" "))}</span></span>
         <span class="row" style="margin-top:4px"><button type="button" class="btn ghost" data-sug="struct:${i}">Go to your line</button><a class="btn ghost" href="${lichessAnalysis(r.key)}" target="_blank" rel="noopener">Open on Lichess</a></span></div>`);

@@ -68,13 +68,11 @@ const Tip = {
 };
 
 /* ----- engine evals for the rows (through the job queue) -----
-   By default each row gets a quick eval (depth 10: a few hundredths of a second per position on a
-   PC), which keeps Build light on a phone. "Deeper analysis" asks for depth 14 for every row and
-   the follow-ups (the ⚔ tag: MultiPV and the Lichess replies after each move). Deeper
-   results already in the cache or the database are always used. */
+   Every row gets depth 14 straight away, with the follow-ups (the ⚔ tag: MultiPV and the Lichess
+   replies after each move). v0.9.27: there used to be a quick depth-10 pass and a "Deeper
+   analysis" button; the quick pass wasn't useful. Cached depth-10 results show while 14 runs. */
 const QUICK_DEPTH = 10, DEEP_DEPTH = 14;
-const deepKeys = new Set(); // positions where I asked for deeper analysis (this session)
-const rowDepth = key => (deepKeys.has(key) ? DEEP_DEPTH : QUICK_DEPTH);
+const rowDepth = () => DEEP_DEPTH;
 const evalAt = (fen, depth = QUICK_DEPTH) => { const e = EVALC[K(fen)]; return e && e.d >= depth ? e : null; };
 // My-side eval after a move, and how much the mover gave up against their best move
 function engineFor(fen, key, san) {
@@ -102,7 +100,7 @@ function rowsPending(fen, key, list) {
   const depth = rowDepth(key);
   if (Engine.failed) return false;
   if ([fen, ...list.map(c => fenAfter(fen, [c.san]))].some(f => f && !evalAt(f, depth))) return true;
-  if (!deepKeys.has(key) || !isMine(key, S.color)) return false;
+  if (!isMine(key, S.color)) return false;
   return list.slice(0, FOLLOW_MAX).some(c => { const p1 = fenAfter(fen, [c.san]), m = p1 && MPV[K(p1)]; return p1 && !(m && m.d >= MPV_DEPTH && m.n >= MPV_N); });
 }
 
@@ -128,7 +126,7 @@ function followups(fen, san) {
 }
 // Ask for the MultiPV and Lichess replies for my top candidates, one at a time, most played first
 function queueFollowups(fen, key, list) {
-  if (!isMine(key, S.color) || !deepKeys.has(key)) return; // only after "Deeper analysis"
+  if (!isMine(key, S.color)) return;
   const opts = { prio: PRIO.now, stale: notHere(key) };
   for (const c of list.slice(0, FOLLOW_MAX)) {
     const p1 = fenAfter(fen, [c.san]);
@@ -201,7 +199,7 @@ function candRow(fen, key, c, ex, path) {
   const mark = moveMark(e, gambit || !!peerGem || flag === "gem");
   const head = `<div class="crow c${3 + 2 * statCols().length}">
       ${namedLine(fen, c.san, path)}
-      <span class="ctags">${tags.html || (myTurn && !Engine.failed && deepKeys.has(key) && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
+      <span class="ctags">${tags.html || (myTurn && !Engine.failed && c.rank < FOLLOW_MAX && !(fu && fu.label) ? `<span class="muted">…</span>` : "")}</span>
       <span class="cmove"><button type="button" class="chip" data-go="${esc(c.san)}" aria-label="${esc(c.san)}${mark.t ? ", " + mark.t : ""}${stateText ? ", " + stateText : ""}">${esc(c.san)}<span class="mark ${mark.k}">${mark.s}</span></button></span>
       <span class="ceng">${engineCell(e)}</span>
       ${statCells(fen, key, c, ex, f, peerScore)}
@@ -292,12 +290,10 @@ function candRows(fen, key, n, path) {
       ${list.map(c => candRow(fen, key, c, ex, path)).join("")}
     </div>${weakRow}${deepRow(fen, key, all, myTurn)}${rowsLegend(myTurn, ex)}`;
 }
-// Under the rows: the "Deeper analysis" button, or progress while it runs
+// Under the rows: progress while the engine and the follow-ups run
 function deepRow(fen, key, list, myTurn) {
   if (Engine.failed) return "";
-  const pending = rowsPending(fen, key, list);
-  if (deepKeys.has(key)) return pending ? `<p class="help deeprow" aria-live="polite">Analysing deeper…</p>` : "";
-  return `<div class="row deeprow"><button type="button" class="btn ghost" data-deep>Deeper analysis</button>${info(`Each move gets a quick engine check (depth ${QUICK_DEPTH}) so Build stays fast. Deeper analysis checks every move at depth ${DEEP_DEPTH}${myTurn ? " and looks for practical weapons (⚔): how many good replies your opponent has after each of your top moves, and how often players at your level find them" : ""}. It takes a few seconds, longer on a phone.`, "About deeper analysis")}</div>`;
+  return rowsPending(fen, key, list) ? `<p class="help deeprow" aria-live="polite">Analysing (depth ${DEEP_DEPTH})…</p>` : "";
 }
 /* ----- "Fits your prep" for a candidate of mine (v0.9.7) -----
    The synergy score from ideas.js (memorability()): the chance of transposing into my lines
@@ -390,10 +386,10 @@ function rowsLegend(myTurn, ex) {
       <p><b class="mark m-int">!?</b> interesting: the engine likes it less, but it's a gambit or it scores well at your level${myTurn ? ". Weaker moves of yours are hidden (Show brings them back)" : ""}</p>
       <p class="rk-h">Tags</p>
       ${myTurn ? `<p><span class="tag">💎</span> hidden gem: rarely played, or the engine likes it less, but it scores well at your level</p>
-      <p><span class="tag">⚔</span> practical weapon: your opponent has only 1 or 2 good replies and often misses them (after Deeper analysis)</p>` : ""}
+      <p><span class="tag">⚔</span> practical weapon: your opponent has only 1 or 2 good replies and often misses them</p>` : ""}
       <p><span class="tag">🃏</span> gambit <span class="tag">⇄</span> transposes into your prep <span class="tag">⚠</span> you score badly here although the engine is happy</p>
       <p class="rk-h">Columns</p>
-      <p><b>Eval</b> + good for White, − good for Black (depth ${QUICK_DEPTH}, or ${DEEP_DEPTH} after Deeper analysis), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
+      <p><b>Eval</b> + good for White, − good for Black (depth ${DEEP_DEPTH}), coloured <span class="ev s-good">strong</span> <span class="ev s-ok">playable</span> <span class="ev s-weak">weak</span></p>
       <p><b>Played %</b> how often it's chosen here, with a bar · <b>Score %</b> how your colour scores after it (win 1, draw ½). Each for <b>Peers</b> (players at your level on Lichess${ex ? `: ${srcLine(ex)}` : ""})${mastersOn() ? `, <b>Masters</b> in grey (the Lichess masters database; switch off in Settings)` : ""} and <b>You</b> (your games). Faint figures rest on few games; tap the row for the counts.</p>
       <p>Names in blue: the move reaches a named opening line. Tap a row for everything in full.</p>
       <p class="rk-h">Arrows on the board</p>

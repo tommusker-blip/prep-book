@@ -56,7 +56,7 @@ function startTraining() {
     const R = rep();
     const inF = focusCards(); q = Object.entries(R.cards).filter(([k]) => inF(k)).sort((a, b) => a[1].ef - b[1].ef || a[1].due - b[1].due).slice(0, 10).map(([k]) => k);
   }
-  Object.assign(T, { mode: "cards", queue: q.slice(0, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run", sim: null });
+  Object.assign(T, { mode: "cards", queue: sessionCards(q, 20), i: 0, done: 0, right: 0, retries: 0, graded: new Set(), state: "run", sim: null });
   nextCard();
 }
 // Spot the difference (similar.js): look-alike pairs back to back, graded like review cards.
@@ -155,8 +155,16 @@ function cardPrompt() {
   const sim = T.mode === "cards" && T.sim && T.sim[T.key];
   const tag = again ? '<span class="pill gap">Try again</span> ' : sim ? `<span class="pill">Spot the difference ${sim.first ? "1" : "2"} of 2</span> ` : card && card.flag ? '<span class="pill gap">Misplayed in a game</span> ' : "";
   if (sim && !sim.first && !again) return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">This looks like the last position, but your move is different. What's changed?</p>`;
-  return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">${n && n.m.length > 1 ? `Play one of your repertoire moves (you have ${n.m.length} here).` : "Play the move from your repertoire."}</p>`;
+  return `<p class="lbl">${tag}Your move as ${S.color === "white" ? "White" : "Black"}</p><p class="muted">${n && n.m.length > 1 ? `Play one of your repertoire moves (you have ${n.m.length} here).` : "Play the move from your repertoire."}</p>${card && card.flag && !sim ? misplayNote(T.key) : ""}`;
 }
+// v0.9.27: on a card misplayed in games, when and against whom (the 3 latest), and what I played
+function misplayNote(key) {
+  const list = misplaysAt(key);
+  if (!list.length) return "";
+  const when = list.slice(0, 3).map(x => `${esc(x.opp)}${x.date ? ` <span class="muted">(${esc(fmtDay(x.date))})</span>` : ""}: ${esc(x.played)}`).join(" · ");
+  return `<p class="help misnote">You went wrong here in <b>${list.length} game${list.length === 1 ? "" : "s"}</b>${list.length > 3 ? ", lately" : ""}: ${when}</p>`;
+}
+const fmtDay = d => { const t = Date.parse(d.replace(/\./g, "-")); return isFinite(t) ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : d; };
 // Replay the moves from the start, about 250 ms each (faster for long lines). Tap the board to skip.
 function playLine() {
   const frames = T.frames;
@@ -339,8 +347,8 @@ function onPuzzleChoice(choice) {
   if (choice === "keep") {
     const card = st.c || newCard();
     grade(card, T.pzSolved);
-    setPuzzle(id, { st: "keep", c: card, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0) });
-  } else setPuzzle(id, { st: choice, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0) });
+    setPuzzle(id, { st: "keep", c: card, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0), t: Date.now() });
+  } else setPuzzle(id, { st: choice, n: (st.n || 0) + 1, ok: (st.ok || 0) + (T.pzSolved ? 1 : 0), t: Date.now() });
   T.i++;
   nextPuzzle();
 }

@@ -197,14 +197,41 @@ function shuffled(a, rng = PZ.rng) {
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   return out;
 }
+/* v0.9.27, more variety (the same positions kept coming back):
+   - one puzzle per position and mistake (pzPosId()): the same slip in the same position in many
+     games is one puzzle, and answering one counts for the others (pzStateOf());
+   - in a session, at most PZ_PER_FAMILY puzzles from one opening family and one per game;
+   - "Later" ones wait at least PZ_LATER_WAIT before they come back. */
+const PZ_PER_FAMILY = 2, PZ_LATER_WAIT = DAY;
+const pzPosId = m => K(m.fen) + "|" + m.played;
+function pzStateOf(m, byPos) {
+  const own = pzState(puzzleId(m));
+  if (own) return own;
+  for (const other of byPos.get(pzPosId(m)) || []) { const st = pzState(puzzleId(other)); if (st) return st; }
+  return null;
+}
 function puzzleQueue(n = 10, now = Date.now()) {
-  const list = puzzleList(), due = [], fresh = [], later = [];
+  const list = puzzleList(), byPos = new Map(), due = [], fresh = [], later = [], taken = new Set();
+  for (const m of list) { const k = pzPosId(m); if (!byPos.has(k)) byPos.set(k, []); byPos.get(k).push(m); }
   for (const m of list) {
-    const st = pzState(puzzleId(m));
+    const k = pzPosId(m);
+    if (taken.has(k)) continue; // one per position and mistake
+    taken.add(k);
+    const st = pzStateOf(m, byPos);
     if (!st) fresh.push(m);
     else if (st.st === "keep" && st.c && st.c.due <= now) due.push(m);
-    else if (st.st === "later") later.push(m);
+    else if (st.st === "later" && !(st.t && now - st.t < PZ_LATER_WAIT)) later.push(m);
   }
-  due.sort((a, b) => pzState(puzzleId(a)).c.due - pzState(puzzleId(b)).c.due);
-  return [...due, ...shuffled(fresh), ...shuffled(later)].slice(0, n);
+  due.sort((a, b) => pzStateOf(a, byPos).c.due - pzStateOf(b, byPos).c.due);
+  const out = [], fams = {}, games = new Set();
+  const take = (m, strict) => {
+    const f = openingFamilyOf(m.gid) || "?";
+    if (strict && ((fams[f] || 0) >= PZ_PER_FAMILY || games.has(m.gid))) return false;
+    out.push(m); fams[f] = (fams[f] || 0) + 1; games.add(m.gid);
+    return true;
+  };
+  const pool = [...due, ...shuffled(fresh), ...shuffled(later)], left = [];
+  for (const m of pool) { if (out.length >= n) break; if (!take(m, true)) left.push(m); }
+  for (const m of left) { if (out.length >= n) break; take(m, false); } // few families: fill up anyway
+  return out;
 }

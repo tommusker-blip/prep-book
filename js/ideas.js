@@ -97,12 +97,45 @@ function developed(fen, color) {
   return out;
 }
 const jaccard = (a, b) => { if (!a.size && !b.size) return 0; let n = 0; for (const x of a) if (b.has(x)) n++; return n / (a.size + b.size - n); };
+/* Setup similarity (v0.9.27). It used to be the Jaccard of my developed pieces and pawns alone, so
+   e4 + Nf3 + Bc4 with the f-pawn still on f2 came out 75% like a King's Gambit (only "Pf4" was
+   missing), and the opponent's pawns didn't count. Now the pawn structure leads:
+   - pawnFiles(): per file, where both sides' pawns stand ("P2 p7" on the f-file);
+   - pawnSim(): over the files where either position has a pawn off its start square (either
+     side), the share whose pawns stand exactly alike; so f2 against f4 is a different file,
+     which pawn is in front of which counts, and so do the opponent's pawns;
+   - setupSim() = pawnSim² × (0.3 + 0.7 × the Jaccard of my developed pieces, pawns left out): one
+     file different among two or three changed ones already pulls it well down.
+   e4 e5 Nf3 Nc6 Bc4 against a King's Gambit with Nf3 and Bc4: e-file alike, f-file not: 25%. */
+function pawnFiles(fen) {
+  const b = fen.split(" ")[0].split("/").map(r => r.replace(/\d/g, d => ".".repeat(+d))).join(""), files = Array(8).fill(""), moved = Array(8).fill(false);
+  for (let i = 0; i < 64; i++) {
+    const p = b[i];
+    if (p !== "P" && p !== "p") continue;
+    const f = i % 8, r = 8 - Math.floor(i / 8);
+    files[f] += p + r;
+    if (START_BOARD[i] !== p) moved[f] = true;
+  }
+  return { files, moved };
+}
+function pawnSim(a, b) {
+  let n = 0, same = 0;
+  for (let f = 0; f < 8; f++) {
+    if (!a.moved[f] && !b.moved[f] && a.files[f] === b.files[f]) continue; // both untouched
+    n++;
+    if (a.files[f] === b.files[f]) same++;
+  }
+  return n ? same / n : 1;
+}
+const piecesOnly = set => new Set([...set].filter(x => x[0] !== "P"));
+function setupSim(a, b) { const p = pawnSim(a.pawns, b.pawns); return p * p * (0.3 + 0.7 * jaccard(a.pieces, b.pieces)); }
+const setupOf = (fen, color) => { const d = developed(fen, color); return { set: d, pieces: piecesOnly(d), pawns: pawnFiles(fen) }; };
 // Setups in my tree (at least 6 plies in), memoised with the tree
 let setupMemo = { sig: "", list: [] };
 function treeSetups(color) {
   const sig = repSig(color);
   if (setupMemo.sig === sig) return setupMemo.list;
-  const list = Object.values(indexTree(color)).filter(p => p.path.length >= 6).map(p => ({ path: p.path, set: developed(p.fen, color) })).filter(x => x.set.size >= 3);
+  const list = Object.values(indexTree(color)).filter(p => p.path.length >= 6).map(p => ({ path: p.path, ...setupOf(p.fen, color) })).filter(x => x.set.size >= 3);
   setupMemo = { sig, list };
   return list;
 }
@@ -127,12 +160,12 @@ function memorability(cand, path, color = S.color) {
   const cover = cand.cover || 0;
   const transP = cover ? (trans + 0.7 * oneAway) / cover : 0;
   // (b) the setup after the candidate, against setups in my other lines (not this line itself)
-  const mine = developed(cand.p1, color);
+  const mine = setupOf(cand.p1, color);
   let best = 0, like = null;
   for (const s of treeSetups(color)) {
     const sp = s.path.join(" ");
     if (pre && (sp === pre || sp.startsWith(pre + " ") || pre.startsWith(sp))) continue; // this line, its ancestors and descendants
-    const j = jaccard(mine, s.set);
+    const j = setupSim(mine, s);
     if (j > best) { best = j; like = s.path; }
   }
   const score = Math.max(transP, 0.5 * transP + 0.5 * best);

@@ -250,8 +250,9 @@ div.gap-row{cursor:default}
 .line.oneline .mv{flex:0 0 auto;padding:2px 3px}
 .explorebar{border-left:3px solid var(--warn);padding:2px 0 8px 10px;margin-bottom:10px}
 /* tabs above the panel (Build) and on the Openings page */
-.ptabs,.otabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)}
-.ptabs{margin:4px 0 -6px}
+.ptabs,.otabs{display:grid;border-bottom:1px solid var(--line)}
+.otabs{grid-template-columns:repeat(4,1fr)}
+.ptabs{grid-template-columns:repeat(3,1fr);margin:4px 0 -6px}
 .ptabs button{border:0;background:none;padding:10px 4px;font-weight:600;font-size:.88rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
 .otabs button{border:0;background:none;padding:10px 4px;font:inherit;font-weight:600;font-size:.9rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
 .ptabs button[aria-selected="true"],.otabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
@@ -452,6 +453,13 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .sugrow{display:flex;flex-direction:column;gap:4px}
 .sugacts{margin:0 0 4px;gap:6px;flex-wrap:wrap}
 .sugin{margin:0 0 4px 8px;color:var(--good)}
+/* Openings > Connect (connect.js) */
+.conhead{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.conwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;margin-top:6px}
+.conbody{display:flex;flex-direction:column;gap:6px;min-width:0}
+.consteps{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
+.consteps .linkish.cur b{color:var(--accent)}
+.conacts{margin:4px 0 0;gap:6px;flex-wrap:wrap}
 
 /* ---------- idea lines ---------- */
 #iLine{max-height:6em;overflow-y:auto}
@@ -534,7 +542,7 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
   .mgrid{grid-template-columns:1fr}
 }
 /* wide screens */
-@media (min-width:700px){.aopick{grid-template-columns:minmax(0,260px) minmax(0,1fr)}}
+@media (min-width:700px){.aopick,.conwrap{grid-template-columns:minmax(0,260px) minmax(0,1fr)}}
 @media (min-width:900px){
   .layout{grid-template-columns:minmax(0,500px) minmax(0,1fr);align-items:start} /* board left, panel right */
   .boardcol{position:sticky;top:76px}

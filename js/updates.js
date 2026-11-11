@@ -5,6 +5,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11a", date: "11 Nov 2026", title: "Connect your lines, and more variety in training",
+    items: [
+      "New on the Openings page: Connect. It checks your whole tree for short chains of likely moves that lead from one of your positions into another of your lines, so you can fill a gap by steering into a line you know, or swap a move for one that joins a line you know (the old branch is removed). You go through them one at a time on a board, with the other replies each chain leaves open. Suggestions is now called Ideas, for the tricks, gems and better-scoring moves.",
+      "Review positions no longer fills up with positions you misplayed in games: they take at most 8 of the 20, and the rest come from all your openings in turn. On a misplayed position you now see how many games you went wrong in, against whom, when, and what you played.",
+      "Mistake review: the same slip in the same position in several games is now one puzzle, a session takes at most two from one opening and one per game, and Later ones wait at least a day.",
+      "Build analyses every move at depth 14 straight away, so the Deeper analysis button is gone.",
+      "Gap › plays the line up to the gap on the board first (tap the board to skip).",
+      "Fits your prep compares pawn structures properly: the opponent's pawns count, and a pawn on f2 against one on f4 is a different structure, not a near match.",
+    ],
+  },
+  {
     id: "2026-11-10a", date: "10 Nov 2026", title: "Review your recent games; fewer, better gaps",
     items: [
       "Games > Recent games: tap a game to review its opening. It shows your accuracy in your prep and just after it, marks your inaccurate moves (?! and ?), and outlines in orange the move where the game left your prep.",

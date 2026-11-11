@@ -100,6 +100,36 @@ f.onload = () => {
       L("Build from here: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
       L("DONE");
     })();
+    if (mode === "connect") (async () => {
+      // v0.9.27: Openings > Connect, one chain at a time; Gap › replays the line; Build rows go deep at once
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      const until = async (cond, ms = 15000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await sleep(50); return cond(); };
+      w.eval(`S.settings.autoOpp = "off";
+        for (const l of ["d4 Nf6 c4 e6 Nc3 Bb4 Qc2", "c4 Nf6 g3", "e4 e5 Nf3 Nc6 Bc4"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+        walk("white");`);
+      d.querySelector('[data-nav="openings"]').click();
+      L("tabs: " + [...d.querySelectorAll("[data-otab]")].map(b => b.textContent).join(", "));
+      d.querySelector('[data-otab="connect"]').click();
+      await until(() => d.querySelector("#connectPane [data-conact]"));
+      L("connect: " + ((d.querySelector("#connectPane .conhead") || {}).textContent || "none").replace(/\s+/g, " ").trim() + " | " + ((d.querySelector("#connectPane .conbody") || {}).textContent || "").replace(/\s+/g, " ").trim().slice(0, 260));
+      L("board pieces: " + d.querySelectorAll("#conBoard .pc").length);
+      const st = d.querySelector("#connectPane [data-constep='1']"); if (st) { st.click(); await sleep(50); }
+      L("acts: " + [...d.querySelectorAll("#connectPane [data-conact]")].map(b => b.textContent).join(", "));
+      const rep0 = d.querySelector('#connectPane [data-conact="rep:0"]');
+      if (rep0) { rep0.click(); await until(() => d.querySelector("#connectPane [data-undo='con']") || d.querySelector("#connectPane .help")); await sleep(300); }
+      L("after Replace: c4 Nf6 -> " + G('(rep("white").pos[K(fenAfter(START, ["c4","Nf6"]))] || {m:[]}).m.join(",")') + " | g3 branch: " + G('!!rep("white").pos[K(fenAfter(START, ["c4","Nf6","g3"]))]') + " | undo: " + !!d.querySelector("#connectPane [data-undo='con']"));
+      // the Ideas tab has no Transpositions section any more
+      d.querySelector('[data-otab="sug"]').click(); await sleep(50);
+      L("ideas tab: " + /Transpositions/.test(d.querySelector("#sugOut").textContent));
+      // Gap › replays the line; a tap skips it
+      d.querySelector('[data-nav="build"]').click(); await sleep(50);
+      w.eval('jumpToGap(rankedGaps()[0].id)');
+      L("replay running: " + G("BA").on + " locked=" + G("BB").locked);
+      d.querySelector("#board").click(); await sleep(50);
+      L("after tap: running=" + G("BA").on + " locked=" + G("BB").locked + " path=" + G("S").build.white.join(" "));
+      L("Deeper analysis button: " + !!d.querySelector("#prompt [data-deep]"));
+      L("DONE");
+    })();
     if (mode === "review") (async () => {
       // v0.9.26: Games > Recent games > a game: accuracy, where I left prep, change my tree
       const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -119,6 +149,7 @@ f.onload = () => {
       L("after Make Bc4 my move: " + G('rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" ")))].m.join(",")') + " | " + d.querySelector("#rvNote").textContent.replace(/\s+/g, " ").trim().slice(0, 140));
       d.querySelector('#rvNote [data-undo="rev"]').click(); await sleep(50);
       L("after Undo: " + G('rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" ")))].m.join(",")'));
+      L("misplay note: " + w.eval(`misplayNote(K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" "))))`).replace(/<[^>]+>/g, ""));
       d.querySelector("#rvFwd").click();
       L("▶ goes to ply " + G("RV").i);
       d.querySelector('#rvNote [data-rvbuild]').click(); await sleep(50);

@@ -127,6 +127,7 @@ async function boot() {
   $("#simStart").onclick = startSimilar;
   $("#tRootReset").onclick = () => { S.settings.practiceRoot = { ...(S.settings.practiceRoot || {}), [S.color]: [] }; Store.save("settings"); renderTrainHome(); };
   $("#tBoard").addEventListener("click", skipLine); // tap to skip the line replay
+  $("#board").addEventListener("click", () => { if (BA.on && BA.done) BA.done(); }); // and the replay up to a gap (gaps.js)
   $("#tStop").onclick = endSession;
   // Catalogue: remember which entries are open across redraws
   document.addEventListener("toggle", e => { if (e.target.dataset && "rkey" in e.target.dataset) lsSet("pb_legend", e.target.open ? "open" : "closed"); }, true);

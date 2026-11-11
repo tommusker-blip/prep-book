@@ -22,6 +22,7 @@ function buildState() {
   return { path, fen, key, n: rep().pos[key], mine: isMine(key, S.color) };
 }
 function renderBuild() {
+  stopBuildReplay(); // gaps.js: a replay up to a gap ends with any redraw
   const { path, fen, key, n, mine } = buildState();
   BB.flip = S.color === "black";
   let last = null;
@@ -74,7 +75,7 @@ function refreshBuild(key) {
   if (autoPending && autoPending === curPath().join(" ")) return; // the reply is on its way
   if (notHere(key)()) return;
   const { path, fen, n, mine } = buildState();
-  BB.setArrows(buildArrows(fen, key, n));
+  if (!BA.on) BB.setArrows(buildArrows(fen, key, n)); // not over the replay up to a gap
   const pr = $("#prompt");
   if (pr.dataset.key === key) pr.style.minHeight = pr.offsetHeight + "px"; // grow, never shrink, while results arrive
   const y = window.scrollY;
@@ -342,7 +343,6 @@ onClick("remove", d => { removeMove(curPath(), d.remove); Store.save(repDoc(S.co
 onClick("addopt", d => commitBuildMove(d.addopt));
 onClick("replace", d => commitBuildMove(d.replace, d.old), true);
 onClick("cancel", d => renderBuild(), true);
-onClick("deep", d => { deepKeys.add(buildState().key); renderBuild(); }, true);
 onClick("showweak", d => { const k = buildState().key; if (showWeak.has(k)) showWeak.delete(k); else showWeak.add(k); renderBuild(); }, true);
 onClick("bmode", d => setBuildMode(exploring() ? "commit" : "explore"));
 onClick("ptab", d => { S.ptab = d.ptab; showPane(); if (d.ptab === "ideas" || d.ptab === "tree") renderBuild(); });

@@ -123,7 +123,30 @@ function jumpToGap(id, list = rankedGaps()) {
   S.build[S.color] = g.opp ? g.path.concat(g.opp) : g.path.slice();
   renderBuild();
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
+  buildReplay(S.build[S.color]);
 }
+/* v0.9.27: Gap › sets the scene: the board plays the line up to the gap, from the start for a
+   short line, else the last GAP_RUNUP plies, at about 4 s in all. Tap the board to skip. Any
+   redraw of Build (another move, another tap) stops it; refreshBuild() leaves the board alone
+   while it runs (BA.on). No replay with reduced motion. */
+const GAP_RUNUP = 8, BA = { tok: 0, on: false, done: null };
+function buildReplay(path) {
+  if (reduceMotion() || !path.length) return;
+  const frames = framesTo(path), from = path.length <= GAP_RUNUP + 2 ? 0 : path.length - GAP_RUNUP;
+  const tok = ++BA.tok, ms = Math.round(Math.max(180, Math.min(400, 4000 / (frames.length - from))));
+  const finish = () => { if (tok !== BA.tok || !BA.on) return; BA.on = false; BB.locked = false; BA.done = null; renderBuild(); };
+  BA.on = true; BA.done = finish; BB.locked = true;
+  let i = from;
+  const step = () => {
+    if (tok !== BA.tok || !BA.on) return;
+    BB.set(frames[i].fen, { last: frames[i].last, animate: i > from });
+    i++;
+    if (i < frames.length) setTimeout(step, ms); else setTimeout(finish, ms);
+  };
+  step();
+}
+// Stop the replay without redrawing (renderBuild() calls this itself)
+function stopBuildReplay() { if (BA.on) { BA.on = false; BA.tok++; BB.locked = false; BA.done = null; } }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("gapmode", d => { S.settings.gapRank = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });

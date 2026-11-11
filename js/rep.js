@@ -366,6 +366,27 @@ function dueCards(color = S.color) {
     .sort((a, b) => (b[1].flag || 0) - (a[1].flag || 0) || a[1].due - b[1].due)
     .map(([k]) => k);
 }
+/* A Review positions session (v0.9.27). Flagged cards (misplayed in games) used to fill every
+   session, so openings I hadn't played lately never came up. Now at most FLAG_SHARE of a session
+   is flagged; the rest are due cards from anywhere, most overdue first, taking turns between my
+   first moves' branches so one opening doesn't take the lot. Short of due cards, flagged fill up. */
+const FLAG_SHARE = 0.4;
+function sessionCards(keys, n = 20, color = S.color) {
+  const R = rep(color), flagged = keys.filter(k => R.cards[k].flag), rest = keys.filter(k => !R.cards[k].flag);
+  const out = flagged.slice(0, Math.round(n * FLAG_SHARE));
+  // round robin over branches (the first two moves of the line), each branch most overdue first
+  const branch = k => (R.pos[k].path || "").split(" ").slice(0, 2).join(" "), groups = new Map();
+  for (const k of rest) { const b = branch(k); if (!groups.has(b)) groups.set(b, []); groups.get(b).push(k); }
+  const lists = [...groups.values()];
+  for (let i = 0; out.length < n && lists.some(l => l.length); i = (i + 1) % lists.length) if (lists[i].length) out.push(lists[i].shift());
+  for (const k of flagged.slice(Math.round(n * FLAG_SHARE))) { if (out.length >= n) break; out.push(k); }
+  return out;
+}
+// My games where I misplayed this position (newest first): {g, played, opp, date}
+function misplaysAt(key, color = S.color) {
+  return analysis(color).filter(x => x.a.type === "misplay" && x.a.key === key)
+    .map(x => ({ g: x.g, played: x.a.played, opp: x.g.my === "white" ? x.g.black : x.g.white, date: x.g.date || "" }));
+}
 
 /* ---------- repertoire PGN export / import ---------- */
 function exportPGN(color) {
