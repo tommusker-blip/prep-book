@@ -690,7 +690,7 @@ Stockfish's choice:
   HTML with cached old scripts or styles (Pages caches for about 10 minutes).
 - **Auto-reply (v0.9.14):** `autoPending` (the path) makes `renderBuild()`/`refreshBuild()` skip the
   rows for the in-between position until `autoOpponent()` plays the reply (Lichess wait capped at 8 s).
-- **Updates page:** when something user-visible ships, add an entry at the top
+- **Updates page:** when something user-visible ships, add an entry at the top (with `v`, the release, same as `?v=`)
   of `UPDATES` in `js/updates.js`. Give it a new `id`, a date, a title and a few
   plain-language lines. The header shows "New" until the page has been opened
   (`pb_seen_update`).

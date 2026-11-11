@@ -1,11 +1,18 @@
 "use strict";
 /* ---------- Updates page ("What's new") ----------
    Newest first. Each entry: {id (unique, newest is compared with pb_seen_update to show the
-   header's "New" marker), date, title, items: [plain-language lines]}. Add a new entry at the
+   header's "New" marker), v (the release, same as ?v= in index.html), date, title,
+   items: [plain-language lines]}. Entries before v0.9 have no v. Add a new entry at the
    top whenever something user-visible ships. */
 const UPDATES = [
   {
-    id: "2026-11-11g", date: "11 Nov 2026", title: "Connect: complete before you start, and quicker",
+    id: "2026-11-11h", v: "0.9.34", date: "11 Nov 2026", title: "Version numbers here",
+    items: [
+      "Each entry on this page now shows its version, and the top says which version you're on, so you can check your phone has the latest.",
+    ],
+  },
+  {
+    id: "2026-11-11g", v: "0.9.33", date: "11 Nov 2026", title: "Connect: complete before you start, and quicker",
     items: [
       "Connect now works the whole list out before showing it: it fetches the Lichess data and runs the Stockfish checks for every chain first, with a progress bar, so options no longer disappear while you look. The first time can take a few minutes; after that it is quick.",
       "Connect is much quicker to use: the list is worked out once, not on every tap.",
@@ -13,40 +20,40 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-11f", date: "11 Nov 2026", title: "Connect: one clear button to commit",
+    id: "2026-11-11f", v: "0.9.32", date: "11 Nov 2026", title: "Connect: one clear button to commit",
     items: [
       "Tapping an option on a Connect card only shows it. Nothing changes until you press Use this line, which replaces your old move (and the line after it) and puts the other options of that choice away. Keep both adds the line as another option instead. Undo brings everything back.",
       "At the start of a chain the board shows arrows: blue for the line you are looking at, grey for the other options from the same position, and orange for your move there now.",
     ],
   },
   {
-    id: "2026-11-11e", date: "11 Nov 2026", title: "Connect: choices side by side, and only sound chains",
+    id: "2026-11-11e", v: "0.9.31", date: "11 Nov 2026", title: "Connect: choices side by side, and only sound chains",
     items: [
       "Chains that decide the same thing are now one choice, with the options listed together: every way on from the same position, and chains between the same two openings either way round (Scandinavian into Blackmar-Diemer, or Blackmar-Diemer into Scandinavian). Tap an option to see it on the board, then approve it, or skip one or all.",
       "Your moves in a chain are checked with Stockfish. A chain that gives up more than the mistake margin on the way (Settings > Advanced, 1.5 pawns by default) is hidden, and the card says how much your moves give up.",
     ],
   },
   {
-    id: "2026-11-11d", date: "11 Nov 2026", title: "Connect: approved moves stay approved",
+    id: "2026-11-11d", v: "0.9.30", date: "11 Nov 2026", title: "Connect: approved moves stay approved",
     items: [
       "Once you approve a chain, Connect no longer comes back with another chain from the same position offering to replace the move you just approved. Undo brings those back.",
     ],
   },
   {
-    id: "2026-11-11c", date: "11 Nov 2026", title: "Connect: quicker after each change",
+    id: "2026-11-11c", v: "0.9.29", date: "11 Nov 2026", title: "Connect: quicker after each change",
     items: [
       "After you add or replace a chain, the next one shows straight away while Connect re-checks your tree in the background (it says \"updating\" meanwhile).",
       "Open in Build goes to the position where the chain's move is played, with that move's row open, not to the end of the chain.",
     ],
   },
   {
-    id: "2026-11-11b", date: "11 Nov 2026", title: "Connect: likely chains first",
+    id: "2026-11-11b", v: "0.9.28", date: "11 Nov 2026", title: "Connect: likely chains first",
     items: [
       "Connect has a filter for the chance of the whole chain (all the opponent moves in it, multiplied together): at least 10%, 25% (the default) or 50%. The most likely chains now come first, and the count of the ones hidden is shown.",
     ],
   },
   {
-    id: "2026-11-11a", date: "11 Nov 2026", title: "Connect your lines, and more variety in training",
+    id: "2026-11-11a", v: "0.9.27", date: "11 Nov 2026", title: "Connect your lines, and more variety in training",
     items: [
       "New on the Openings page: Connect. It checks your whole tree for short chains of likely moves that lead from one of your positions into another of your lines, so you can fill a gap by steering into a line you know, or swap a move for one that joins a line you know (the old branch is removed). You go through them one at a time on a board, with the other replies each chain leaves open. Suggestions is now called Ideas, for the tricks, gems and better-scoring moves.",
       "Review positions no longer fills up with positions you misplayed in games: they take at most 8 of the 20, and the rest come from all your openings in turn. On a misplayed position you now see how many games you went wrong in, against whom, when, and what you played.",
@@ -57,7 +64,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-10a", date: "10 Nov 2026", title: "Review your recent games; fewer, better gaps",
+    id: "2026-11-10a", v: "0.9.26", date: "10 Nov 2026", title: "Review your recent games; fewer, better gaps",
     items: [
       "Games > Recent games: tap a game to review its opening. It shows your accuracy in your prep and just after it, marks your inaccurate moves (?! and ?), and outlines in orange the move where the game left your prep.",
       "Where you played something other than your prep, you can make your game move the repertoire move, add it as another option, take Stockfish's move instead, or open both in Build to compare. Where your opponent surprised you, you can add their move together with your reply from the game. Every change can be undone.",
@@ -65,7 +72,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09z", date: "9 Nov 2026", title: "Train no longer freezes; a tidier Build",
+    id: "2026-11-09z", v: "0.9.25", date: "9 Nov 2026", title: "Train no longer freezes; a tidier Build",
     items: [
       "Fixed: the Train tab could freeze with a big repertoire. The new look-alike positions check was far too slow; it now takes a fraction of a second.",
       "Build's Moves tab is back to just the moves. The focus, your notes and the routes from your other openings are on the My lines tab, which now sits after Ideas here.",
@@ -74,7 +81,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09y", date: "9 Nov 2026", title: "Focus on an opening, a coverage map, My lines and more",
+    id: "2026-11-09y", v: "0.9.24", date: "9 Nov 2026", title: "Focus on an opening, a coverage map, My lines and more",
     items: [
       "Build's move rows: Played % and Score % now each have three columns, Peers, Masters and You, labelled once at the top. Every number has the same weight; faint ones rest on only a few games.",
       "Gap › now goes move by move: every common gap at move 2 first, then move 3, then 4, so the tree grows evenly. Most frequent and Rating impact are still in Settings.",
@@ -89,20 +96,20 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09x", date: "9 Nov 2026", title: "P for peers, M for masters",
+    id: "2026-11-09x", v: "0.9.23", date: "9 Nov 2026", title: "P for peers, M for masters",
     items: [
       "Played and Score are back to two lines: your peers on top, labelled P, and masters underneath in grey, labelled M.",
     ],
   },
   {
-    id: "2026-11-09v", date: "9 Nov 2026", title: "Fewer pop-ups in Build",
+    id: "2026-11-09v", v: "0.9.21", date: "9 Nov 2026", title: "Fewer pop-ups in Build",
     items: [
       "The dark messages at the bottom of Build are gone for things you can already see: going to a gap, removing a move, saving an explored line, every reply being prepared, and the rating bands following your chess.com rating.",
       "They still appear when something goes wrong (the engine or Lichess), or when Gap › has nowhere to go.",
     ],
   },
   {
-    id: "2026-11-09u", date: "9 Nov 2026", title: "Masters next to your peers",
+    id: "2026-11-09u", v: "0.9.20", date: "9 Nov 2026", title: "Masters next to your peers",
     items: [
       "Build's Played and Score columns now show masters too: your peers' figure on top, and a grey M line under it from the Lichess masters database.",
       "Moves masters often play are listed even when players at your level rarely choose them.",
@@ -111,7 +118,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09t", date: "9 Nov 2026", title: "Move rows spread out",
+    id: "2026-11-09t", v: "0.9.19", date: "9 Nov 2026", title: "Move rows spread out",
     items: [
       "The columns in Build's move rows now share the width evenly, with the numbers centred under their headings, instead of bunching up on the left.",
       "An opening's name now sits above its move rather than below it.",
@@ -119,7 +126,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09s", date: "9 Nov 2026", title: "Fixes found while tidying up",
+    id: "2026-11-09s", v: "0.9.16", date: "9 Nov 2026", title: "Fixes found while tidying up",
     items: [
       "Your browser's password manager no longer pops up in Settings. The Lichess token box is still hidden as you type, but it isn't a password field any more.",
       "On a computer, Build shows the board on the left and the moves on the right again (since v0.9.1 they were stacked).",
@@ -127,7 +134,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09r", date: "9 Nov 2026", title: "Snappier auto-reply, and the card is back",
+    id: "2026-11-09r", v: "0.9.14", date: "9 Nov 2026", title: "Snappier auto-reply, and the card is back",
     items: [
       "When Build plays your opponent's reply for you, it no longer works out the rows for the position in between. You see “Playing your opponent's reply…” for a moment, and the rows appear once it's your move again.",
       "Gambits are marked with the playing card 🃏 again, a little bigger.",
@@ -136,7 +143,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09q", date: "9 Nov 2026", title: "Simpler move marks",
+    id: "2026-11-09q", v: "0.9.12", date: "9 Nov 2026", title: "Simpler move marks",
     items: [
       "Gambits are now marked with 🎲, which shows clearly on phones. The tags (🎲 💎 ⚔ ⇄ ⚠) now sit just left of the move.",
       "Only one mark is left on the moves: !? for an interesting move, one the engine likes less but that's a gambit or scores well at your level.",
@@ -144,7 +151,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09p", date: "9 Nov 2026", title: "Clearer move rows: a key, marks and symbols",
+    id: "2026-11-09p", v: "0.9.11", date: "9 Nov 2026", title: "Clearer move rows: a key, marks and symbols",
     items: [
       "Each row now shows its state across the whole row: blue for your repertoire or a prepared reply, orange for a gap, and a dashed blue outline for a move that transposes into a position you've already prepared.",
       "Moves carry chess marks for whoever is moving: ! strong, ?! dubious, ? bad, and !? for a move the engine dislikes that's a gambit or scores well at your level.",
@@ -154,7 +161,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09o", date: "9 Nov 2026", title: "Act on suggestions directly",
+    id: "2026-11-09o", v: "0.9.10", date: "9 Nov 2026", title: "Act on suggestions directly",
     items: [
       "Openings → Suggestions: hidden gems, better-scoring alternatives, practical tricks and easy-to-remember moves now have buttons to Replace your move with the suggestion, or Add it as another option, without going to Build.",
       "Replacing a move also takes out the line that followed it. Undo straight after puts everything back.",
@@ -162,7 +169,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09n", date: "9 Nov 2026", title: "Suggestions move to the Openings page",
+    id: "2026-11-09n", v: "0.9.9", date: "9 Nov 2026", title: "Suggestions move to the Openings page",
     items: [
       "The Whole tree tab has moved out of Build to the Openings page, as Suggestions next to Your openings: a review of your whole repertoire in one place.",
       "Scan my tree and Find ideas across my tree are there too. Tap any suggestion to open it in Build.",
@@ -170,7 +177,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09m", date: "9 Nov 2026", title: "Openings kept, Remove, and a preview board",
+    id: "2026-11-09m", v: "0.9.8", date: "9 Nov 2026", title: "Openings kept, Remove, and a preview board",
     items: [
       "The Openings tab is now saved on your device, so it opens at once, even after closing the app. When your tree, games or analysis change, it updates in the background with a thin progress bar, and you can still use the page meanwhile. Recalculate picks up new Lichess data.",
       "Each opening in the Openings tab has a Remove button. It takes the line out from where it starts, along with its training cards, and you can Undo straight after.",
@@ -182,7 +189,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09l", date: "9 Nov 2026", title: "Add an opening by name",
+    id: "2026-11-09l", v: "0.9.7", date: "9 Nov 2026", title: "Add an opening by name",
     items: [
       "Openings → Add an opening: search all 3,865 named openings and variations (for example Benko, Najdorf or A57), pick one, choose White or Black, and its moves go into your repertoire.",
       "It also lists that opening's deeper variations: tick the ones you want and they're added too, so you have a few lines to build around.",
@@ -192,7 +199,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09k", date: "9 Nov 2026", title: "Faster Openings tab, grouped by name",
+    id: "2026-11-09k", v: "0.9.6", date: "9 Nov 2026", title: "Faster Openings tab, grouped by name",
     items: [
       "The Openings tab is kept once worked out, so coming back to it is instant. When something has changed, a progress bar shows while it updates.",
       "The top level is now grouped by opening name (Italian Game, Ruy Lopez, Sicilian Defence…) instead of starting with 1.e4. Variations sit under their family, without repeating its name.",
@@ -200,7 +207,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09j", date: "9 Nov 2026", title: "Idea lines: deeper lines with the plan behind them",
+    id: "2026-11-09j", v: "0.9.5", date: "9 Nov 2026", title: "Idea lines: deeper lines with the plan behind them",
     items: [
       "New on the Train page, Ideas worth learning: deeper model lines from where your prep ends, in the lines your games actually reach, worst accuracy after book first.",
       "The moves are what masters play most (Lichess masters database; strong Lichess games where masters run out), checked by Stockfish.",
@@ -211,7 +218,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09i", date: "9 Nov 2026", title: "Opening catalogue",
+    id: "2026-11-09i", v: "0.9.4", date: "9 Nov 2026", title: "Opening catalogue",
     items: [
       "New Openings tab: your repertoire grouped by opening, opening out into its main lines. Branches are made where the opening name changes or the line splits into main replies, not for every move.",
       "Each entry shows how much of what you'll meet is covered, your score and accuracy from your own games, and a short comment, such as 'Mostly covered; your results are poor (38% in 21 games). Worth more training, or a rethink.'",
@@ -220,14 +227,14 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09h", date: "9 Nov 2026", title: "Faster Train, easier to find auto-build",
+    id: "2026-11-09h", v: "0.9.3", date: "9 Nov 2026", title: "Faster Train, easier to find auto-build",
     items: [
       "Train no longer looks through all your games for mistakes every time. The results are kept on this device, and only new or re-analysed games are checked.",
       "Build my tree from my games is now near the top of the Games tab, and there's a shortcut to it in Build → Gaps.",
     ],
   },
   {
-    id: "2026-11-09g", date: "9 Nov 2026", title: "Clearer move rows",
+    id: "2026-11-09g", v: "0.9.2", date: "9 Nov 2026", title: "Clearer move rows",
     items: [
       "Evals are now from White's side whichever colour you play: + is good for White, − for Black.",
       "No more ✓ and −x marks. The eval's colour shows how the move compares with the best one: blue strong, plain playable, orange weak. A small g marks a gambit.",
@@ -243,7 +250,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09e", date: "9 Nov 2026", title: "Build your tree from your games",
+    id: "2026-11-09e", v: "0.9.1", date: "9 Nov 2026", title: "Build your tree from your games",
     items: [
       "Games → Build my tree from my games: goes through your games and adds the moves you play often, if you score well with them and Stockfish doesn't think they're dubious, plus the replies you meet often. You see the list first, and nothing in your repertoire is replaced.",
       "Fixed: the page no longer gets wider after playing several moves in Build.",
@@ -253,7 +260,7 @@ const UPDATES = [
     ],
   },
   {
-    id: "2026-11-09d", date: "9 Nov 2026", title: "Smoother Build, drag to move, better mistake review",
+    id: "2026-11-09d", v: "0.9", date: "9 Nov 2026", title: "Smoother Build, drag to move, better mistake review",
     items: [
       "Drag pieces to move them, or tap as before. Dragging a piece doesn't scroll the page.",
       "Build is lighter: results arriving in the background only update the move rows, so the board no longer redraws and a piece you've picked up stays selected.",
@@ -342,8 +349,9 @@ const UPDATES = [
 ];
 const updatesNew = () => lsGet("pb_seen_update", "") !== UPDATES[0].id;
 function renderUpdates() {
-  $("#updatesList").innerHTML = UPDATES.map(u => `<article class="card upd">
-    <p class="lbl">${esc(u.date)}</p><h3>${esc(u.title)}</h3>
+  const cur = UPDATES.find(u => u.v);
+  $("#updatesList").innerHTML = (cur ? `<p class="help">You're on version ${esc(cur.v)}.</p>` : "") + UPDATES.map(u => `<article class="card upd">
+    <p class="lbl">${u.v ? `v${esc(u.v)} · ` : ""}${esc(u.date)}</p><h3>${esc(u.title)}</h3>
     <ul>${u.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></article>`).join("");
   lsSet("pb_seen_update", UPDATES[0].id);
   renderNewMark();
