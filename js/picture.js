@@ -218,7 +218,7 @@ function structAt(color, move) {
         const f = sideFeatures(P, s);
         for (const [feat] of FEATS) { if (f[feat].size) add(d[who][feat].any, sc); f[feat].forEach(x => { add(d[who][feat].files[x], sc); items.push(`${who}:${feat}:${x}`); }); }
       }
-      d.games.push({ g, id: g.id, sc, items: items.sort() });
+      d.games.push({ g, id: g.id, sc, k, items: items.sort() });
     }
     d.avg = d.n ? d.sum / d.n : 0.5;
     return d;
@@ -308,13 +308,48 @@ function attentionHtml(d, color, move) {
   return `<p class="lbl">Worth your attention ${info("Structures where you score below your average, the ones costing you most first: games × the drop in your score, in game points (a loss against your average costs about half a point more than a draw would). Each shows where it comes from: the openings, and your last prepared choice before it. To avoid it, open that choice in Build and look at the other moves; to get better at it, practise the line.", "About this list")}</p>
     <div class="stcombos">${list.map(a => {
       const c = a.c, dec = a.dec, line = dec ? dec.path.concat(dec.played) : null;
-      return `<div class="stcombo stattn bad" style="--w:${Math.round((c.n / d.n) * 100)}%">
+      return `<div class="stcombo stattn bad hasmini" style="--w:${Math.round((c.n / d.n) * 100)}%">${stMini(d, c, color, move, true)}<div class="stcbody">
         <p class="stctext">${comboText(c.items)}</p>
         <p class="stcnum"><b>−${a.cost.toFixed(1)}</b><span class="help">points over ${c.n} games · ${stScore(c, d)}</span></p>
         <p class="help">From ${a.fams.map(f => `${esc(f.name)} (${f.n}, ${pctOf(f.sum / f.n)})`).join(", ")}.${dec ? ` Your last prepared choice before it: <b class="mono">${esc(moveLabel(dec.path, dec.played))}</b> after <span class="mono">${esc(numbered(0, dec.path) || "the start")}</span> (${dec.n} of these games, you score ${pctOf(dec.sum / dec.n)}).` : ""}</p>
-        <div class="row conacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}">Avoid: other moves in Build</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise this line</button>` : ""}<button type="button" class="btn ghost quick" data-review="${esc(a.games[0].id)}">Example</button></div></div>`;
+        <div class="row conacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}">Avoid: other moves in Build</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise this line</button>` : ""}${stExBtn(d, c, move, true)}</div></div></div>`;
     }).join("")}</div>`;
 }
+/* v0.9.43: a typical position for a structure, drawn small on its card. Its games are grouped by
+   their pawns (every other piece left out); the group is the most common one, or for "worth your
+   attention" the one costing most (games × the drop, at least 2 games). Within it, the most common
+   exact position, and its newest game is the example (opened at that move). */
+const stPawnsOf = k => boardCells(k).map(ch => (ch === "P" || ch === "p" ? ch : "")).join(",");
+function stExample(d, c, costly) {
+  const memo = costly ? "exCost" : "exPos";
+  if (c[memo]) return c[memo];
+  const games = d.games.filter(x => c.items.every(it => x.items.includes(it))), groups = new Map();
+  for (const x of games) { const p = stPawnsOf(x.k); let e = groups.get(p); if (!e) groups.set(p, (e = { n: 0, sum: 0, games: [] })); e.n++; e.sum += x.sc; e.games.push(x); }
+  const cost = e => e.n * (d.avg - shrink(e.sum, e.n, d.avg));
+  const list = [...groups.values()];
+  let pick = costly ? list.filter(e => e.n >= 2 && cost(e) > 0).sort((a, b) => cost(b) - cost(a))[0] : null;
+  if (!pick) pick = list.sort((a, b) => b.n - a.n)[0];
+  const keys = new Map();
+  for (const x of pick.games) keys.set(x.k, (keys.get(x.k) || 0) + 1);
+  const key = [...keys].sort((a, b) => b[1] - a[1])[0][0], ex = pick.games.find(x => x.k === key); // games are newest first
+  return (c[memo] = { key, n: pick.n, sum: pick.sum, same: keys.get(key), ex: ex.id });
+}
+// A small static board for a position key, with the files a structure is about tinted
+function miniBoard(key, flip, files) {
+  const cells = boardCells(key);
+  let h = "";
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const rr = flip ? 7 - r : r, ff = flip ? 7 - f : f, ch = cells[rr * 8 + ff], rank = 8 - rr;
+    const p = ch ? { color: ch === ch.toUpperCase() ? "w" : "b", type: ch.toLowerCase() } : null;
+    h += `<span class="sq${(ff + rank) % 2 === 1 ? "" : " dk"}${files.has(ff) ? " mk" : ""}">${p ? pieceHtml(p) : ""}</span>`;
+  }
+  return `<div class="board mini" aria-hidden="true">${h}</div>`;
+}
+function stMini(d, c, color, move, costly) {
+  const x = stExample(d, c, costly), files = new Set(c.items.filter(it => !it.startsWith("c:")).map(it => +it.split(":")[2]));
+  return `<div class="stmini">${miniBoard(x.key, color === "black", files)}<p class="help">${costly ? "Costliest" : "Most common"}: ${x.n} game${x.n === 1 ? "" : "s"}, you score ${pctOf(x.sum / x.n)}</p></div>`;
+}
+const stExBtn = (d, c, move, costly) => `<button type="button" class="btn ghost quick" data-review="${esc(stExample(d, c, costly).ex)}" data-rvat="${2 * move}">Example</button>`;
 const FEAT_WORD = { missing: f => `no ${f}-pawn`, isolated: f => `isolated ${f}-pawn`, doubled: f => `doubled ${f}-pawns`, backward: f => `backward ${f}-pawn`, passed: f => `passed ${f}-pawn` };
 // ["c:fixed", "me:isolated:3", "them:missing:2"] -> "Fixed centre · You: isolated d-pawn · Them: no c-pawn"
 function comboText(items) {
@@ -339,9 +374,9 @@ function renderStructures(color) {
   if (o.by) return stepper + structByMove(color);
   if (!d.n) return stepper + `<p class="help">None of your games as ${color} reach move ${mv}.</p>`;
   const share = c => pctOf(c.n / d.n), cb = stCombos(d);
-  const comboRow = c => `<div class="stcombo ${stTone(c, d)}" style="--w:${Math.round((c.n / d.n) * 100)}%">
+  const comboRow = c => `<div class="stcombo ${stTone(c, d)} hasmini" style="--w:${Math.round((c.n / d.n) * 100)}%">${stMini(d, c, color, mv)}<div class="stcbody">
       <p class="stctext">${comboText(c.items)}</p>
-      <p class="stcnum"><b>${share(c)}</b><span class="help">${c.n} games · ${stScore(c, d)}</span><button type="button" class="btn ghost quick" data-review="${esc(c.ex)}">Example</button></p></div>`;
+      <p class="stcnum"><b>${share(c)}</b><span class="help">${c.n} games · ${stScore(c, d)}</span>${stExBtn(d, c, mv)}</p></div></div>`;
   const centre = CENTRES.filter(([k]) => d.centre[k].n).sort((a, b) => d.centre[b[0]].n - d.centre[a[0]].n).map(([k, name, help]) => {
     const c = d.centre[k];
     return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;
@@ -362,7 +397,7 @@ function renderStructures(color) {
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
     <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
       <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>
-    <p class="help">Scores on few games are pulled towards your average. Example opens your most recent game with that structure.</p>`;
+    <p class="help">Scores on few games are pulled towards your average. The small board is the most common position with that structure (for worth your attention, the one costing you most); the tinted files are the ones the structure is about. Example plays that game up to move ${mv}.</p>`;
 }
 // The shares from move 4 to 20: when structures form
 function structByMove(color) {
@@ -404,6 +439,9 @@ function renderPicture() {
     if (t.dataset.picsunup != null) { if (!o.root.length) return; o.sel = o.root.join(" "); o.root = o.stack.pop() || []; }
     else o.sel = t.dataset.picsun;
     renderPicture();
+    // v0.9.43: bring the board into the middle of the screen if it's partly off it (on phones it's under the rings)
+    const b = $("#picBoard"), r = b && b.getBoundingClientRect();
+    if (r && (r.top < 0 || r.bottom > innerHeight)) b.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" });
   };
   const v = PIC.view, body = v === "structures" ? renderStructures(color) : renderSun(color);
   box.innerHTML = (v === "structures" ? `<h3>Pawn structures ${info("How the pawns stand in your own games at a given move: the type of centre and each side's missing, isolated, doubled, backward and passed pawns by file, linked into structures: the features that come up together. Each figure is the share of your games, with your score in them against your average.", "About pawn structures")}</h3>` : `<h3>Your tree ${info("Your whole repertoire as rings of moves, one ring per move. A slice is as wide as how often you get there; colour it by your own score or the peers' score at your level. Tap a slice to see the position.", "About the tree")}</h3>`)

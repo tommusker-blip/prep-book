@@ -35,6 +35,7 @@
 <script src="../js/similar.js"></script>
 <script src="../js/transpose.js"></script>
 <script src="../js/funnel.js"></script>
+<script src="../js/board.js"></script>
 <script src="../js/picture.js"></script>
 <script src="../js/connect.js"></script>
 <script src="../js/review.js"></script>
@@ -642,6 +643,12 @@ t("pawn structures: the ones costing me most, and where they come from (v0.9.42)
   eq(a.fams[0].name, "Sicilian Defence");
   eq(a.dec.path.join(" ") + " | " + a.dec.played, "e4 c5 Nf3 d6 | d4", "my last prepared choice before it");
   eq(a.cost > 2, true, "about 12 × (0.5 − shrunk 0.17) points: " + a.cost.toFixed(2));
+  // v0.9.43: its typical (costliest) position, drawn small, with the structure's files tinted
+  const x = stExample(d, a.c, true);
+  eq(x.key, gameKeys(games[0])[12], "the Sicilian position at move 6");
+  eq(x.n + " " + x.ex, "12 s0", "12 games with those pawns; the example is the newest such game");
+  const mb = miniBoard(x.key, false, new Set([3]));
+  eq((mb.match(/class="sq/g) || []).length + " squares, " + (mb.match(/ mk"/g) || []).length + " tinted", "64 squares, 8 tinted");
   reset(); picMemo.clear();
 });
 async function importTests() {

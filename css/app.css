@@ -344,7 +344,7 @@ div.gap-row{cursor:default}
 .suntx{font-size:7px;text-anchor:middle;dominant-baseline:middle;fill:var(--ink);pointer-events:none;font-family:var(--f-mono)}
 .suntx.core{font-size:8px;fill:var(--muted)}
 .suncore{fill:var(--bg);stroke:var(--line);cursor:pointer}
-.sunsel{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sunsel{display:flex;flex-direction:column;gap:6px;min-width:0;align-self:center;align-items:center;text-align:center}
 .sunsel p{margin:0}
 .stname{margin:0;font-weight:600;font-size:.88rem}
 .stplans summary{font-size:.8rem;color:var(--accent);cursor:pointer}
@@ -374,6 +374,13 @@ div.gap-row{cursor:default}
 .stattn .stcnum b{color:var(--bad)}
 .stattn .help b{color:var(--ink)}
 .stcnum .btn{margin-left:auto}
+.stcombo.hasmini{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start}
+.stmini{display:flex;flex-direction:column;gap:2px}
+.stmini .help{font-size:.68rem;line-height:1.2}
+.stcbody{display:flex;flex-direction:column;gap:2px;min-width:0}
+.board.mini{border-radius:4px;box-shadow:0 0 0 1px var(--line);pointer-events:none}
+.board.mini .sq{cursor:default}
+.sq.mk::after{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--gem) 22%,transparent);pointer-events:none}
 .stdetail summary{cursor:pointer;color:var(--accent);font-size:.86rem;margin:4px 0 8px}
 /* focus on one opening (focus.js) */
 .focusbar{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:4px 8px;padding:6px 8px 6px 10px;margin-bottom:8px;border:1px solid var(--accent);border-left-width:4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));font-size:.84rem}
@@ -497,8 +504,16 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .aoview.cur{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .aomain{width:100%}
 /* suggestions, with Replace / Add buttons */
-.sugrow{display:flex;flex-direction:column;gap:4px}
-.sugacts{margin:0 0 4px;gap:6px;flex-wrap:wrap}
+.sugcard{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.sugnav{gap:8px;align-items:center;margin:0}
+.sugkinds{margin:0;display:flex;gap:6px;flex-wrap:wrap}
+.sugbody{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sugbody p{margin:0}
+.sugmove{font-size:1.05rem}
+.sugev{margin:0;padding-left:18px;font-size:.86rem;display:flex;flex-direction:column;gap:4px}
+.sugfind{margin-top:12px}
+.sugfind summary{cursor:pointer;color:var(--accent);font-size:.88rem}
+.sugacts{margin:4px 0;gap:6px;flex-wrap:wrap}
 .sugin{margin:0 0 4px 8px;color:var(--good)}
 /* Openings > Connect (connect.js) */
 .conmin{margin-top:8px}

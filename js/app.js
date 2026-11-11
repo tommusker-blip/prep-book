@@ -137,6 +137,7 @@ async function boot() {
   $("#addOpenBox").addEventListener("change", e => { const v = e.target.dataset && e.target.dataset.aovar; if (v != null) aoTick(v, e.target.checked); });
   $("#pzBack").onclick = () => pzStep(-1);
   $("#rvBack").onclick = () => revGo(RV.i - 1);
+  $("#rvBoard").addEventListener("click", () => { if (RV.playTo) revGo(RV.playTo); }); // a tap skips the replay
   $("#rvFwd").onclick = () => revGo(RV.i + 1);
   $("#iBack").onclick = () => ideaGo(IV.i - 1);
   $("#iFwd").onclick = () => ideaGo(IV.i + 1);

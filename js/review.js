@@ -17,7 +17,7 @@
    Classic script: shares one global scope with the others (see index.html for the load order). */
 const REV_OPENING = 30, REV_LIST = 20;
 let RVB = null;
-const RV = { g: null, frames: [], i: 0, back: "games", prepCp: null, token: 0, shown: REV_LIST };
+const RV = { g: null, frames: [], i: 0, back: "games", prepCp: null, token: 0, shown: REV_LIST, play: 0, playTo: 0 };
 const revColorSign = g => (g.my === "white" ? 1 : -1);
 const pawnsTxt = cp => (Math.abs(cp) >= 5000 ? (cp > 0 ? "winning" : "losing") : (cp > 0 ? "+" : cp < 0 ? "−" : "") + Math.abs(cp / 100).toFixed(1));
 // Per ply: who moved, cp lost by the mover (from the game's analysis), and the mark
@@ -44,19 +44,38 @@ function revAccuracy(g, a) {
   return { inb: avg(inb), post: avg(post), exitCp: z.ev[Math.min(a.ply, z.ev.length - 1)] * s };
 }
 const revTypeLabel = { misplay: "You left your prep", you_new: "You had no move ready", opp_new: "Your opponent surprised you", end: "You reached the end of your prep", full: "The game stayed in your prep" };
-function openReview(id, back) {
+// at (v0.9.43): open at that ply instead of the deviation, playing the moves up to it (revPlay())
+function openReview(id, back, at) {
   const g = S.games.find(x => x.id === id);
   if (!g) return;
   if (!RVB) { RVB = Board($("#rvBoard")); RVB.locked = true; }
   S.color = g.my;
   const a = analyseGame(g);
   Object.assign(RV, { g, back: back || S.view, frames: framesTo(g.moves ? g.moves.split(" ") : []), prepCp: null });
-  RV.i = Math.min(a.ply, RV.frames.length - 1);
-  RV.token++;
+  RV.i = Math.min(at != null ? at : a.ply, RV.frames.length - 1);
+  RV.token++; RV.play++;
   RVB.flip = g.my === "black";
+  const to = RV.i;
+  if (at != null && !reduceMotion()) RV.i = 0;
   setView("review");
   window.scrollTo({ top: 0 });
   askPrepEval();
+  if (at != null) revPlay(to);
+}
+/* Play the game from the start up to ply `to`, in about REV_PLAY_MS at most (one slide per move when
+   that fits). Stopped by any other step (revGo()) or a tap on the board. No replay with reduced motion. */
+const REV_PLAY_MS = 3000;
+function revPlay(to) {
+  const tok = ++RV.play;
+  if (reduceMotion() || to <= 0) { RV.i = to; renderReview(); return; }
+  const ms = Math.min(SLIDE_MS + 40, REV_PLAY_MS / to);
+  const step = () => {
+    if (tok !== RV.play || S.view !== "review") return;
+    RV.i++; renderReview();
+    if (RV.i < to) setTimeout(step, ms); else RV.playTo = 0;
+  };
+  RV.playTo = to;
+  setTimeout(step, ms);
 }
 // The repertoire move's eval at the deviation, from Stockfish (depth 12), for the misplay card
 async function askPrepEval() {
@@ -146,7 +165,7 @@ function revNote(g, a, mv) {
   }
   return h + undoNote("rev");
 }
-function revGo(i) { RV.i = Math.max(0, Math.min(RV.frames.length - 1, i)); renderReview(); }
+function revGo(i) { RV.play++; RV.playTo = 0; RV.i = Math.max(0, Math.min(RV.frames.length - 1, i)); renderReview(); }
 // What the buttons on the deviation card do to the repertoire (with Undo)
 function revAct(act) {
   const g = RV.g, a = analyseGame(g), color = g.my, z = S.acc[g.id];
@@ -188,7 +207,7 @@ function recentGamesHtml(A) {
 }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
-onClick("review", d => openReview(d.review, "games"));
+onClick("review", d => openReview(d.review, S.view === "openings" ? "openings" : "games", d.rvat != null ? +d.rvat : undefined));
 onClick("rvply", d => revGo(+d.rvply), true);
 onClick("rvact", d => revAct(d.rvact));
 onClick("rvgo", d => revGo(analyseGame(RV.g).ply), true);

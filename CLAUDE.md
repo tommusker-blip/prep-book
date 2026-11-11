@@ -318,6 +318,22 @@ when it loads; the others just define things.
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".
+- v0.9.43:
+  - Openings > Ideas is one card at a time (suggest.js): `sugQueue()` merges gems, better-scoring, tricks
+    and easy-to-remember per move (one card, several labels), ranked by reach × rough gain in points
+    (peers' score − my move's; `err × SUG_TRICK`; `fit × SUG_EASY`); gems my move already matches are
+    dropped; Same pawn structure dropped. `sugSure()` = edge vs 2 standard errors (0.45/√n per side);
+    `sugEval()` asks Stockfish depth `SUG_DEPTH` for the idea and my moves. Board `SGB` (idea `gem` arrow,
+    mine `mine`). Skip = `pb_sugskip` (`color|book|key|san`), "Show them again". `SUG.cur` is what
+    `data-sugact` acts on. Scan / Find ideas sit in a "Find more ideas" `<details>`. Data attributes
+    with an empty value need `onClick(name, fn, true)`.
+  - Structures: `stExample(d, c, costly)` groups a set's games by pawns (`stPawnsOf()`), takes the most
+    common group (or the costliest with ≥ 2 games for attention), then its most common exact position
+    and newest game; `miniBoard(key, flip, files)` is a static board (tinted files `.sq.mk`); `stMini()`,
+    `stExBtn()` (`data-review` + `data-rvat` = 2 × move). `structAt()` games carry `k` (the key at that move).
+  - Review: `openReview(id, back, at)` opens at ply `at` and `revPlay()` plays up to it (≤ `REV_PLAY_MS`,
+    stopped by `revGo()`, a board tap skips); back goes to Openings when opened from there.
+  - Tree: `.sunsel` is centred; a tapped slice scrolls its board into view if it's off screen.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

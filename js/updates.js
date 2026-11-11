@@ -6,6 +6,16 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11q", v: "0.9.43", date: "11 Nov 2026", title: "Ideas one at a time, and structures you can see",
+    items: [
+      "Openings > Ideas now shows one idea at a time, the one most likely to win you points first, on a board with your move (blue) and the idea (purple). Keep it with Replace or Add, Skip it, or step through with ◀ ▶.",
+      "Each idea says how sure it is: whether the score difference at your level could be chance, what Stockfish thinks of it against your move, and your own games there. Gems your move already scores as well as are left out, and \"Same pawn structure\" is gone.",
+      "Visualise > Structures: each structure has a small board with its most common position in your games (in \"Worth your attention\", the one costing you most), with the files it's about tinted.",
+      "Example now opens the game at the move you're looking at and plays the moves up to it (tap the board to skip).",
+      "Tree: the board for a tapped slice is centred, and scrolls into view on a phone.",
+    ],
+  },
+  {
     id: "2026-11-11p", v: "0.9.42", date: "11 Nov 2026", title: "Structures: what's costing you, and where it comes from",
     items: [
       "Visualise > Structures starts with \"Worth your attention\": up to 3 structures where you score below your average, the ones costing you most points first (games × the drop in your score).",

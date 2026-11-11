@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.42">
+<link rel="stylesheet" href="css/app.css?v=0.9.43">
 </head>
 <body>
 
@@ -97,11 +97,13 @@
     </div>
     <div class="card" data-opane="connect" id="connectPane" hidden></div>
     <div class="card" data-opane="sug" id="suggest" hidden>
-      <h3>Ideas across your tree <span class="info" role="button" tabindex="0" aria-label="About suggestions" data-tip="Goes through every position in your repertoire and lists the best finds, each with a button to open it in Build. It uses Lichess rapid games at your rating bands, so Scan my tree first to fetch data for every position (about one a second). Easy to remember and Practical tricks come from Find ideas across my tree, which runs Build's Ideas here check everywhere in the background. Hidden gems are rarely played but score well; better-scoring alternatives are one move away from yours; same pawn structure lists other openings whose plans carry over. Moves that lead into lines you already have are on the Connect tab.">i</span></h3>
-      <p class="help">A review of your whole repertoire for the colour above. For the position on the board, use Ideas here in Build.</p>
-      <div id="scanBox" style="margin-top:10px"></div>
-      <div id="ideaBox" style="margin-top:10px"></div>
+      <h3>Ideas for your moves <span class="info" role="button" tabindex="0" aria-label="About ideas" data-tip="Moves you could play instead of yours somewhere in your repertoire, one at a time, the ones most likely to win you points first: how often you reach the position times how much better the move does. Hidden gems and better-scoring moves come from Lichess rapid games at your rating bands (Scan my tree fetches them); practical tricks and easy-to-remember moves come from Find ideas across my tree, which uses Stockfish. Each card says how sure it is: whether the score difference could be chance, what Stockfish thinks of both moves, and your own games there. Keep one with Replace or Add, or Skip it. Moves that lead into lines you already have are on the Connect tab.">i</span></h3>
+      <p class="help">Moves worth trying instead of yours, one at a time. Keep one, or skip it.</p>
       <div id="sugOut"></div>
+      <details class="sugfind"><summary>Find more ideas</summary>
+        <div id="scanBox" style="margin-top:8px"></div>
+        <div id="ideaBox" style="margin-top:8px"></div>
+      </details>
     </div>
   </div>
 </section>
@@ -355,44 +357,44 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.42"></script>
-<script src="js/openings.js?v=0.9.42"></script>
-<script src="js/book.js?v=0.9.42"></script>
-<script src="js/store.js?v=0.9.42"></script>
-<script src="js/games.js?v=0.9.42"></script>
-<script src="js/evals.js?v=0.9.42"></script>
-<script src="js/rep.js?v=0.9.42"></script>
-<script src="js/jobs.js?v=0.9.42"></script>
-<script src="js/engine.js?v=0.9.42"></script>
-<script src="js/explore.js?v=0.9.42"></script>
-<script src="js/ideas.js?v=0.9.42"></script>
-<script src="js/rows.js?v=0.9.42"></script>
-<script src="js/gaps.js?v=0.9.42"></script>
-<script src="js/practice.js?v=0.9.42"></script>
-<script src="js/puzzles.js?v=0.9.42"></script>
-<script src="js/report.js?v=0.9.42"></script>
-<script src="js/autobuild.js?v=0.9.42"></script>
-<script src="js/catalogue.js?v=0.9.42"></script>
-<script src="js/addopening.js?v=0.9.42"></script>
-<script src="js/structures.js?v=0.9.42"></script>
-<script src="js/idealines.js?v=0.9.42"></script>
-<script src="js/focus.js?v=0.9.42"></script>
-<script src="js/treeview.js?v=0.9.42"></script>
-<script src="js/covermap.js?v=0.9.42"></script>
-<script src="js/picture.js?v=0.9.42"></script>
-<script src="js/similar.js?v=0.9.42"></script>
-<script src="js/transpose.js?v=0.9.42"></script>
-<script src="js/funnel.js?v=0.9.42"></script>
-<script src="js/connect.js?v=0.9.42"></script>
-<script src="js/updates.js?v=0.9.42"></script>
-<script src="js/importer.js?v=0.9.42"></script>
-<script src="js/board.js?v=0.9.42"></script>
-<script src="js/build.js?v=0.9.42"></script>
-<script src="js/suggest.js?v=0.9.42"></script>
-<script src="js/train.js?v=0.9.42"></script>
-<script src="js/gamesview.js?v=0.9.42"></script>
-<script src="js/review.js?v=0.9.42"></script>
-<script src="js/settings.js?v=0.9.42"></script>
-<script src="js/app.js?v=0.9.42"></script>
+<script src="js/core.js?v=0.9.43"></script>
+<script src="js/openings.js?v=0.9.43"></script>
+<script src="js/book.js?v=0.9.43"></script>
+<script src="js/store.js?v=0.9.43"></script>
+<script src="js/games.js?v=0.9.43"></script>
+<script src="js/evals.js?v=0.9.43"></script>
+<script src="js/rep.js?v=0.9.43"></script>
+<script src="js/jobs.js?v=0.9.43"></script>
+<script src="js/engine.js?v=0.9.43"></script>
+<script src="js/explore.js?v=0.9.43"></script>
+<script src="js/ideas.js?v=0.9.43"></script>
+<script src="js/rows.js?v=0.9.43"></script>
+<script src="js/gaps.js?v=0.9.43"></script>
+<script src="js/practice.js?v=0.9.43"></script>
+<script src="js/puzzles.js?v=0.9.43"></script>
+<script src="js/report.js?v=0.9.43"></script>
+<script src="js/autobuild.js?v=0.9.43"></script>
+<script src="js/catalogue.js?v=0.9.43"></script>
+<script src="js/addopening.js?v=0.9.43"></script>
+<script src="js/structures.js?v=0.9.43"></script>
+<script src="js/idealines.js?v=0.9.43"></script>
+<script src="js/focus.js?v=0.9.43"></script>
+<script src="js/treeview.js?v=0.9.43"></script>
+<script src="js/covermap.js?v=0.9.43"></script>
+<script src="js/picture.js?v=0.9.43"></script>
+<script src="js/similar.js?v=0.9.43"></script>
+<script src="js/transpose.js?v=0.9.43"></script>
+<script src="js/funnel.js?v=0.9.43"></script>
+<script src="js/connect.js?v=0.9.43"></script>
+<script src="js/updates.js?v=0.9.43"></script>
+<script src="js/importer.js?v=0.9.43"></script>
+<script src="js/board.js?v=0.9.43"></script>
+<script src="js/build.js?v=0.9.43"></script>
+<script src="js/suggest.js?v=0.9.43"></script>
+<script src="js/train.js?v=0.9.43"></script>
+<script src="js/gamesview.js?v=0.9.43"></script>
+<script src="js/review.js?v=0.9.43"></script>
+<script src="js/settings.js?v=0.9.43"></script>
+<script src="js/app.js?v=0.9.43"></script>
 </body>
 </html>

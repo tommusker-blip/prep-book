@@ -215,6 +215,15 @@ f.onload = () => {
       L("centre: " + [...d.querySelectorAll("#picPane .sttile2")].map(t => t.querySelector(".stname").textContent.trim() + " " + t.querySelector(".stbig").textContent).join(", "));
       L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" "));
       L("structures: " + [...d.querySelectorAll("#picPane .stcombo")].map(c => c.querySelector(".stctext").textContent + " = " + c.querySelector(".stcnum b").textContent).join(" | ") + " | example buttons " + d.querySelectorAll("#picPane .stcombo [data-review]").length);
+      L("mini boards: " + d.querySelectorAll("#picPane .stcombo .board.mini").length + " of " + d.querySelectorAll("#picPane .stcombo").length + " cards, pieces on the first " + d.querySelectorAll("#picPane .board.mini")[0].querySelectorAll(".pc").length);
+      // v0.9.43: Example opens the game at the structure's move, playing the moves up to it
+      const exb = d.querySelector("#picPane .stcombo [data-review]"), at = +exb.dataset.rvat;
+      exb.click(); await sleep(60);
+      const early = G("RV").i;
+      await sleep(3600);
+      L(`example: view=${G("S").view} at=${at} started at ${early} now ${G("RV").i} (game has ${G("RV").frames.length - 1} plies) back=${G("RV").back}`);
+      w.eval('setView(RV.back)'); await sleep(50);
+      L("back to: " + G("S").view + " / " + G("S").otab + " / " + G("mapView"));
       d.querySelector("[data-pstmove=\"14\"]").click(); await sleep(30); d.querySelector("[data-pstby=\"by\"]").click(); await sleep(50);
       L("by move: rows " + d.querySelectorAll("#picPane .maprow:not(.mhead)").length + " | move now " + G("PIC").st.move);
       d.querySelector('[data-mapview="tree"]').click(); await sleep(50);
@@ -540,8 +549,18 @@ f.onload = () => {
       if (G("Scan").running && n < 600) return setTimeout(() => wait(n + 1), 100);
       const gaps = calls.slice(1).map((t, i) => t - calls[i]);
       L(`scan done: ${d.querySelector("#scanBox").textContent.replace(/\s+/g, " ").trim()} | requests=${calls.length} min gap=${Math.min(...gaps)}ms`);
-      L("sections: " + [...d.querySelectorAll("#sugOut h4")].map(h => h.textContent).join(" / "));
-      L("first gem: " + (d.querySelector('#sugOut [data-sug^="gems"]') || {}).textContent);
+      // v0.9.43: one idea at a time
+      const card = () => (d.querySelector("#sugOut .sugcard") || {}).textContent.replace(/\s+/g, " ").trim();
+      L("idea card: " + card().slice(0, 420));
+      L("idea board arrows: " + [...d.querySelectorAll("#sugBoard .arw")].map(a => a.getAttribute("class").split(" ")[1]).join(" "));
+      const first = G("SUG").cur.san;
+      d.querySelector("#sugOut [data-sugstep=\"1\"]") && d.querySelector("#sugOut [data-sugstep=\"1\"]").click();
+      L("next idea: " + G("SUG").cur.san + " (was " + first + ")");
+      d.querySelector("#sugOut [data-sugskip]").click();
+      L("after Skip: " + d.querySelector("#sugOut .sugnav b").textContent + " | " + ((d.querySelector("#sugOut [data-sugunskip]") || {}).parentNode || {}).textContent);
+      d.querySelector("#sugOut [data-sugunskip]").click();
+      d.querySelector("#sugOut [data-sugstep=\"-1\"]").click();
+      L("unskipped: " + d.querySelector("#sugOut .sugnav b").textContent + " showing " + G("SUG").cur.san);
       // v0.9.10: act on a suggestion without going through Build
       const myAt = () => w.eval('(rep("white").pos[K(fenAfter(START, ["e4","e5"]))] || { m: [] }).m.join(",")');
       L("gem actions: " + [...d.querySelectorAll('#sugOut .sugacts')].map(x => x.textContent.replace(/\s+/g, " ").trim()).join(" / ") + " | my moves: " + myAt());
@@ -554,9 +573,9 @@ f.onload = () => {
       L("after Replace: " + myAt() + " | Nf3 line pruned: " + !w.eval('rep("white").pos[K(fenAfter(START, ["e4","e5","Nf3"]))]'));
       d.querySelector("#sugOut [data-undo='sug']").click();
       L("after Undo: " + myAt());
-      d.querySelector('#sugOut [data-sug^="gems"]').click();
+      d.querySelector("#sugOut [data-sugopen]").click();
       const rowText = () => [...d.querySelectorAll("#prompt .cand")].map(r => r.querySelector(".crow").textContent.replace(/\s+/g, " ").trim()).join(" | ");
-      L("gem opens: view=" + G("S").view + " " + G("S").build.white.join(" ") + " | rows: " + rowText());
+      L("idea opens: view=" + G("S").view + " " + G("S").build.white.join(" ") + " | rows: " + rowText());
       L("arrows at 1.e4 e5: " + [...d.querySelectorAll("#board .arw")].map(a => a.getAttribute("class").split(" ")[1] + ":" + (+a.querySelector("line").getAttribute("stroke-width")).toFixed(2)).join(" "));
       d.querySelector("#back").click();
       L("quick buttons after 1.e4: " + [...d.querySelectorAll("#prompt .quick")].map(b => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
