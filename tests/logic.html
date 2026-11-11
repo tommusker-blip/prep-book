@@ -954,6 +954,14 @@ t("connect: choices shown together, and no chain through a bad position (v0.9.31
   eq(conQueue().some(x => x.path.join(" ") === "e4 d5" && x.moves.join(" ") === "d4"), false, "hidden: a bad position on the way");
   eq(conHidden().bad, 1);
   delete EVALC[K(c.steps[0].fen)]; delete EVALC[K(c.end)];
+  // v0.9.32: using one line of a choice puts the others away, and Undo (the old move back) returns them
+  const both = conGroups(conQueue()).find(g => g.some(x => x.path.join(" ") === "e4 d5"));
+  const pick = both.find(x => x.path.join(" ") === "e4 d5");
+  conDecide(pick, "white", both); addMove(["e4", "d5"], "d4", "white"); walk("white");
+  eq(conQueue().some(x => x.path.join(" ") === "d4 d5 e4"), false, "the other direction is put away");
+  rep("white").pos[K(fenOf("e4 d5"))].m = ["exd5"]; walk("white");
+  eq(conQueue().some(x => x.path.join(" ") === "d4 d5 e4"), true, "and back once the chosen move is gone");
+  localStorage.removeItem("pb_conskip");
   S.settings.conMin = undefined; CON.list = [];
 });
 

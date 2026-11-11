@@ -387,7 +387,7 @@ div.gap-row{cursor:default}
 .mbar i{display:block;height:100%;background:var(--accent)}
 .arrowkey{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 0;font-size:.8rem;color:var(--muted)}
 .arrowkey .key::before{content:"";display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:5px;vertical-align:middle;background:currentColor}
-.arrowkey .key.best::before{background:var(--good)} .arrowkey .key.played::before{background:var(--bad)} .arrowkey .key.tried::before{background:var(--gem)}
+.arrowkey .key.best::before{background:var(--good)} .arrowkey .key.played::before{background:var(--bad)} .arrowkey .key.tried::before{background:var(--gem)} .arrowkey .key.other::before{background:var(--other)}
 #tLine{max-height:5.6em;overflow-y:auto}
 #tLine .mv.pzmv{box-shadow:inset 0 -2px 0 var(--bad)}
 

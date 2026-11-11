@@ -253,6 +253,10 @@ when it loads; the others just define things.
     not within one family) makes the cards; `CON.sel` = group, `CON.selId` = option shown (`conCurrent()`).
     `conSound()`: my moves' losses summed at `CON_DEPTH` 12 from `EVALC`, over `adv().mistake` = hidden;
     evals asked by `conEval()` (shown chain now, top groups in the background), redraw via `conSoon()`.
+  - v0.9.32: tapping an option (`data-conopt`) only shows it; "Use this line" (`rep:0`, or `add` for a gap)
+    commits, and `conDecide(c, color, group)` puts the other options away (`#<id>` = `{src, m}` in
+    `pb_conskip`, hidden while that move is at `src`, so Undo brings them back). "Keep both" = `add`.
+    `conShow(c, g)` draws arrows at step 0: this line (best), same-position options (other), my move (played).
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

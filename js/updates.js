@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11f", date: "11 Nov 2026", title: "Connect: one clear button to commit",
+    items: [
+      "Tapping an option on a Connect card only shows it. Nothing changes until you press Use this line, which replaces your old move (and the line after it) and puts the other options of that choice away. Keep both adds the line as another option instead. Undo brings everything back.",
+      "At the start of a chain the board shows arrows: blue for the line you are looking at, grey for the other options from the same position, and orange for your move there now.",
+    ],
+  },
+  {
     id: "2026-11-11e", date: "11 Nov 2026", title: "Connect: choices side by side, and only sound chains",
     items: [
       "Chains that decide the same thing are now one choice, with the options listed together: every way on from the same position, and chains between the same two openings either way round (Scandinavian into Blackmar-Diemer, or Blackmar-Diemer into Scandinavian). Tap an option to see it on the board, then approve it, or skip one or all.",
