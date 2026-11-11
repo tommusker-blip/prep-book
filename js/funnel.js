@@ -66,10 +66,18 @@ async function funSearch(targetFen, targetPly, color, onTick = () => {}) {
   const tok = ++FUN.tok, tA = boardArr(targetFen), tCounts = pieceCounts(tA), tSide = targetFen.split(" ")[1];
   const maxPly = targetPly + 2, min = funMin(), R = rep(color), memo = new Map();
   let partial = false;
-  Object.assign(FUN, { running: true, fetched: 0, nodes: 0, note: "" });
+  Object.assign(FUN, { running: true, fetched: 0, nodes: 0, note: "", done: 0, t0: Date.now() });
   const live = () => tok === FUN.tok;
   const myChar = color === "white" ? "w" : "b";
-  const rec = async (c, ply, detW, detB, reach) => {
+  /* v0.9.44: progress. Each call gets a share w of the whole search (the root 1), split evenly between
+     the moves it goes on to try; whatever it doesn't hand on is counted done when it returns. Even
+     splits make it rough (some branches are much bigger), but it only goes up and ends at 100%. */
+  const rec = async (c, ply, detW, detB, reach, w) => {
+    const box = { given: 0 };
+    try { return await rec0(c, ply, detW, detB, reach, w, box); }
+    finally { FUN.done += w - box.given; }
+  };
+  const rec0 = async (c, ply, detW, detB, reach, w, box) => {
     if (!live()) throw new Error("stale");
     if (++FUN.nodes % 150 === 0) { onTick(); await new Promise(r => setTimeout(r, 0)); }
     const fen = c.fen(), cur = boardArr(fen), side = fen.split(" ")[1];
@@ -89,9 +97,10 @@ async function funSearch(targetFen, targetPly, color, onTick = () => {}) {
       const k = funKind(m, cur, tA, counts, tCounts);
       if (k && !(k === "detour" && det >= FUN_DETOURS)) kinds.push({ m, k });
     }
-    const step = async (m, k, r) => {
+    const step = async (m, k, r, share) => {
+      box.given += share;
       c.move(m.san);
-      try { return await rec(c, ply + 1, detW + (white && k === "detour" ? 1 : 0), detB + (!white && k === "detour" ? 1 : 0), r); }
+      try { return await rec(c, ply + 1, detW + (white && k === "detour" ? 1 : 0), detB + (!white && k === "detour" ? 1 : 0), r, share); }
       finally { c.undo(); }
     };
     let out;
@@ -108,7 +117,8 @@ async function funSearch(targetFen, targetPly, color, onTick = () => {}) {
       kinds.sort((a, b) => (n && n.m.includes(b.m.san) ? 1 : 0) - (n && n.m.includes(a.m.san) ? 1 : 0) || rank(a) - rank(b) || pop(b.m.san) - pop(a.m.san) || central(a) - central(b));
       const tried = [];
       let cut = false;
-      for (const { m, k } of kinds.slice(0, FUN_TRY)) { const r = await step(m, k, reach); if (r.cut) cut = true; tried.push({ san: m.san, v: r.v }); }
+      const tryNow = kinds.slice(0, FUN_TRY);
+      for (const { m, k } of tryNow) { const r = await step(m, k, reach, w / tryNow.length); if (r.cut) cut = true; tried.push({ san: m.san, v: r.v }); }
       let best = tried.reduce((a, x) => (x.v > a.v ? x : a), { v: 0 });
       // a move already in my tree stays unless another is clearly better
       const keep = n ? tried.filter(x => n.m.includes(x.san) && x.v > 0).sort((a, b) => b.v - a.v)[0] : null;
@@ -125,10 +135,11 @@ async function funSearch(targetFen, targetPly, color, onTick = () => {}) {
       else { const n = R.pos[K(fen)]; replies = n && n.m.length ? n.m.map(san => ({ san, f: 1 / n.m.length, guess: true })) : []; if (!ex) partial = true; }
       const res = [];
       let v = 0, cut = false;
+      const goOn = replies.filter(rp => kinds.some(x => x.m.san === rp.san)).length;
       for (const rp of replies) {
         const hit = kinds.find(x => x.m.san === rp.san);
         if (!hit) { res.push({ ...rp, v: 0, off: true }); continue; }
-        const r = await step(hit.m, hit.k, reach * rp.f);
+        const r = await step(hit.m, hit.k, reach * rp.f, w / goOn);
         if (r.cut) cut = true;
         res.push({ ...rp, v: r.v });
         v += rp.f * r.v;
@@ -140,7 +151,7 @@ async function funSearch(targetFen, targetPly, color, onTick = () => {}) {
     return out;
   };
   try {
-    const root = await rec(new Chess(), 0, 0, 0, 1);
+    const root = await rec(new Chess(), 0, 0, 0, 1, 1);
     // the plan: my chosen moves and the replies that lead on, with each line's chance
     const lines = [], exits = [], conflicts = [];
     const walkPlan = async (c, ply, detW, detB, path, p) => {
@@ -178,7 +189,7 @@ function funnelBox() {
   const mins = `<div class="seg small" role="group" aria-label="Opponent moves at least">${FUN_MINS.map(v => `<button type="button" data-funmin="${v}" aria-pressed="${v === funMin()}">${Math.round(v * 100)}%</button>`).join("")}</div>`;
   const head = `<p class="lbl">Routes from the start ${info("Finds the likely ways to get to this position from move 1, by any move order, and puts them together as one plan. Your moves only head for this position (a piece goes to its square here, a pawn the position doesn't have is exchanged, or a piece makes one stop on the way). The opponent's moves are the ones players at your level make at least the percentage chosen; anything else is them stepping off the route. The chance is how often you'd get here following the plan. The first time it looks up the opponent's moves on Lichess, about one a second.", "About routes from the start")}</p>
     <div class="row" style="margin:0 0 6px;gap:6px;align-items:center"><span class="help" style="margin:0">Opponent moves played at least</span>${mins}</div>`;
-  if (FUN.running && FUN.sig === sig) return head + `<p class="help" aria-live="polite" id="funProg">Searching… ${FUN.fetched ? `${FUN.fetched} Lichess look-up${FUN.fetched === 1 ? "" : "s"} so far` : ""}</p><button type="button" class="btn ghost quick" data-funstop>Stop</button>`;
+  if (FUN.running && FUN.sig === sig) return head + `<p class="help" aria-live="polite" id="funProg">${funProgText()}</p><progress id="funBar" max="100" value="${Math.round((FUN.done || 0) * 100)}"></progress><button type="button" class="btn ghost quick" data-funstop>Stop</button>`;
   if (!res) return head + (S.token ? `<button type="button" class="btn" data-funrun>Find routes into this position</button>` : `<p class="help">Add a Lichess token in Settings to look up the opponent's moves.</p>`) + (FUN.note ? `<p class="help">${esc(FUN.note)}</p>` : "");
   if (!res.v) return head + `<p class="help">No route gets here with opponent moves played at least ${Math.round(funMin() * 100)}% of the time${res.partial ? " (some positions had no Lichess data)" : ""}. Try a lower percentage.</p><button type="button" class="btn ghost quick" data-funrun>Search again</button>`;
   const lineHtml = l => `<li><span class="mono">${esc(numbered(0, l.moves))}</span><span class="conpct">${pctOf(l.p)}</span><button type="button" class="btn ghost quick" data-open="${esc(l.moves.join(" "))}">Show</button></li>`;
@@ -192,6 +203,13 @@ function funnelBox() {
       <div class="row conacts"><button type="button" class="btn quick" data-funadd>Add the plan to my tree</button><button type="button" class="btn ghost quick" data-funrun>Search again</button></div>
     </div>${undoNote("fun")}`;
 }
+// "Searching… about 35% done, roughly 2 min left. 140 of at most 220 Lichess look-ups…"
+function funProgText() {
+  const p = Math.min(0.99, FUN.done || 0), secs = (Date.now() - (FUN.t0 || Date.now())) / 1000;
+  let eta = "";
+  if (p >= 0.1 && secs > 5) { const s = (secs * (1 - p)) / p; eta = s < 60 ? ", under a minute left" : `, roughly ${Math.round(s / 60)} min left`; }
+  return `Searching… about ${Math.round(p * 100)}% done${eta}. ${FUN.fetched} of at most ${FUN_FETCH_MAX} Lichess look-ups (about one a second; after that it only uses data already loaded).`;
+}
 function funRedraw() { if (S.view === "build" && S.ptab === "tree") { const b = $("#funBox"); if (b) b.innerHTML = funnelBox(); } }
 async function funRun() {
   const { fen, key, path } = buildState(), color = S.color, sig = funSig(key, color);
@@ -199,7 +217,7 @@ async function funRun() {
   funRedraw();
   let last = 0;
   try {
-    const res = await funSearch(fen, path.length, color, () => { const now = Date.now(); if (now - last > 400) { last = now; const p = $("#funProg"); if (p) p.textContent = `Searching… ${FUN.fetched} Lichess look-up${FUN.fetched === 1 ? "" : "s"} so far`; } });
+    const res = await funSearch(fen, path.length, color, () => { const now = Date.now(); if (now - last > 400) { last = now; const p = $("#funProg"); if (p) p.textContent = funProgText(); const b = $("#funBar"); if (b) b.value = Math.round(FUN.done * 100); } });
     if (FUN.sig === sig) { FUN.res = res; FUN.note = ""; }
   } catch (e) {
     if (e.message !== "stale") { FUN.note = "Something went wrong: " + e.message; FUN.running = false; }

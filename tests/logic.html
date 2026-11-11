@@ -695,6 +695,7 @@ async function funnelTests() {
     S.settings.funMin = 0.25;
     let r = await funSearch(target, 4, "white");
     eq(Math.round(r.v * 100), 35, "0.5 × 0.7: 1...Nc6 (20%) is under 25%");
+    eq(Math.abs(FUN.done - 1) < 1e-9, true, "progress ends at 100% (v0.9.44): " + FUN.done);
     eq(r.exits.map(e => e.path.join(" ") + " " + Math.round(e.off * 100)), ["e4 50", "e4 e5 Nf3 30"], "most costly exit first (share × how often you get there)");
     S.settings.funMin = 0.2;
     r = await funSearch(target, 4, "white");

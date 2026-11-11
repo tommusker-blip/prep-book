@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11r", v: "0.9.44", date: "11 Nov 2026", title: "Routes from the start: how far along it is",
+    items: [
+      "While Routes from the start searches, it shows roughly how much is done (with a bar) and, once it's a tenth of the way, roughly how long is left.",
+      "It also says how many Lichess look-ups it has made out of the most it will make (220). After that it only uses data already loaded, so the rest goes quickly.",
+    ],
+  },
+  {
     id: "2026-11-11q", v: "0.9.43", date: "11 Nov 2026", title: "Ideas one at a time, and structures you can see",
     items: [
       "Openings > Ideas now shows one idea at a time, the one most likely to win you points first, on a board with your move (blue) and the idea (purple). Keep it with Replace or Add, Skip it, or step through with ◀ ▶.",
