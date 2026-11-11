@@ -139,7 +139,7 @@ function Board(el) {
       const file = b.flip ? 7 - f : f, rank = b.flip ? r + 1 : 8 - r;
       const sq = files[file] + rank;
       const p = c.get(sq);
-      const dark = (file + rank) % 2 === 1 ? "" : " dk";
+      const dark = (file + rank) % 2 === 1 ? " dk" : ""; // a1 (file 0 + rank 1) is dark; it was the wrong way round until v0.9.45
       const cls = ["sq" + dark];
       if (b.last && (b.last[0] === sq || b.last[1] === sq)) cls.push("last");
       if (b.hint && (b.hint[0] === sq || b.hint[1] === sq)) cls.push("hint");

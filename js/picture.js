@@ -341,7 +341,7 @@ function miniBoard(key, flip, files) {
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const rr = flip ? 7 - r : r, ff = flip ? 7 - f : f, ch = cells[rr * 8 + ff], rank = 8 - rr;
     const p = ch ? { color: ch === ch.toUpperCase() ? "w" : "b", type: ch.toLowerCase() } : null;
-    h += `<span class="sq${(ff + rank) % 2 === 1 ? "" : " dk"}${files.has(ff) ? " mk" : ""}">${p ? pieceHtml(p) : ""}</span>`;
+    h += `<span class="sq${(ff + rank) % 2 === 1 ? " dk" : ""}${files.has(ff) ? " mk" : ""}">${p ? pieceHtml(p) : ""}</span>`;
   }
   return `<div class="board mini" aria-hidden="true">${h}</div>`;
 }

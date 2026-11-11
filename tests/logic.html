@@ -627,6 +627,16 @@ t("pawn structures: indicators linked into structures, most common and best (v0.
   eq(cb.common[1].ex, "a0", "example: the first (newest) game with it");
   eq(comboText(["c:fixed", "me:isolated:3", "them:missing:2"]).replace(/<[^>]+>/g, ""), "Fixed centre · You isolated d-pawn · Them no c-pawn");
 });
+t("board colours: a1 and h8 are dark, h1 and a8 light, flipped or not (v0.9.45)", () => {
+  const el = document.createElement("div"), b = Board(el), dk = sq => el.querySelector(`[data-sq="${sq}"]`).classList.contains("dk");
+  b.set(START);
+  eq([dk("a1"), dk("h8"), dk("h1"), dk("a8"), dk("e4"), dk("d4")].join(), "true,true,false,false,false,true");
+  b.flip = true; b.draw();
+  eq([dk("a1"), dk("h1")].join(), "true,false", "flipped");
+  const mb = document.createElement("div"); mb.innerHTML = miniBoard(K(START), false, new Set());
+  const cells = [...mb.querySelectorAll(".sq")];
+  eq([cells[56], cells[63], cells[0], cells[7]].map(c => c.classList.contains("dk")).join(), "true,false,false,true", "small board: a1, h1, a8, h8");
+});
 t("pawn structures: the ones costing me most, and where they come from (v0.9.42)", () => {
   reset(); S.color = "white";
   line("white", "e4 c5 Nf3 d6 d4"); line("white", "e4 e5 Nf3 Nc6 Bb5");

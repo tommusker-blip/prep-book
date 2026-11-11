@@ -337,6 +337,8 @@ when it loads; the others just define things.
 - v0.9.44: Routes from the start shows progress: `rec()` wraps `rec0()` with a share `w` of the search
   (root 1, split evenly between the moves tried); what isn't handed on is added to `FUN.done` on return.
   `funProgText()`: % done, time left once ≥ 10%, look-ups of `FUN_FETCH_MAX`; `#funBar`.
+- v0.9.45: square colours fixed: `.dk` when (file + rank) is odd, file 0-7 and rank 1-8 (a1 dark). Every board
+  had them swapped since the start. Tested in logic.html ("board colours").
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

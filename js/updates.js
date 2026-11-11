@@ -6,6 +6,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11s", v: "0.9.45", date: "11 Nov 2026", title: "Board squares the right way round",
+    items: [
+      "The light and dark squares were swapped on every board (a1 was light). a1 is now dark and h1 light, as on a real board.",
+    ],
+  },
+  {
     id: "2026-11-11r", v: "0.9.44", date: "11 Nov 2026", title: "Routes from the start: how far along it is",
     items: [
       "While Routes from the start searches, it shows roughly how much is done (with a bar) and, once it's a tenth of the way, roughly how long is left.",
