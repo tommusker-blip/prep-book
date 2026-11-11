@@ -6,6 +6,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11l", v: "0.9.38", date: "11 Nov 2026", title: "Connect: the eval of the move you'd drop",
+    items: [
+      "Connect: the Drop line shows the eval after the move you'd give up, and the Keep line the eval after your new move from the same position, so you can compare the two directly (White's side, as everywhere).",
+    ],
+  },
+  {
     id: "2026-11-11k", v: "0.9.37", date: "11 Nov 2026", title: "Quicker gap replay, and the version on the loading screen",
     items: [
       "Gap ›: the replay is quicker and shorter. It plays only the last 6 moves before the gap (3 each), at one move per slide, so it's over in about a second however deep the gap is. Tap the board to skip it.",

@@ -282,6 +282,8 @@ when it loads; the others just define things.
     Peer scores are worded "your side scores", never "you score" (that's for my own games).
   - v0.9.37: Tree colours are only `mine` / `peers`. Gap replay: last `GAP_RUNUP` = 6 plies, one move
     per `SLIDE_MS`. The loading screen shows the version (inline script reads `?v=` from the app.css link).
+  - v0.9.38: Connect's Keep / Drop lines show the eval after the dropped move(s) and after the new first
+    move (switches); `conVerify()` and `conEval()` also evaluate the positions after the dropped moves.
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".

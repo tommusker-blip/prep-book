@@ -135,6 +135,9 @@ async function conVerify(tok, color, onTick) {
   if (!Engine.failed) {
     const need = new Map();
     for (const ch of chains()) ch.steps.forEach((s, j) => { if (s.mine) for (const f of [s.fen, j + 1 < ch.steps.length ? ch.steps[j + 1].fen : ch.end]) if (!evalAt(f, CON_DEPTH)) need.set(K(f), f); });
+    // v0.9.38: and after the moves a switch would drop, for the card's Drop line
+    const R = rep(color);
+    for (const ch of chains()) if (ch.kind === "switch" && R.pos[ch.src]) for (const m of R.pos[ch.src].m) { const f = fenAfter(START, ch.path.concat(m)); if (f && !evalAt(f, CON_DEPTH)) need.set(K(f), f); }
     Object.assign(CON, { vPhase: "engine", vDone: 0, vTotal: need.size }); onTick(false);
     for (const f of need.values()) {
       if (!live()) return false;
@@ -204,15 +207,20 @@ const conSoon = () => { clearTimeout(conTimer); conTimer = setTimeout(() => { CO
 const conEvaling = new Set();
 function conEval(c, prio = PRIO.now) {
   if (Engine.failed) return;
+  const fens = [];
   c.steps.forEach((s, j) => {
     const after = j + 1 < c.steps.length ? c.steps[j + 1].fen : c.end;
-    for (const f of s.mine ? [s.fen, after] : [after]) {
-      const k = K(f) + "|" + CON_DEPTH;
-      if (evalAt(f, CON_DEPTH) || conEvaling.has(k)) continue;
-      conEvaling.add(k);
-      Engine.analyse(f, CON_DEPTH, { prio }).then(() => { conEvaling.delete(k); conSoon(); }, () => conEvaling.delete(k));
-    }
+    fens.push(...(s.mine ? [s.fen, after] : [after]));
   });
+  // v0.9.38: and the position after each move of mine this would drop, to compare on the card
+  const n = c.kind === "switch" ? rep(S.color).pos[c.src] : null;
+  if (n) for (const m of n.m) { const f = fenAfter(START, c.path.concat(m)); if (f) fens.push(f); }
+  for (const f of fens) {
+    const k = K(f) + "|" + CON_DEPTH;
+    if (evalAt(f, CON_DEPTH) || conEvaling.has(k)) continue;
+    conEvaling.add(k);
+    Engine.analyse(f, CON_DEPTH, { prio }).then(() => { conEvaling.delete(k); conSoon(); }, () => conEvaling.delete(k));
+  }
 }
 /* v0.9.33: one pass works out the list, the choices and the hidden counts, and is kept until
    something it depends on changes (tree, skips, filter, data), so redraws and taps are cheap.
@@ -351,10 +359,12 @@ function renderConnect() {
     const pct = s.mine ? "" : `<span class="conpct">${s.f == null ? "?" : pctOf(s.f)}</span>`;
     return `<li><button type="button" class="linkish${CON.step === j + 1 ? " cur" : ""}" data-constep="${j + 1}"><span class="muted">${s.mine ? "You" : "They"}</span> <b class="mono">${esc(lbl)}</b></button>${pct}<span class="conev${lost != null && lost >= adv().good ? " bad" : ""}">${evTxt(ev)}</span></li>`;
   }).join("");
-  const dropLine = d => `<b class="mono">${esc(moveLabel(c.path, d.m))}</b> ${d.n ? `and its branch (${d.n} of your moves)` : "(nothing prepared after it)"}`;
+  // v0.9.38: the eval after the move dropped, and after my new move, from the same position (White's side)
+  const evAfter = m => { const fa = fenAfter(START, c.path.concat(m)); return fa ? `<span class="conev kdev">${evTxt(whiteCp(fa))}</span>` : ""; };
+  const dropLine = d => `<b class="mono">${esc(moveLabel(c.path, d.m))}</b> ${evAfter(d.m)} ${d.n ? `and its branch (${d.n} of your moves)` : "(nothing prepared after it)"}`;
   const drops = c.kind === "switch" ? (c.drop && c.drop.length ? c.drop : old.map(m => ({ m, n: 0 }))) : [];
   const kd = `<div class="conkd">
-      <p><span class="kdtag keep">Keep</span><span><b class="mono">${esc(numbered(c.path.length, c.moves))}</b>, into your ${esc(to ? to.name : "other")} line${c.cards ? ` (${c.cards} moves prepared)` : ""}</span></p>
+      <p><span class="kdtag keep">Keep</span><span><b class="mono">${esc(numbered(c.path.length, c.moves))}</b>${c.kind === "switch" ? (c.moves.length > 1 ? ` <span class="muted">(${esc(moveLabel(c.path, c.moves[0]))}</span> ${evAfter(c.moves[0])}<span class="muted">)</span>` : " " + evAfter(c.moves[0])) : ""}, into your ${esc(to ? to.name : "other")} line${c.cards ? ` (${c.cards} moves prepared)` : ""}</span></p>
       <p><span class="kdtag drop">Drop</span><span>${drops.length ? drops.map(dropLine).join(drops.length > 1 ? "<br>or " : "") : "nothing: this fills a gap"}</span></p>
     </div>`;
   const viaLine = c.via ? `<p class="help">Same place as ${esc(numbered(c.via.a.path.length, c.via.a.moves))}, but more often: ${pctOf(c.p)} against ${pctOf(c.via.pv)}.</p>` : "";
