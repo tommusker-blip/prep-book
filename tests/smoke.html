@@ -113,6 +113,8 @@ f.onload = () => {
       await until(() => d.querySelector("#connectPane [data-conact]"));
       L("connect: " + ((d.querySelector("#connectPane .conhead") || {}).textContent || "none").replace(/\s+/g, " ").trim() + " | " + ((d.querySelector("#connectPane .conbody") || {}).textContent || "").replace(/\s+/g, " ").trim().slice(0, 260));
       L("board pieces: " + d.querySelectorAll("#conBoard .pc").length);
+      L("options: " + [...d.querySelectorAll("#connectPane .conopt")].map(b => b.textContent.replace(/\s+/g, " ").trim() + (b.getAttribute("aria-pressed") === "true" ? " *" : "")).join(" || "));
+      const o2 = d.querySelectorAll("#connectPane .conopt")[1]; if (o2) { o2.click(); await sleep(50); L("picked 2nd: " + G("CON").selId + " pressed=" + d.querySelectorAll("#connectPane .conopt")[1].getAttribute("aria-pressed")); d.querySelectorAll("#connectPane .conopt")[0].click(); await sleep(50); }
       L("filter: " + [...d.querySelectorAll("#connectPane [data-conmin]")].map(b => b.textContent + (b.getAttribute("aria-pressed") === "true" ? "*" : "")).join(" "));
       d.querySelector("#connectPane [data-conmin=\"0.5\"]").click(); await sleep(50);
       L("at 50%: " + G("S").settings.conMin + " " + ((d.querySelector("#connectPane .conhead") || {}).textContent || "none").replace(/\s+/g, " ").trim());

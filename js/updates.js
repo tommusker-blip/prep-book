@@ -5,6 +5,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11e", date: "11 Nov 2026", title: "Connect: choices side by side, and only sound chains",
+    items: [
+      "Chains that decide the same thing are now one choice, with the options listed together: every way on from the same position, and chains between the same two openings either way round (Scandinavian into Blackmar-Diemer, or Blackmar-Diemer into Scandinavian). Tap an option to see it on the board, then approve it, or skip one or all.",
+      "Your moves in a chain are checked with Stockfish. A chain that gives up more than the mistake margin on the way (Settings > Advanced, 1.5 pawns by default) is hidden, and the card says how much your moves give up.",
+    ],
+  },
+  {
     id: "2026-11-11d", date: "11 Nov 2026", title: "Connect: approved moves stay approved",
     items: [
       "Once you approve a chain, Connect no longer comes back with another chain from the same position offering to replace the move you just approved. Undo brings those back.",

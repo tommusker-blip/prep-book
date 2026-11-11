@@ -461,6 +461,9 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .consteps{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
 .consteps .linkish.cur b{color:var(--accent)}
 .conacts{margin:4px 0 0;gap:6px;flex-wrap:wrap}
+.conopts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.conopt{text-align:left;font:inherit;font-size:.86rem;line-height:1.35;padding:8px 10px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+.conopt[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
 
 /* ---------- idea lines ---------- */
 #iLine{max-height:6em;overflow-y:auto}

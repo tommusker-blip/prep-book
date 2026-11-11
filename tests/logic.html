@@ -934,6 +934,28 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").map(c => c.moves.join(" ")), [], "no 'Replace d4' straight after approving it");
   localStorage.removeItem("pb_conskip"); CON.list = [];
 });
+t("connect: choices shown together, and no chain through a bad position (v0.9.31)", () => {
+  reset(); resetEx(); localStorage.removeItem("pb_conskip"); S.color = "white";
+  line("white", "d4 d5 e4 dxe4 Nc3 Nf6 f3");
+  line("white", "e4 d5 exd5 Nf6 d4 Nxd5 c4");
+  line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
+  CON.list = findConnections("white"); S.settings.conMin = 0.1;
+  const groups = conGroups(conQueue()), ids = g => g.map(c => c.path.join(" ") + "|" + c.moves.join(" ")).sort();
+  const scandi = groups.find(g => g.some(c => c.path.join(" ") === "e4 d5"));
+  eq(ids(scandi), ["d4 d5 e4|Nf6 exd5", "e4 d5|d4"], "both directions between the Scandinavian and the Blackmar-Diemer");
+  const eng = groups.find(g => g.some(c => c.path.join(" ") === "c4 Nf6"));
+  eq(eng.length >= 2, true, "2.d4 and 2.Nc3 e6 3.d4 from 1.c4 Nf6 are one choice");
+  // soundness: my moves on the way may give up at most the mistake margin in all
+  const c = conQueue().find(x => x.path.join(" ") === "e4 d5" && x.moves.join(" ") === "d4");
+  const at = (fen, cp) => { EVALC[K(fen)] = { cp, d: 14 }; };
+  at(c.steps[0].fen, 40); at(c.end, 50);          // Black to move after 2.d4, +0.5 for Black: I gave up 0.9
+  eq(conSound(c).state + " " + conSound(c).loss, "ok 90");
+  at(c.end, 300);                                  // now 3.4 given up
+  eq(conQueue().some(x => x.path.join(" ") === "e4 d5" && x.moves.join(" ") === "d4"), false, "hidden: a bad position on the way");
+  eq(conHidden().bad, 1);
+  delete EVALC[K(c.steps[0].fen)]; delete EVALC[K(c.end)];
+  S.settings.conMin = undefined; CON.list = [];
+});
 
 /* ----- coach report: aggregated numbers only ----- */
 t("coach report: openings, exits, training and mistakes, with no raw games", () => {

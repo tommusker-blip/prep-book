@@ -249,6 +249,10 @@ when it loads; the others just define things.
     position before the step shown (`CON.step`), with that move's row in `candOpen`.
   - v0.9.30: approving a chain marks its my-turn positions decided (`conDecide()`, `@color|book|key` = move
     in `pb_conskip`); `conQueue()` hides switch chains from a decided position while that move is there.
+  - v0.9.31: `conGroups()` (union-find: same `src`, or the same unordered pair of families `conFam()`,
+    not within one family) makes the cards; `CON.sel` = group, `CON.selId` = option shown (`conCurrent()`).
+    `conSound()`: my moves' losses summed at `CON_DEPTH` 12 from `EVALC`, over `adv().mistake` = hidden;
+    evals asked by `conEval()` (shown chain now, top groups in the background), redraw via `conSoon()`.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
