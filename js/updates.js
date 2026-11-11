@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11t", v: "0.9.46", date: "11 Nov 2026", title: "You can always see (and clear) a focus",
+    items: [
+      "When you pick an opening to Build or Train, Gap › and ⏮ stay inside it until you clear it. That was only shown on the My lines tab, so it could look as if Gap › was stuck.",
+      "Now a line under Build's controls says \"Focus: <opening>, Gap › stays in it\", with ✕ Clear to go back to your whole repertoire.",
+    ],
+  },
+  {
     id: "2026-11-11s", v: "0.9.45", date: "11 Nov 2026", title: "Board squares the right way round",
     items: [
       "The light and dark squares were swapped on every board (a1 was light). a1 is now dark and h1 light, as on a real board.",

@@ -339,6 +339,8 @@ when it loads; the others just define things.
   `funProgText()`: % done, time left once ≥ 10%, look-ups of `FUN_FETCH_MAX`; `#funBar`.
 - v0.9.45: square colours fixed: `.dk` when (file + rank) is odd, file 0-7 and rank 1-8 (a1 dark). Every board
   had them swapped since the start. Tested in logic.html ("board colours").
+- v0.9.46: `focusMini()` draws the focus as one line in `#focusBuild` under Build's controls (with ✕ Clear), so
+  it's visible on every tab; the full bar stays on My lines and Train.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

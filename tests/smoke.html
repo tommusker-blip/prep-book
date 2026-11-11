@@ -60,6 +60,7 @@ f.onload = () => {
       L("catalogue: " + d.querySelector(".cathead").textContent.replace(/\s+/g, " ").trim() + " | " + [...d.querySelectorAll("#catBody > details.cat > summary")].map(s => s.textContent.replace(/\s+/g, " ").trim()).join(" | "));
       const it = [...d.querySelectorAll("#catBody details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
       it.querySelector("[data-focusbuild]").click(); await sleep(50);
+      L("focus line under the controls (v0.9.46): " + d.querySelector("#focusBuild").textContent.replace(/\s+/g, " ").trim());
       L("focus bar on Moves: " + !!d.querySelector("#prompt .focusbar") + " | tabs: " + [...d.querySelectorAll("[data-ptab]")].map(b => b.textContent).join(", "));
       d.querySelector('[data-ptab="tree"]').click(); await sleep(50);
       L("focus bar on My lines: " + d.querySelector("#treeCard .focusbar").textContent.replace(/\s+/g, " ").trim());
@@ -88,6 +89,7 @@ f.onload = () => {
       d.querySelector('[data-nav="train"]').click(); await sleep(50);
       L("focus on Train: " + d.querySelector("#focusTrain").textContent.replace(/\s+/g, " ").trim());
       d.querySelector("#focusTrain [data-focusclear]").click(); await sleep(50);
+      L("Build focus line after clearing: '" + d.querySelector("#focusBuild").textContent.trim() + "'");
       L("cleared: " + (d.querySelector("#focusTrain").textContent.trim() || "no bar") + " | sim: " + d.querySelector("#simInfo").textContent);
       d.querySelector("#simStart").click(); await sleep(50);
       L("sim session: queue=" + G("T").queue.length + " | " + d.querySelector("#tProgress").textContent);

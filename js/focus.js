@@ -39,9 +39,16 @@ function focusBar(where) {
   return `<div class="focusbar" role="status"><span class="ftxt"><span class="flbl">Focus</span> <b>${esc(focusName())}</b> <span class="mono muted">${esc(numbered(0, p))}</span></span>
     <span class="fbtns">${act}<button type="button" class="btn ghost quick" data-focusclear aria-label="Clear the focus: stop focusing on this opening">✕</button></span></div>`;
 }
+// v0.9.46: a one-line version under Build's controls, so the focus is never hidden (it used to be
+// only on the My lines tab, and Gap › seemed stuck in one opening with no way out in sight)
+function focusMini() {
+  if (!focusOn()) return "";
+  return `<div class="focusbar mini" role="status"><span class="ftxt"><span class="flbl">Focus</span> <b>${esc(focusName())}</b> <span class="muted">Gap › stays in it</span></span>
+    <span class="fbtns"><button type="button" class="btn ghost quick" data-focusclear aria-label="Clear the focus: Gap › and ⏮ use your whole repertoire again">✕ Clear</button></span></div>`;
+}
 function drawFocusBars() {
   const b = $("#focusBuild"), t = $("#focusTrain");
-  if (b) b.innerHTML = focusBar("build");
+  if (b) b.innerHTML = focusMini();
   if (t) t.innerHTML = focusBar("train");
 }
 // Gaps for Gap ›: only inside the focus
