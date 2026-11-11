@@ -125,15 +125,15 @@ function jumpToGap(id, list = rankedGaps()) {
   window.scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" });
   buildReplay(S.build[S.color]);
 }
-/* v0.9.27: Gap › sets the scene: the board plays the line up to the gap, from the start for a
-   short line, else the last GAP_RUNUP plies, at about 4 s in all. Tap the board to skip. Any
+/* v0.9.27: Gap › sets the scene: the board plays the line up to the gap. v0.9.37: quicker, only the
+   last GAP_RUNUP plies (from the start if the line is that short), one move per slide, about 1 s. Tap the board to skip. Any
    redraw of Build (another move, another tap) stops it; refreshBuild() leaves the board alone
    while it runs (BA.on). No replay with reduced motion. */
-const GAP_RUNUP = 8, BA = { tok: 0, on: false, done: null };
+const GAP_RUNUP = 6, BA = { tok: 0, on: false, done: null };
 function buildReplay(path) {
   if (reduceMotion() || !path.length) return;
-  const frames = framesTo(path), from = path.length <= GAP_RUNUP + 2 ? 0 : path.length - GAP_RUNUP;
-  const tok = ++BA.tok, ms = Math.round(Math.max(180, Math.min(400, 4000 / (frames.length - from))));
+  const frames = framesTo(path), from = Math.max(0, path.length - GAP_RUNUP);
+  const tok = ++BA.tok, ms = SLIDE_MS;
   const finish = () => { if (tok !== BA.tok || !BA.on) return; BA.on = false; BB.locked = false; BA.done = null; renderBuild(); };
   BA.on = true; BA.done = finish; BB.locked = true;
   let i = from;

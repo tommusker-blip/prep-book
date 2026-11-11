@@ -203,7 +203,7 @@ f.onload = () => {
       L("tree: arcs " + arcs.length + ", holes " + d.querySelectorAll("#picPane path.sunarc.gap").length + ", labels " + [...d.querySelectorAll("#picPane text.suntx:not(.core)")].map(t => t.textContent).join(" "));
       d.querySelector('#picPane path[data-picsun="e4 e5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       L("tap e5: " + txt("#picPane .sunsel") + " | board pieces " + d.querySelectorAll("#picBoard .pc").length);
-      for (const c of ["peers", "played", "mine"]) { d.querySelector(`[data-pscolor="${c}"]`).click(); await sleep(20); }
+      for (const c of ["peers", "mine"]) { d.querySelector(`[data-pscolor="${c}"]`).click(); await sleep(20); }
       L("colour modes ok, board still there: " + !!d.querySelector("#picBoard .pc"));
       d.querySelector("#picPane [data-picsunin]").click(); await sleep(50);
       L("zoomed: root=" + G("PIC").sun.root.join(" ") + " arcs " + d.querySelectorAll("#picPane path.sunarc").length);

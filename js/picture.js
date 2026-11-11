@@ -73,17 +73,16 @@ function arcPath(a0, a1, r0, r1) {
   const big = a1 - a0 > 0.5 ? 1 : 0;
   return `M${pt(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${pt(r1, a1)}L${pt(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${pt(r0, a0)}Z`;
 }
-const SUN_COLOURS = [["mine", "My score"], ["peers", "Peers' score"], ["played", "My games"]];
+const SUN_COLOURS = [["mine", "My score"], ["peers", "Peers' score"]];
 function renderSun(color) {
   const o = PIC.sun;
   let arcs = sunArcs(color, o.root);
   if (!arcs) { o.root = []; o.sel = null; arcs = sunArcs(color, []); }
   if (!arcs || !arcs.length) return `<p class="help">Nothing in your ${color} repertoire yet.</p>`;
-  const ring = (PIC_R1 - PIC_R0) / PIC_RINGS, maxN = Math.max(1, ...arcs.map(a => (a.games ? a.games.n : 0)));
+  const ring = (PIC_R1 - PIC_R0) / PIC_RINGS;
   const fill = a => {
     if (a.gap) return `fill="url(#picHatch)"`;
     const none = `style="fill:var(--line)"`;
-    if (o.color === "played") { const n = a.games ? a.games.n : 0; return n ? `style="fill:color-mix(in srgb,var(--accent) ${Math.round(15 + 75 * Math.log1p(n) / Math.log1p(maxN))}%,var(--surface))"` : none; }
     if (o.color === "peers") return a.peer == null ? none : scoreFill(a.peer, a.peerN / 100);
     return a.games && a.games.n ? scoreFill(wdlScore(a.games), a.games.n / 10) : none;
   };
@@ -119,7 +118,7 @@ function renderSun(color) {
       <p class="help">My games: ${a.games && a.games.n ? `${a.games.n}, I score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at my level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, my side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
       <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div>`;
   }
-  const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games.", played: "Darker: more of your own games went there." }[o.color];
+  const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games." }[o.color] || "";
   return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}</div>
     ${o.root.length ? `<p class="help">From <b>${esc(rootName)}</b>. Tap the centre to back out.</p>` : ""}
     <div class="conwrap"><div class="sunwrap">${svg}</div>${side}</div>
@@ -216,7 +215,7 @@ function renderPicture() {
     renderPicture();
   };
   const v = PIC.view, body = v === "structures" ? renderStructures(color) : renderSun(color);
-  box.innerHTML = `<h3>Your repertoire in pictures ${info("Drafts, more food for thought than hard numbers. Tree: your whole repertoire as rings of moves, coloured by your own score, peers' score or how often your games go there; tap a slice to see the position. Structures: the pawn structures your games end up in, with your score in each. Nothing new is fetched: it uses your games and the Lichess data already loaded.", "About pictures")}</h3>
+  box.innerHTML = `<h3>Your repertoire in pictures ${info("Drafts, more food for thought than hard numbers. Tree: your whole repertoire as rings of moves, coloured by your own score or the peers' score; tap a slice to see the position. Structures: the pawn structures your games end up in, with your score in each. Nothing new is fetched: it uses your games and the Lichess data already loaded.", "About pictures")}</h3>
     <div class="picviews">${picSeg("picview", v, PIC_VIEWS, "Picture")}</div>${body}`;
   if (v === "tree") picShowBoard();
 }

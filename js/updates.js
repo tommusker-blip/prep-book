@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11k", v: "0.9.37", date: "11 Nov 2026", title: "Quicker gap replay, and the version on the loading screen",
+    items: [
+      "Gap ›: the replay is quicker and shorter. It plays only the last 6 moves before the gap (3 each), at one move per slide, so it's over in about a second however deep the gap is. Tap the board to skip it.",
+      "Picture > Tree: one toggle between My score and Peers' score.",
+      "The loading screen shows the version, so you can check your phone has the latest.",
+    ],
+  },
+  {
     id: "2026-11-11j", v: "0.9.36", date: "11 Nov 2026", title: "Pictures: Tree and Structures, fixed",
     items: [
       "Picture now has two views. Squares, Fights and Clock are gone.",
