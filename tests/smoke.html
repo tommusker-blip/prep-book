@@ -109,8 +109,12 @@ f.onload = () => {
         walk("white");`);
       d.querySelector('[data-nav="openings"]').click();
       L("tabs: " + [...d.querySelectorAll("[data-otab]")].map(b => b.textContent).join(", "));
+      // the slow asm.js engine (no WASM from file://) would take minutes: even evals, at once
+      w.eval('Engine.analyse = (fen, depth) => { const e = { cp: 0, d: depth }; EVALC[K(fen)] = e; return Promise.resolve(e); }');
       d.querySelector('[data-otab="connect"]').click();
-      await until(() => d.querySelector("#connectPane [data-conact]"));
+      L("while checking: " + d.querySelector("#connectPane").textContent.replace(/\s+/g, " ").trim().slice(-160));
+      await until(() => d.querySelector("#connectPane [data-conact]"), 40000);
+      L("state: " + w.eval('JSON.stringify({ running: CON.running, verifying: CON.verifying, phase: CON.vPhase, done: CON.vDone, total: CON.vTotal, v: CON.vlist.length, engine: Engine.which || null, failed: !!Engine.failed })'));
       L("connect: " + ((d.querySelector("#connectPane .conhead") || {}).textContent || "none").replace(/\s+/g, " ").trim() + " | " + ((d.querySelector("#connectPane .conbody") || {}).textContent || "").replace(/\s+/g, " ").trim().slice(0, 260));
       L("board pieces: " + d.querySelectorAll("#conBoard .pc").length + " | arrows: " + [...d.querySelectorAll("#conBoard .arw")].map(a => a.getAttribute("class").replace("arw ", "")).join(",") + " | key: " + d.querySelector("#conKey").textContent);
       L("options: " + [...d.querySelectorAll("#connectPane .conopt")].map(b => b.textContent.replace(/\s+/g, " ").trim() + (b.getAttribute("aria-pressed") === "true" ? " *" : "")).join(" || "));
@@ -121,6 +125,7 @@ f.onload = () => {
       d.querySelector("#connectPane [data-conmin=\"0.25\"]").click(); await sleep(50);
       const st = d.querySelector("#connectPane [data-constep='1']"); if (st) { st.click(); await sleep(50); }
       L("acts: " + [...d.querySelectorAll("#connectPane [data-conact]")].map(b => b.textContent).join(", "));
+      L("redraw: " + w.eval("(() => { const t0 = performance.now(); for (let i = 0; i < 20; i++) renderConnect(); return Math.round((performance.now() - t0) / 20) + \" ms each\"; })()"));
       // v0.9.29: Open in Build goes to the move shown (step 1 = after the chain's first move), with the next one open
       const cur0 = G("conQueue()")[G("CON").sel];
       d.querySelector('#connectPane [data-conact="build"]').click(); await sleep(50);

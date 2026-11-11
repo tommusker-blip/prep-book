@@ -257,6 +257,13 @@ when it loads; the others just define things.
     commits, and `conDecide(c, color, group)` puts the other options away (`#<id>` = `{src, m}` in
     `pb_conskip`, hidden while that move is at `src`, so Undo brings them back). "Keep both" = `add`.
     `conShow(c, g)` draws arrows at step 0: this line (best), same-position options (other), my move (played).
+  - v0.9.33: after the sweep, `conVerify()` fetches Lichess data, then Stockfish evals, for every chain
+    (at the lowest filter) before anything is shown: `CON.vlist` (with `vColor`/`vBook`) is the verified
+    list, `CON.list` the one being worked on; `conProgress()` words the bar. `conCompute()` memoises the
+    queue, groups and hidden counts (sig: tree, `skipVer`, `conMin()`, `dataVer`, margin); tests that
+    change data directly bump `CON.dataVer`. Same place by another order: options from one `src` whose
+    target is the other's target or below it in my tree are hidden unless more likely by `CON_SAME_EDGE`;
+    kept ones carry `via` and the card explains it.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

@@ -295,6 +295,7 @@ t("a deleted book's tombstone removes it on other devices", () => {
 
 /* ----- explorer: tree index, gems, alternatives, transpositions, structures (synthetic data) ----- */
 const fenOf = s => fenAfter(START, s ? s.split(" ") : []);
+const conSet = l => Object.assign(CON, { list: l, vlist: l, vColor: "white", vBook: S.book }); // Connect: as if worked out in full
 const mv = (san, n, w, d, b) => ({ san, n, w, d, b });
 const setEx = (line, total, w, d, b, moves) => { EXPL[K(fenOf(line)) + "|" + bandKey()] = { total, w, d, b, moves }; explVer++; };
 const resetEx = () => { for (const k of Object.keys(EXPL)) delete EXPL[k]; explVer++; S.settings.gem = { min: 300, freq: 10, edge: 5 }; };
@@ -916,44 +917,53 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   eq(findConnections("white").some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "2% isn't likely");
   // v0.9.28: a minimum chance for the whole chain; most likely first
   setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("e6", 200, 80, 20, 100), mv("g6", 600, 240, 60, 300)]);
-  CON.list = findConnections("white"); localStorage.removeItem("pb_conskip"); S.settings.conMin = undefined;
+  conSet(findConnections("white")); localStorage.removeItem("pb_conskip"); S.settings.conMin = undefined;
   eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "20% is under the default 25%");
   S.settings.conMin = 0.1;
   eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), true, "and over 10%");
   const ps = conQueue().map(c => c.p);
   eq(ps.every((p, i) => !i || ps[i - 1] >= p), true, "most likely first: " + ps.join(","));
-  S.settings.conMin = undefined; CON.list = [];
+  S.settings.conMin = undefined; conSet([]);
   // v0.9.30: an approved position is decided: no chain from it offers to replace the move just approved
   reset(); resetEx(); localStorage.removeItem("pb_conskip");
   line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
-  CON.list = findConnections("white");
+  conSet(findConnections("white"));
   const ok = conQueue().find(c => c.path.join(" ") === "c4 Nf6" && c.moves.join(" ") === "d4");
-  eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").length >= 2, true, "two ways on from 1.c4 Nf6");
+  eq(findConnections("white").filter(c => c.path.join(" ") === "c4 Nf6").length >= 2, true, "two ways on from 1.c4 Nf6");
   conDecide(ok, "white"); addMove(["c4", "Nf6"], "d4", "white", "g3"); walk("white");
-  CON.list = findConnections("white");
+  conSet(findConnections("white"));
   eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").map(c => c.moves.join(" ")), [], "no 'Replace d4' straight after approving it");
-  localStorage.removeItem("pb_conskip"); CON.list = [];
+  localStorage.removeItem("pb_conskip"); conSet([]);
 });
 t("connect: choices shown together, and no chain through a bad position (v0.9.31)", () => {
   reset(); resetEx(); localStorage.removeItem("pb_conskip"); S.color = "white";
   line("white", "d4 d5 e4 dxe4 Nc3 Nf6 f3");
   line("white", "e4 d5 exd5 Nf6 d4 Nxd5 c4");
   line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
-  CON.list = findConnections("white"); S.settings.conMin = 0.1;
+  conSet(findConnections("white")); S.settings.conMin = 0.1;
   const groups = conGroups(conQueue()), ids = g => g.map(c => c.path.join(" ") + "|" + c.moves.join(" ")).sort();
   const scandi = groups.find(g => g.some(c => c.path.join(" ") === "e4 d5"));
   eq(ids(scandi), ["d4 d5 e4|Nf6 exd5", "e4 d5|d4"], "both directions between the Scandinavian and the Blackmar-Diemer");
-  const eng = groups.find(g => g.some(c => c.path.join(" ") === "c4 Nf6"));
-  eq(eng.length >= 2, true, "2.d4 and 2.Nc3 e6 3.d4 from 1.c4 Nf6 are one choice");
+  // v0.9.33: 2.Nc3 e6 3.d4 ends where 2.d4 (then 2...e6 3.Nc3 in my tree) leads: only worth showing
+  // if it gets there more often
+  const engOpts = () => conQueue().filter(c => c.path.join(" ") === "c4 Nf6").map(c => c.moves.join(" ") + (c.via ? " (via " + Math.round(c.via.pv * 100) + "%)" : ""));
+  eq(engOpts(), ["d4"], "no data: no more likely, so hidden");
+  eq(conHidden().same, 1);
+  setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("e6", 700, 280, 70, 350), mv("g6", 300, 120, 30, 150)]);
+  setEx("d4 Nf6 c4", 1000, 400, 100, 500, [mv("e6", 400, 160, 40, 200), mv("g6", 600, 240, 60, 300)]);
+  CON.dataVer++;
+  eq(engOpts(), ["d4", "Nc3 e6 d4 (via 40%)"], "70% this way against 40% by 2.d4: kept, with the reason");
+  const eng = conGroups(conQueue()).find(g => g.some(c => c.path.join(" ") === "c4 Nf6"));
+  eq(eng.length, 2, "and the two are one choice");
   // soundness: my moves on the way may give up at most the mistake margin in all
   const c = conQueue().find(x => x.path.join(" ") === "e4 d5" && x.moves.join(" ") === "d4");
   const at = (fen, cp) => { EVALC[K(fen)] = { cp, d: 14 }; };
-  at(c.steps[0].fen, 40); at(c.end, 50);          // Black to move after 2.d4, +0.5 for Black: I gave up 0.9
+  at(c.steps[0].fen, 40); at(c.end, 50); CON.dataVer++; // Black to move after 2.d4, +0.5 for Black: I gave up 0.9
   eq(conSound(c).state + " " + conSound(c).loss, "ok 90");
-  at(c.end, 300);                                  // now 3.4 given up
+  at(c.end, 300); CON.dataVer++;                   // now 3.4 given up
   eq(conQueue().some(x => x.path.join(" ") === "e4 d5" && x.moves.join(" ") === "d4"), false, "hidden: a bad position on the way");
   eq(conHidden().bad, 1);
-  delete EVALC[K(c.steps[0].fen)]; delete EVALC[K(c.end)];
+  delete EVALC[K(c.steps[0].fen)]; delete EVALC[K(c.end)]; CON.dataVer++;
   // v0.9.32: using one line of a choice puts the others away, and Undo (the old move back) returns them
   const both = conGroups(conQueue()).find(g => g.some(x => x.path.join(" ") === "e4 d5"));
   const pick = both.find(x => x.path.join(" ") === "e4 d5");
@@ -962,7 +972,7 @@ t("connect: choices shown together, and no chain through a bad position (v0.9.31
   rep("white").pos[K(fenOf("e4 d5"))].m = ["exd5"]; walk("white");
   eq(conQueue().some(x => x.path.join(" ") === "d4 d5 e4"), true, "and back once the chosen move is gone");
   localStorage.removeItem("pb_conskip");
-  S.settings.conMin = undefined; CON.list = [];
+  S.settings.conMin = undefined; conSet([]);
 });
 
 /* ----- coach report: aggregated numbers only ----- */

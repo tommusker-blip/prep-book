@@ -22,7 +22,7 @@
    RepUndo ("con"); Skip is remembered on this device (pb_conskip).
    Classic script: shares one global scope with the others (see index.html for the load order). */
 const CON_PLIES = 4, CON_MIN = 0.05, CON_UNKNOWN = 0.3, CON_MIN_PLY = 2;
-const CON = { sig: "", list: [], running: false, done: 0, total: 0, tok: 0, sel: 0, step: 0 };
+const CON = { sig: "", list: [], vlist: [], running: false, verifying: false, vPhase: "", vDone: 0, vTotal: 0, dataVer: 0, skipVer: 0, done: 0, total: 0, tok: 0, sel: 0, step: 0 };
 let CB = null;
 const conSkips = () => lsGet("pb_conskip", {});
 const conId = c => c.src + "|" + c.moves.join(" ");
@@ -99,10 +99,50 @@ function sweepConnections(color = S.color, onTick = () => {}, force = false) {
     CON.done = i;
     if (i < nodes.length) { onTick(false); setTimeout(step, 0); return; }
     // v0.9.29: keep the place (CON.selId) rather than going back to the first chain
-    Object.assign(CON, { running: false, sig, color, book: S.book, list: out.sort((a, b) => conScore(b) - conScore(a)) });
-    onTick(true);
+    Object.assign(CON, { running: false, verifying: true, sig, color, book: S.book, list: out.sort((a, b) => conScore(b) - conScore(a)) });
+    onTick(false);
+    // v0.9.33: then fetch everything the filters need before anything is shown (vlist)
+    conVerify(tok, color, onTick).then(ok => {
+      if (!ok) return;
+      Object.assign(CON, { verifying: false, vlist: CON.list, vColor: color, vBook: S.book });
+      CON.dataVer++;
+      onTick(true);
+    });
   };
   setTimeout(step, 0);
+}
+/* v0.9.33: the list is worked out in full before it's shown (it used to appear at once and then
+   lose chains as their Lichess data and engine checks came in). After the sweep:
+   1. Lichess data for every opponent move in a chain that has none (one request a second, so
+      the first time can take a minute or two; it's cached after that);
+   2. Stockfish (CON_DEPTH) for every position the soundness check needs, for the chains that are
+      still likely enough (at the lowest filter, so changing the filter needs nothing new).
+   CON.vPhase / vDone / vTotal drive the progress bar. A newer sweep (tree changed) stops it. */
+async function conVerify(tok, color, onTick) {
+  const live = () => tok === CON.tok, minAll = CON_MINS[0];
+  const chains = () => CON.list.map(c => conSteps(fenAfter(START, c.path), c.moves, color)).filter(ch => !ch.unlikely && ch.pKnown >= minAll);
+  if (S.token && !explorerBlocked) {
+    const need = new Map();
+    for (const ch of chains()) for (const s of ch.steps) if (!s.mine && s.f == null) need.set(K(s.fen), s.fen);
+    Object.assign(CON, { vPhase: "lichess", vDone: 0, vTotal: need.size }); onTick(false);
+    for (const fen of need.values()) {
+      if (!live()) return false;
+      try { await explorer(fen, { prio: PRIO.soon }); } catch (e) { /* counted as no data */ }
+      CON.vDone++; onTick(false);
+      if (explorerBlocked) break;
+    }
+  }
+  if (!Engine.failed) {
+    const need = new Map();
+    for (const ch of chains()) ch.steps.forEach((s, j) => { if (s.mine) for (const f of [s.fen, j + 1 < ch.steps.length ? ch.steps[j + 1].fen : ch.end]) if (!evalAt(f, CON_DEPTH)) need.set(K(f), f); });
+    Object.assign(CON, { vPhase: "engine", vDone: 0, vTotal: need.size }); onTick(false);
+    for (const f of need.values()) {
+      if (!live()) return false;
+      try { await Engine.analyse(f, CON_DEPTH, { prio: PRIO.soon }); } catch (e) { if (Engine.failed) break; }
+      CON.vDone++; onTick(false);
+    }
+  }
+  return live();
 }
 // The same, all at once (tests)
 function findConnections(color = S.color) {
@@ -137,7 +177,7 @@ function conDecide(c, color, group = []) {
   c.moves.forEach((m, i) => { const key = K(fenAfter(START, c.path.concat(c.moves.slice(0, i)))); if (isMine(key, color)) s[conDecidedKey(key, color)] = m; });
   // v0.9.32: the other options of the choice are put away while the chosen line is in the tree
   group.filter(x => x !== c).forEach(x => (s["#" + conId(x)] = { src: c.src, m: c.moves[0] }));
-  lsSet("pb_conskip", s);
+  lsSet("pb_conskip", s); CON.skipVer++;
 }
 /* v0.9.31: no chain through a bad position. Each of my moves in the chain is checked with
    Stockfish (CON_DEPTH): what it gives up against the best move there, added up over the chain.
@@ -159,7 +199,8 @@ function conSound(c, color = S.color) {
   return { state: pending ? "pending" : "ok", loss };
 }
 let conTimer = null;
-const conSoon = () => { clearTimeout(conTimer); conTimer = setTimeout(() => { if (S.view === "openings" && S.otab === "connect") renderConnect(); }, 250); };
+// A result arrived for the chain on show (no token or engine during the check): count it and redraw
+const conSoon = () => { clearTimeout(conTimer); conTimer = setTimeout(() => { CON.dataVer++; if (S.view === "openings" && S.otab === "connect") renderConnect(); }, 250); };
 const conEvaling = new Set();
 function conEval(c, prio = PRIO.now) {
   if (Engine.failed) return;
@@ -173,25 +214,58 @@ function conEval(c, prio = PRIO.now) {
     }
   });
 }
-function conQueue() {
-  const skip = conSkips(), R = rep(S.color), min = conMin(), nodes = walk(S.color).nodes;
+/* v0.9.33: one pass works out the list, the choices and the hidden counts, and is kept until
+   something it depends on changes (tree, skips, filter, data), so redraws and taps are cheap.
+   It used to be worked out several times on every redraw, with redraws every 250 ms as data
+   came in: that was the lag.
+   Also v0.9.33, "the same place by another order": when two options from the same position end
+   where the other one also leads (the same position, or further down my tree from it), the
+   later one only adds something if it gets there more often. Its chance is compared with going
+   by the other option and then my tree (the opponent's moves on the way multiplied in). Not
+   more likely (by at least CON_SAME_EDGE): hidden as "the same place by another order". More
+   likely: kept, and the card says that's the gain (c.via). */
+const CON_SAME_EDGE = 1.1;
+let conMemo = { sig: "", out: null };
+function conCompute() {
+  const color = S.color, sig = [color, S.book, walk(color).sig, CON.vColor, CON.vBook, CON.skipVer, conMin(), CON.dataVer, adv().mistake].join("|");
+  if (conMemo.sig === sig && conMemo.list === CON.vlist) return conMemo.out;
+  const skip = conSkips(), R = rep(color), min = conMin(), nodes = walk(color).nodes, hidden = { rare: 0, bad: 0, same: 0 };
   const decided = c => { const m = skip[conDecidedKey(c.src)]; return !!m && c.kind === "switch" && !!R.pos[c.src] && R.pos[c.src].m.includes(m); };
   const putAway = c => { const o = skip["#" + conId(c)]; return !!o && !!R.pos[o.src] && R.pos[o.src].m.includes(o.m); };
-  return CON.list.filter(c => !skip[conId(c)] && !(R.pos[c.src] && R.pos[c.src].m.includes(c.moves[0])) && !decided(c) && !putAway(c) && conValid(c, nodes))
-    .map(c => { const x = { ...c, ...conSteps(fenAfter(START, c.path), c.moves, S.color) }; x.sound = conSound(x); return x; })
-    .filter(c => !c.unlikely && c.pKnown >= min && c.sound.state !== "bad")
-    .sort((a, b) => b.p - a.p || conScore(b) - conScore(a));
-}
-function conHidden() {
-  const skip = conSkips(), min = conMin(), out = { rare: 0, bad: 0 };
-  for (const c of CON.list) {
-    if (skip[conId(c)]) continue;
-    const x = { ...c, ...conSteps(fenAfter(START, c.path), c.moves, S.color) };
-    if (x.unlikely) continue;
-    if (x.pKnown < min) out.rare++; else if (conSound(x).state === "bad") out.bad++;
+  const mine = CON.vColor === color && CON.vBook === S.book ? CON.vlist : [];
+  let q = [];
+  for (const c0 of mine) {
+    if (skip[conId(c0)] || (R.pos[c0.src] && R.pos[c0.src].m.includes(c0.moves[0])) || decided(c0) || putAway(c0) || !conValid(c0, nodes)) continue;
+    const c = { ...c0, ...conSteps(fenAfter(START, c0.path), c0.moves, color) };
+    if (c.unlikely) continue;
+    if (c.pKnown < min) { hidden.rare++; continue; }
+    c.sound = conSound(c, color);
+    if (c.sound.state === "bad") { hidden.bad++; continue; }
+    q.push(c);
   }
-  return out;
+  q.sort((a, b) => b.p - a.p || conScore(b) - conScore(a));
+  // the same place by another order
+  const drop = new Set(), bySrc = new Map();
+  for (const c of q) { if (!bySrc.has(c.src)) bySrc.set(c.src, []); bySrc.get(c.src).push(c); }
+  for (const list of bySrc.values()) {
+    if (list.length < 2) continue;
+    for (const a of list) for (const b of list) {
+      if (a === b || drop.has(a) || drop.has(b)) continue;
+      const ap = a.toPath.join(" "), bp = b.toPath.join(" ");
+      if (!(bp === ap || bp.startsWith(ap + " "))) continue;
+      let pv = a.p;
+      const ch = new Chess(fenAfter(START, a.toPath));
+      for (const m of b.toPath.slice(a.toPath.length)) { const fen = ch.fen(); if (!isMine(K(fen), color)) { const f = oppFreq(fen, m); pv *= f == null ? CON_UNKNOWN : f; } if (!ch.move(m)) break; }
+      if (b.p <= pv * CON_SAME_EDGE) drop.add(b); else b.via = { a, pv };
+    }
+  }
+  hidden.same = drop.size;
+  q = q.filter(c => !drop.has(c));
+  conMemo = { sig, list: CON.vlist, out: { q, groups: conGroups(q), hidden } };
+  return conMemo.out;
 }
+const conQueue = () => conCompute().q;
+const conHidden = () => conCompute().hidden;
 /* v0.9.31: chains that decide the same thing are one choice, shown together:
    - every chain from the same position (2.d4 or 2.Nc3 e6 3.d4 from 1.c4 Nf6);
    - chains between the same two opening families, either way round (Scandinavian into the
@@ -215,14 +289,14 @@ function conGroups(q) {
   return [...groups.values()];
 }
 function conFilterHtml() {
-  const h = conHidden(), bits = [h.rare && `${h.rare} less likely`, h.bad && `${h.bad} through a bad position`].filter(Boolean);
+  const h = conHidden(), bits = [h.rare && `${h.rare} less likely`, h.bad && `${h.bad} through a bad position`, h.same && `${h.same} reaching the same place as another option, no more often`].filter(Boolean);
   return `<div class="field conmin"><span class="lbl" style="margin:0">Chance of the whole chain, at least</span>
     <div class="seg small" role="group" aria-label="Minimum chance of the whole chain">${CON_MINS.map(v => `<button type="button" data-conmin="${v}" aria-pressed="${v === conMin()}">${Math.round(v * 100)}%</button>`).join("")}</div>
     ${bits.length ? `<p class="help">Hidden: ${bits.join(", ")}.</p>` : ""}</div>`;
 }
 // The chain on show, and its group: by CON.selId, else the group at CON.sel and its first option
 function conCurrent() {
-  const q = conQueue(), groups = conGroups(q);
+  const { q, groups } = conCompute();
   if (!groups.length) return { q, groups, g: null, c: null, gi: 0 };
   let gi = CON.selId ? groups.findIndex(g => g.some(c => conId(c) === CON.selId)) : -1;
   if (gi < 0) gi = Math.min(CON.sel, groups.length - 1);
@@ -231,18 +305,36 @@ function conCurrent() {
   return { q, groups, g, c, gi };
 }
 
+// Where the work is: the sweep, then Lichess, then Stockfish
+function conProgress() {
+  if (CON.running) return { done: CON.done, total: CON.total, text: `Looking for chains: ${nOf(CON.done)} of ${nOf(CON.total)} positions` };
+  if (CON.verifying && CON.vPhase === "lichess") return { done: CON.vDone, total: CON.vTotal, text: `Fetching Lichess data for the moves in them: ${nOf(CON.vDone)} of ${nOf(CON.vTotal)}${CON.vTotal - CON.vDone > 30 ? ` (about ${Math.ceil(((CON.vTotal - CON.vDone) * EXPL_GAP) / 60000)} min)` : ""}` };
+  if (CON.verifying && CON.vPhase === "engine") return { done: CON.vDone, total: CON.vTotal, text: `Checking your moves with Stockfish: ${nOf(CON.vDone)} of ${nOf(CON.vTotal)}` };
+  return { done: 0, total: 1, text: "Checking your tree…" };
+}
+
 /* ----- the Connect tab ----- */
 function renderConnect() {
   const box = $("#connectPane");
   if (!box) return;
   const C = S.color === "white" ? "White" : "Black";
-  sweepConnections(S.color, done => { if (S.view === "openings" && S.otab === "connect") { if (done) renderConnect(); else { const p = $("#conProg"); if (p) { p.max = CON.total; p.value = CON.done; } } } });
+  sweepConnections(S.color, done => {
+    if (!(S.view === "openings" && S.otab === "connect")) return;
+    if (done) return renderConnect();
+    // progress only: the bar and its words, or the "updating" note over the list on show
+    const p = $("#conProg"), t = $("#conProgTxt"), u = $("#conUpd"), pr = conProgress();
+    if (p) { p.max = pr.total || 1; p.value = pr.done; }
+    if (t) t.textContent = pr.text;
+    if (u) u.textContent = "· updating: " + pr.text.toLowerCase();
+    if (!p && !u) renderConnect();
+  });
   const head = `<h3>Connect your lines ${info("Looks through your whole tree for short chains of likely moves (up to 4 plies) that lead from one of your positions into another of your lines by a different move order. Fill a gap: an opponent reply you haven't prepared, answered with moves that steer back into a line you know. Simplify: a different move of yours that reaches a line you know; Replace drops the branch under your old move. Chains that decide the same thing are shown together as a choice: every chain from the same position, and chains between the same two openings either way round. Every opponent move in a chain is one players at your level make at least 5% of the time (where Lichess data is loaded). The chance of a chain is all its opponent moves multiplied together; the filter hides chains below it, and the most likely come first. Your moves in a chain are checked with Stockfish: a chain that gives up more than the mistake margin (Settings > Advanced) on the way is hidden. Each chain can leave other replies open along the way: those are listed, so you can judge if the chain is worth it.", "About connecting lines")}</h3>
     <p class="help">Reach deeper positions you already know, instead of opening new branches. One choice at a time, for your ${C} repertoire.</p>`;
   // v0.9.29: after Add / Replace the tree has changed and the sweep runs again, but the list so far
   // (minus chains the change spoiled: conValid()) stays on screen meanwhile, so the next chain is there at once
-  const stale = CON.running || CON.sig !== conSig(S.color), have = CON.color === S.color && CON.book === S.book && CON.list.length;
-  const checking = () => { box.innerHTML = head + `<p class="help" aria-live="polite">Checking your tree…</p><progress id="conProg" max="${CON.total || 1}" value="${CON.done}"></progress>`; };
+  // v0.9.33: nothing is shown until the list is worked out in full (CON.vlist)
+  const stale = CON.running || CON.verifying || CON.sig !== conSig(S.color), have = CON.vColor === S.color && CON.vBook === S.book;
+  const checking = () => { const pr = conProgress(); box.innerHTML = head + `<p class="help" aria-live="polite" id="conProgTxt">${esc(pr.text)}</p><progress id="conProg" max="${pr.total || 1}" value="${pr.done}"></progress><p class="help">The list appears once it's complete. The first time can take a few minutes (Lichess allows about one look-up a second); after that it's quick.</p>`; };
   if (stale && !have) return checking();
   const { groups, g, c, gi } = conCurrent();
   if (!c && stale) return checking();
@@ -261,6 +353,8 @@ function renderConnect() {
   const kindLine = c.kind === "switch"
     ? `<p class="help">Simplify: instead of your <b>${esc(n.m.join(" / "))}</b> here. Replace drops the branch under it: ${c.drop.map(d => `about ${d.n} of your positions after ${esc(d.m)}`).join(", ")}.</p>`
     : n && n.m.length ? `<p class="help">Fill a gap: <b>${esc(moveLabel(c.path, first))}</b> isn't in your prep here.</p>` : `<p class="help">Fill a gap: you have no move here yet.</p>`;
+  // v0.9.33: an option that ends where another one also leads: its only gain is getting there more often
+  const viaLine = c.via ? `<p class="help"><b>The same place by another order.</b> ${esc(numbered(c.via.a.path.length, c.via.a.moves))} gets here too${c.toPath.length > c.via.a.toPath.length ? `, then along your line ${esc(numbered(c.via.a.toPath.length, c.toPath.slice(c.via.a.toPath.length)))}` : ""}, but in ${pctOf(c.via.pv)} of games from here. This order gets there in ${pctOf(c.p)}: that's the gain, the pieces end up the same.</p>` : "";
   const engLine = c.sound.state === "pending" ? `<p class="help" aria-live="polite">Checking your moves with Stockfish…</p>`
     : c.sound.loss != null ? `<p class="help">Stockfish: your moves on the way give up ${c.sound.loss < 10 ? "nothing" : (c.sound.loss / 100).toFixed(1)}${c.sound.loss >= adv().good ? " (within the mistake margin)" : ""}.</p>` : "";
   // v0.9.32: one clear commit. Tapping an option only shows it; "Use this line" commits it: it
@@ -274,9 +368,9 @@ function renderConnect() {
   const others = g.length - 1;
   const commitHelp = `<p class="help">${others ? "Tapping a line above only shows it. " : ""}<b>Use this line</b> ${old.length ? `replaces your ${esc(moveLabel(c.path, old[0]))}${old.length > 1 ? " (or the one you pick)" : ""} and removes the line after it` : "adds these moves to your tree"}${others ? `, and puts the other ${others === 1 ? "option" : others + " options"} away` : ""}.${old.length ? " Keep both adds it as another option." : ""}</p>`;
   // the choice: every option in the group, the one shown pressed
-  const optText = x => `<span class="mono">${esc(numbered(0, x.path))}</span> → <b class="mono">${esc(numbered(x.path.length, x.moves))}</b> <span class="muted">into ${esc(conFam(x.toPath))} · ${pctOf(x.p)}${x.kind === "switch" ? " · replaces " + esc(R.pos[x.src].m.join("/")) : ""}</span>`;
+  const optText = x => `<span class="mono">${esc(numbered(0, x.path))}</span> → <b class="mono">${esc(numbered(x.path.length, x.moves))}</b> <span class="muted">into ${esc(conFam(x.toPath))} · ${pctOf(x.p)}${x.kind === "switch" ? " · replaces " + esc(R.pos[x.src].m.join("/")) : ""}${x.via ? " · the same place as another option, more often" : ""}</span>`;
   const choice = g.length > 1 ? `<div class="conopts" role="group" aria-label="The ways to connect these lines"><p class="lbl" style="margin:0">${g.length} ways to connect ${c.pair ? esc(c.pair) : "here"}</p><p class="help" style="margin:0">Tap one to see it on the board. Nothing changes until you press Use this line.</p>${g.map(x => `<button type="button" class="conopt" data-conopt="${esc(conId(x))}" aria-pressed="${x === c}">${optText(x)}</button>`).join("")}</div>` : "";
-  box.innerHTML = head + conFilterHtml() + `<div class="conhead"><span class="lbl">${gi + 1} of ${groups.length}${stale ? ` <span class="muted" aria-live="polite">· updating for your change…</span>` : ""}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${gi ? "" : "disabled"} aria-label="Previous choice">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${gi < groups.length - 1 ? "" : "disabled"} aria-label="Next choice">▶</button></span></div>
+  box.innerHTML = head + conFilterHtml() + `<div class="conhead"><span class="lbl">${gi + 1} of ${groups.length}${stale ? ` <span class="muted" aria-live="polite" id="conUpd">· updating for your change…</span>` : ""}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${gi ? "" : "disabled"} aria-label="Previous choice">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${gi < groups.length - 1 ? "" : "disabled"} aria-label="Next choice">▶</button></span></div>
     ${choice}
     <div class="conwrap"><div><div id="conBoard" class="board aoboard" aria-label="The chain on a board"></div><p class="arrowkey conkey" id="conKey"></p></div>
     <div class="conbody">
@@ -284,6 +378,7 @@ function renderConnect() {
       <ol class="consteps">${stepsHtml}</ol>
       <p>…and you're in your <b>${esc(to ? to.name : "other line")}</b> line at <span class="mono">${esc(numbered(0, c.toPath))}</span>${c.cards ? `, with ${c.cards} of your moves prepared after it` : ""}.</p>
       ${kindLine}
+      ${viaLine}
       <p class="help">The whole chain happens in ${c.unknown ? "about " : ""}${pctOf(c.p)} of games from here${c.unknown ? " (some moves have no data yet: fetching)" : ""}.</p>
       ${engLine}
       ${commitHelp}
@@ -292,9 +387,9 @@ function renderConnect() {
       ${undoNote("con")}
     </div></div>`;
   conShow(c, g);
-  conFetch(c); conEval(c);
-  // so the order and the checks are right near the top
-  groups.slice(0, CON_PREFETCH).flat().forEach(x => { if (x !== c) { conFetch(x, PRIO.soon); conEval(x, PRIO.background); } });
+  // only for the chain on show, and only if the full check couldn't (no token or engine then)
+  if (c.unknown) conFetch(c);
+  if (c.sound.state === "pending") conEval(c);
 }
 // Re-made board: Board() keeps its element, so a new one is needed when the pane redraws
 /* v0.9.32: arrows. At the start of the chain: the line shown (blue), the other options of this
@@ -340,7 +435,7 @@ function conAct(how) {
   if (how === "skip" || how === "skipall") {
     const s = conSkips();
     (how === "skip" ? [c] : g).forEach(x => (s[conId(x)] = 1));
-    lsSet("pb_conskip", s);
+    lsSet("pb_conskip", s); CON.skipVer++;
     const rest = how === "skip" ? g.filter(x => x !== c) : [];
     CON.selId = rest.length ? conId(rest[0]) : null; // stay on the choice while it has options left
     CON.step = 0; renderConnect(); return;

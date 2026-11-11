@@ -5,6 +5,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11g", date: "11 Nov 2026", title: "Connect: complete before you start, and quicker",
+    items: [
+      "Connect now works the whole list out before showing it: it fetches the Lichess data and runs the Stockfish checks for every chain first, with a progress bar, so options no longer disappear while you look. The first time can take a few minutes; after that it is quick.",
+      "Connect is much quicker to use: the list is worked out once, not on every tap.",
+      "Options that only reach the same position as another option by a different move order are hidden, unless they get there more often. When they do, the card says so and gives both chances.",
+    ],
+  },
+  {
     id: "2026-11-11f", date: "11 Nov 2026", title: "Connect: one clear button to commit",
     items: [
       "Tapping an option on a Connect card only shows it. Nothing changes until you press Use this line, which replaces your old move (and the line after it) and puts the other options of that choice away. Keep both adds the line as another option instead. Undo brings everything back.",
