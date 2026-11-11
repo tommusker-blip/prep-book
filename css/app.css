@@ -251,10 +251,10 @@ div.gap-row{cursor:default}
 .explorebar{border-left:3px solid var(--warn);padding:2px 0 8px 10px;margin-bottom:10px}
 /* tabs above the panel (Build) and on the Openings page */
 .ptabs,.otabs{display:grid;border-bottom:1px solid var(--line)}
-.otabs{grid-template-columns:repeat(4,1fr)}
+.otabs{grid-template-columns:repeat(5,1fr)}
 .ptabs{grid-template-columns:repeat(3,1fr);margin:4px 0 -6px}
 .ptabs button{border:0;background:none;padding:10px 4px;font-weight:600;font-size:.88rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
-.otabs button{border:0;background:none;padding:10px 4px;font:inherit;font-weight:600;font-size:.9rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
+.otabs button{border:0;background:none;padding:10px 2px;font:inherit;font-weight:600;font-size:.84rem;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer;min-height:44px}
 .ptabs button[aria-selected="true"],.otabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
 /* my moves here, quick picks, the position summary */
 .mymoves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;flex-wrap:wrap;gap:6px}
@@ -334,6 +334,39 @@ div.gap-row{cursor:default}
 .mc.res{opacity:var(--o)}
 .mc.res.hi{background:var(--good)} .mc.res.lo{background:var(--bad)} .mc.res.mid{background:var(--muted)}
 .mapend{font-family:var(--f-mono);font-size:.74rem;text-align:right}
+.mc.cov.loss{background:color-mix(in srgb,var(--bad) var(--v),var(--surface));border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
+.mc.to{outline:2px solid var(--accent);outline-offset:0}
+/* pictures of the repertoire (picture.js) */
+.picviews{margin:6px 0 4px;overflow-x:auto}
+.picctl{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.heat{display:grid;grid-template-columns:repeat(8,1fr);width:min(100%,360px);aspect-ratio:1;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:6px}
+.hc{display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:.68rem;color:var(--ink);background:color-mix(in srgb,var(--line) 45%,var(--surface))}
+.hc.l{background:var(--surface)}
+.hc.heat{background:color-mix(in srgb,var(--accent) var(--a),var(--surface))}
+.hc.good{background:color-mix(in srgb,var(--good) var(--a),var(--surface))}
+.hc.bad{background:color-mix(in srgb,var(--bad) var(--a),var(--surface))}
+.heatf{display:grid;grid-template-columns:repeat(8,1fr);width:min(100%,360px);font-size:.66rem;color:var(--muted);text-align:center;margin:2px 0 6px}
+.sunwrap{display:flex;justify-content:center}
+.sun{width:min(100%,420px);height:auto;touch-action:manipulation}
+.sunarc{stroke:var(--surface);stroke-width:.6;cursor:pointer}
+.sunarc.on{stroke:var(--ink);stroke-width:1.6}
+.suntx{font-size:7px;text-anchor:middle;dominant-baseline:middle;fill:var(--ink);pointer-events:none;font-family:var(--f-mono)}
+.suntx.core{font-size:8px;fill:var(--muted)}
+.suncore{fill:var(--bg);stroke:var(--line);cursor:pointer}
+.sunsel{border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+.sttiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin:6px 0}
+.sttile{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:start;padding:8px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px}
+.sttile.good{border-left-color:var(--good)} .sttile.bad{border-left-color:var(--bad)}
+.stname{margin:0;font-weight:600;font-size:.88rem}
+.sttile .help{margin:2px 0}
+.stbar{display:block;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--w),var(--line) var(--w));margin:4px 0}
+.stplans summary{font-size:.8rem;color:var(--accent);cursor:pointer}
+.stplans ul{margin:4px 0 0;padding-left:18px;font-size:.8rem}
+.pawnb{display:grid;grid-template-columns:repeat(8,1fr);width:72px;height:72px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.pawnb i{display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--line) 60%,var(--surface))}
+.pawnb i.l{background:var(--surface)}
+.pawnb i.w::after,.pawnb i.b::after{content:"";width:60%;height:60%;border-radius:50%;border:1px solid var(--ink)}
+.pawnb i.w::after{background:#fff} .pawnb i.b::after{background:var(--ink)}
 /* focus on one opening (focus.js) */
 .focusbar{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:4px 8px;padding:6px 8px 6px 10px;margin-bottom:8px;border:1px solid var(--accent);border-left-width:4px;border-radius:8px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));font-size:.84rem}
 .focusbar .ftxt{min-width:0}
@@ -458,7 +491,16 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .conhead{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 .conwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;margin-top:6px}
 .conbody{display:flex;flex-direction:column;gap:6px;min-width:0}
-.consteps{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
+.consteps{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.consteps li{display:grid;grid-template-columns:1fr 3rem 3.2rem;align-items:center;gap:4px}
+.conpct{font-family:var(--f-mono);font-size:.8rem;text-align:right}
+.conev{font-family:var(--f-mono);font-size:.8rem;text-align:right;color:var(--muted);grid-column:3}
+.conev.bad{color:var(--bad);font-weight:600}
+.conkd{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:4px}
+.conkd p{margin:0;display:flex;gap:8px;align-items:baseline;font-size:.86rem}
+.kdtag{flex:none;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:4px;min-width:3.2rem;text-align:center}
+.kdtag.keep{background:var(--accent-soft);color:var(--good)}
+.kdtag.drop{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad)}
 .consteps .linkish.cur b{color:var(--accent)}
 .conacts{margin:4px 0 0;gap:6px;flex-wrap:wrap}
 .conopts{display:flex;flex-direction:column;gap:6px;margin-top:8px}

@@ -264,6 +264,19 @@ when it loads; the others just define things.
     change data directly bump `CON.dataVer`. Same place by another order: options from one `src` whose
     target is the other's target or below it in my tree are hidden unless more likely by `CON_SAME_EDGE`;
     kept ones carry `via` and the card explains it.
+- v0.9.34: What's new entries carry `v` (the release); the page says which version is running.
+- v0.9.35:
+  - `js/picture.js`: Openings > Picture (`S.otab = "pic"`, `#picPane`, state `PIC`), drafts, nothing fetched.
+    Squares (`squaresData()`: board at ply 2N from `GAMEKEYS`, or tree leaves × reach; Score = `shrink()`
+    towards my average with `adv().k`), Tree (`sunArcs()` sunburst, `PIC_RINGS` plies from `PIC.sun.root`;
+    hatched = unprepared share; the SVG is clicked through `box.onclick`, because the app's listener only
+    sees buttons and `Tip` captures clicks on `[data-tip]`, so rings have no tips), Fights (capture
+    squares), Structures (`structureOf()` at move N, tiles with plans), Clock (time per move from `clk`,
+    loss from `S.acc` ev, per family from `bookName()`; median prep exit outlined). Memo `picCached()`.
+    `tests/smoke.html#picture`.
+  - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
+    chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
+    `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

@@ -176,6 +176,56 @@ f.onload = () => {
       L("gap filter: " + G("S").settings.gapOnly + " pressed=" + d.querySelector('[data-gaponly="good"]').getAttribute("aria-pressed"));
       L("DONE");
     })();
+    if (mode === "picture") (async () => {
+      // v0.9.35: Openings > Picture: squares, tree, fights, structures, clock
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      w.eval(`S.settings.autoOpp = "off";
+        for (const l of ["e4 e5 Nf3 Nc6 Bb5 a6 Ba4", "e4 c5 Nf3 d6 d4 cxd4 Nxd4"]) { const p = []; for (const m of l.split(" ")) { addMove(p, m, "white"); p.push(m); } }
+        walk("white");
+        const lines = ["e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O h3 Nb8 d4 Nbd7 Nbd2 Bb7 Bc2 Re8",
+                       "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6 f3 Be7 Qd2 O-O O-O-O Nbd7 g4 b5 g5 b4",
+                       "e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8 Nc3 Ke8 h3 h5 Rd1 Be7 g4 Nh4"];
+        lines.forEach((mv, j) => {
+          for (let r = 0; r < 4; r++) {
+            const id = "pc" + j + r, n = mv.split(" ").length;
+            S.games.push({ id, my: "white", tc: "rapid", tcs: "600+5", result: r % 3 === 0 ? "0-1" : "1-0", date: "2026-11-0" + (r + 1), white: "me", black: "them", moves: mv,
+              clk: Array.from({ length: n }, (_, i) => 600 - 12 * Math.floor(i / 2) - (j * 3)) });
+            S.acc[id] = { v: 2, d: 10, ev: Array.from({ length: n + 1 }, (_, i) => 20 - (i % 5) * 15 * (j + 1)), bm: [], inb: [], post: [], exitCp: 0 };
+          }
+        });
+        touchData();`);
+      d.querySelector('[data-nav="openings"]').click(); await sleep(50);
+      d.querySelector('[data-otab="pic"]').click(); await sleep(400);
+      const txt = s => (d.querySelector(s) || { textContent: "(missing)" }).textContent.replace(/\s+/g, " ").trim();
+      L("tab shown: " + !d.querySelector("#picPane").hidden + " | " + txt("#picPane").slice(0, 80));
+      L("squares: cells with colour " + d.querySelectorAll("#picPane .hc.heat").length + " | e4 tip: " + (d.querySelector('#picPane .hc.heat[data-tip^="e4"]') || { dataset: {} }).dataset.tip);
+      d.querySelector('[data-pqpiece="n"]').click(); d.querySelector('[data-pqshow="score"]').click(); await sleep(50);
+      L("knights score: " + [...d.querySelectorAll("#picPane .hc.good, #picPane .hc.bad")].map(c => c.dataset.tip.split(":")[0] + (c.classList.contains("good") ? "+" : "-")).join(" "));
+      d.querySelector('[data-pqsrc="tree"]').click(); await sleep(50);
+      L("my lines: cells " + d.querySelectorAll("#picPane .hc.heat").length + " | score button gone: " + !d.querySelector("[data-pqshow]"));
+      d.querySelector('[data-picview="tree"]').click(); await sleep(50);
+      const arcs = d.querySelectorAll("#picPane path.sunarc");
+      L("tree: arcs " + arcs.length + ", holes " + d.querySelectorAll("#picPane path.sunarc.gap").length + ", labels " + [...d.querySelectorAll("#picPane text.suntx:not(.core)")].map(t => t.textContent).join(" "));
+      d.querySelector('#picPane path[data-picsun="e4 e5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
+      L("tap e5: " + txt("#picPane .sunsel"));
+      d.querySelector("#picPane [data-picsunin]").click(); await sleep(50);
+      L("zoomed: root=" + G("PIC").sun.root.join(" ") + " arcs " + d.querySelectorAll("#picPane path.sunarc").length);
+      d.querySelector("#picPane circle.suncore").dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
+      L("back out: root='" + G("PIC").sun.root.join(" ") + "'");
+      d.querySelector('[data-picview="fights"]').click(); await sleep(50);
+      L("fights: " + txt("#picPane .help").slice(0, 160));
+      d.querySelector('[data-picview="structures"]').click(); await sleep(50);
+      L("structures: " + [...d.querySelectorAll("#picPane .sttile")].map(t => t.querySelector(".stname").textContent + " (" + t.querySelector(".help").textContent.trim() + ")").join(" | "));
+      d.querySelector('[data-picview="clock"]').click(); await sleep(50);
+      L("clock rows: " + [...d.querySelectorAll("#picPane .maprow:not(.mhead) .mapname")].map(x => x.textContent).join(" | ") + " | cells " + d.querySelectorAll("#picPane .mc.cov").length + " | exit outlined " + d.querySelectorAll("#picPane .mc.to").length);
+      d.querySelector('[data-pcshow="loss"]').click(); await sleep(50);
+      L("accuracy cells: " + d.querySelectorAll("#picPane .mc.cov.loss").length + " first: " + (d.querySelector("#picPane .mc.cov.loss") || { dataset: {} }).dataset.tip);
+      d.querySelector('[data-picview="tree"]').click(); await sleep(50);
+      d.querySelector('#picPane path[data-picsun="e4 c5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
+      d.querySelector('#picPane .sunsel [data-open]').click(); await sleep(50);
+      L("Open in Build: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
+      L("DONE");
+    })();
     if (mode === "catalogue") (async () => {
       const sleep = ms => new Promise(r => setTimeout(r, ms));
       w.eval(`S.settings.autoOpp = "off";

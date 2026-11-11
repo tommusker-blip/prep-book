@@ -205,8 +205,8 @@ const conEvaling = new Set();
 function conEval(c, prio = PRIO.now) {
   if (Engine.failed) return;
   c.steps.forEach((s, j) => {
-    if (!s.mine) return;
-    for (const f of [s.fen, j + 1 < c.steps.length ? c.steps[j + 1].fen : c.end]) {
+    const after = j + 1 < c.steps.length ? c.steps[j + 1].fen : c.end;
+    for (const f of s.mine ? [s.fen, after] : [after]) {
       const k = K(f) + "|" + CON_DEPTH;
       if (evalAt(f, CON_DEPTH) || conEvaling.has(k)) continue;
       conEvaling.add(k);
@@ -317,7 +317,6 @@ function conProgress() {
 function renderConnect() {
   const box = $("#connectPane");
   if (!box) return;
-  const C = S.color === "white" ? "White" : "Black";
   sweepConnections(S.color, done => {
     if (!(S.view === "openings" && S.otab === "connect")) return;
     if (done) return renderConnect();
@@ -328,8 +327,7 @@ function renderConnect() {
     if (u) u.textContent = "· updating: " + pr.text.toLowerCase();
     if (!p && !u) renderConnect();
   });
-  const head = `<h3>Connect your lines ${info("Looks through your whole tree for short chains of likely moves (up to 4 plies) that lead from one of your positions into another of your lines by a different move order. Fill a gap: an opponent reply you haven't prepared, answered with moves that steer back into a line you know. Simplify: a different move of yours that reaches a line you know; Replace drops the branch under your old move. Chains that decide the same thing are shown together as a choice: every chain from the same position, and chains between the same two openings either way round. Every opponent move in a chain is one players at your level make at least 5% of the time (where Lichess data is loaded). The chance of a chain is all its opponent moves multiplied together; the filter hides chains below it, and the most likely come first. Your moves in a chain are checked with Stockfish: a chain that gives up more than the mistake margin (Settings > Advanced) on the way is hidden. Each chain can leave other replies open along the way: those are listed, so you can judge if the chain is worth it.", "About connecting lines")}</h3>
-    <p class="help">Reach deeper positions you already know, instead of opening new branches. One choice at a time, for your ${C} repertoire.</p>`;
+  const head = `<h3>Connect your lines ${info("Looks through your whole tree for short chains of likely moves (up to 4 plies) that lead from one of your positions into another of your lines by a different move order. Fill a gap: an opponent reply you haven't prepared, answered with moves that steer back into a line you know. Simplify: a different move of yours that reaches a line you know. Each card says what it keeps and what it drops: Keep this, drop … replaces your old move and removes the branch under it; Keep both adds the new move as another option. Chains that decide the same thing are shown together as a choice: every chain from the same position, and chains between the same two openings either way round. Every opponent move in a chain is one players at your level make at least 5% of the time (where Lichess data is loaded). The chance of a chain is all its opponent moves multiplied together; the filter hides chains below it, and the most likely come first. Your moves in a chain are checked with Stockfish: a chain that gives up more than the mistake margin (Settings > Advanced) on the way is hidden. The eval after each move is shown (White's side, depth 12), orange where your move gives up more than the good margin.", "About connecting lines")}</h3>`;
   // v0.9.29: after Add / Replace the tree has changed and the sweep runs again, but the list so far
   // (minus chains the change spoiled: conValid()) stays on screen meanwhile, so the next chain is there at once
   // v0.9.33: nothing is shown until the list is worked out in full (CON.vlist)
@@ -339,49 +337,44 @@ function renderConnect() {
   const { groups, g, c, gi } = conCurrent();
   if (!c && stale) return checking();
   if (!c) { const h = conHidden(); box.innerHTML = head + conFilterHtml() + `<p class="help" style="margin-top:8px">No connections found${h.rare || h.bad ? " that pass the filters" : ""}${Object.keys(conSkips()).length ? " (apart from the ones you skipped)" : ""}. Scan your tree on the Ideas tab so more opponent moves have data.</p>${undoNote("con")}`; return; }
-  const R = rep(S.color), from = openingFor(c.path), to = openingFor(c.toPath);
-  const stepsHtml = c.steps.map((s, j) => {
-    const lbl = moveLabel(c.path.concat(c.moves.slice(0, j)), s.san);
-    let extra = "";
-    if (!s.mine) {
-      const ex = cachedExplorer(s.fen), others = ex && ex.total ? ex.moves.filter(m => m.san !== s.san && m.n / ex.total >= 0.03).slice(0, 3) : [];
-      extra = s.f == null ? ` <span class="muted">(no data yet)</span>` : ` <span class="muted">${pctOf(s.f)} of games</span>${j > 0 && others.length ? `<br><span class="help">leaves open: ${others.map(m => `${esc(m.san)} ${pctOf(m.n / ex.total)}`).join(", ")}</span>` : ""}`;
-    }
-    return `<li><button type="button" class="linkish${CON.step === j + 1 ? " cur" : ""}" data-constep="${j + 1}">${s.mine ? "You" : "They"}: <b class="mono">${esc(lbl)}</b></button>${extra}</li>`;
-  }).join("");
-  const n = R.pos[c.src], first = c.moves[0];
-  const kindLine = c.kind === "switch"
-    ? `<p class="help">Simplify: instead of your <b>${esc(n.m.join(" / "))}</b> here. Replace drops the branch under it: ${c.drop.map(d => `about ${d.n} of your positions after ${esc(d.m)}`).join(", ")}.</p>`
-    : n && n.m.length ? `<p class="help">Fill a gap: <b>${esc(moveLabel(c.path, first))}</b> isn't in your prep here.</p>` : `<p class="help">Fill a gap: you have no move here yet.</p>`;
-  // v0.9.33: an option that ends where another one also leads: its only gain is getting there more often
-  const viaLine = c.via ? `<p class="help"><b>The same place by another order.</b> ${esc(numbered(c.via.a.path.length, c.via.a.moves))} gets here too${c.toPath.length > c.via.a.toPath.length ? `, then along your line ${esc(numbered(c.via.a.toPath.length, c.toPath.slice(c.via.a.toPath.length)))}` : ""}, but in ${pctOf(c.via.pv)} of games from here. This order gets there in ${pctOf(c.p)}: that's the gain, the pieces end up the same.</p>` : "";
-  const engLine = c.sound.state === "pending" ? `<p class="help" aria-live="polite">Checking your moves with Stockfish…</p>`
-    : c.sound.loss != null ? `<p class="help">Stockfish: your moves on the way give up ${c.sound.loss < 10 ? "nothing" : (c.sound.loss / 100).toFixed(1)}${c.sound.loss >= adv().good ? " (within the mistake margin)" : ""}.</p>` : "";
-  // v0.9.32: one clear commit. Tapping an option only shows it; "Use this line" commits it: it
-  // replaces my old move (its branch goes) and the other options of this choice are put away
-  // (conDecide(), and Undo brings them back). "Keep both" adds the line as another option instead.
+  /* v0.9.35: a shorter card. What it keeps and what it drops, then the moves: the chance of each
+     opponent move and the eval after every move (White's side, as in Build; orange where my
+     move gives up more than the good margin). The rest is behind the ⓘ. */
+  const R = rep(S.color), from = openingFor(c.path), to = openingFor(c.toPath), n = R.pos[c.src];
   const old = c.kind === "switch" ? n.m : [];
+  const whiteCp = f => { const e = evalAt(f, CON_DEPTH); return e ? (f.split(" ")[1] === "w" ? e.cp : -e.cp) : null; };
+  const evTxt = cp => (cp == null ? "…" : Math.abs(cp) >= 10000 ? (cp > 0 ? "+M" : "−M") : (cp > 0 ? "+" : cp < 0 ? "−" : "") + (Math.abs(cp) / 100).toFixed(1));
+  const after = j => (j + 1 < c.steps.length ? c.steps[j + 1].fen : c.end);
+  const stepsHtml = c.steps.map((s, j) => {
+    const lbl = moveLabel(c.path.concat(c.moves.slice(0, j)), s.san), ev = whiteCp(after(j));
+    const lost = s.mine ? (() => { const b = conMyCp(s.fen, S.color), a = conMyCp(after(j), S.color); return b != null && a != null ? b - a : null; })() : null;
+    const pct = s.mine ? "" : `<span class="conpct">${s.f == null ? "?" : pctOf(s.f)}</span>`;
+    return `<li><button type="button" class="linkish${CON.step === j + 1 ? " cur" : ""}" data-constep="${j + 1}"><span class="muted">${s.mine ? "You" : "They"}</span> <b class="mono">${esc(lbl)}</b></button>${pct}<span class="conev${lost != null && lost >= adv().good ? " bad" : ""}">${evTxt(ev)}</span></li>`;
+  }).join("");
+  const dropLine = d => `<b class="mono">${esc(moveLabel(c.path, d.m))}</b> ${d.n ? `and its branch (${d.n} of your moves)` : "(nothing prepared after it)"}`;
+  const drops = c.kind === "switch" ? (c.drop && c.drop.length ? c.drop : old.map(m => ({ m, n: 0 }))) : [];
+  const kd = `<div class="conkd">
+      <p><span class="kdtag keep">Keep</span><span><b class="mono">${esc(numbered(c.path.length, c.moves))}</b>, into your ${esc(to ? to.name : "other")} line${c.cards ? ` (${c.cards} moves prepared)` : ""}</span></p>
+      <p><span class="kdtag drop">Drop</span><span>${drops.length ? drops.map(dropLine).join(drops.length > 1 ? "<br>or " : "") : "nothing: this fills a gap"}</span></p>
+    </div>`;
+  const viaLine = c.via ? `<p class="help">Same place as ${esc(numbered(c.via.a.path.length, c.via.a.moves))}, but more often: ${pctOf(c.p)} against ${pctOf(c.via.pv)}.</p>` : "";
+  // v0.9.32: one clear commit. Tapping an option only shows it; the main button commits it (my old
+  // move and its branch go, and the other options of this choice are put away; Undo brings them back)
   const acts = (old.length > 1
-      ? old.map((m, j) => `<button type="button" class="btn${j ? " ghost" : ""} quick" data-conact="rep:${j}">Use this line instead of ${esc(m)}</button>`).join("")
-      : `<button type="button" class="btn quick" data-conact="${old.length ? "rep:0" : "add"}">Use this line</button>`)
+      ? old.map((m, j) => `<button type="button" class="btn${j ? " ghost" : ""} quick" data-conact="rep:${j}">Keep this, drop ${esc(m)}</button>`).join("")
+      : `<button type="button" class="btn quick" data-conact="${old.length ? "rep:0" : "add"}">${old.length ? `Keep this, drop ${esc(old[0])}` : "Add this line"}</button>`)
     + (old.length ? `<button type="button" class="btn ghost quick" data-conact="add">Keep both</button>` : "");
-  const others = g.length - 1;
-  const commitHelp = `<p class="help">${others ? "Tapping a line above only shows it. " : ""}<b>Use this line</b> ${old.length ? `replaces your ${esc(moveLabel(c.path, old[0]))}${old.length > 1 ? " (or the one you pick)" : ""} and removes the line after it` : "adds these moves to your tree"}${others ? `, and puts the other ${others === 1 ? "option" : others + " options"} away` : ""}.${old.length ? " Keep both adds it as another option." : ""}</p>`;
-  // the choice: every option in the group, the one shown pressed
-  const optText = x => `<span class="mono">${esc(numbered(0, x.path))}</span> → <b class="mono">${esc(numbered(x.path.length, x.moves))}</b> <span class="muted">into ${esc(conFam(x.toPath))} · ${pctOf(x.p)}${x.kind === "switch" ? " · replaces " + esc(R.pos[x.src].m.join("/")) : ""}${x.via ? " · the same place as another option, more often" : ""}</span>`;
-  const choice = g.length > 1 ? `<div class="conopts" role="group" aria-label="The ways to connect these lines"><p class="lbl" style="margin:0">${g.length} ways to connect ${c.pair ? esc(c.pair) : "here"}</p><p class="help" style="margin:0">Tap one to see it on the board. Nothing changes until you press Use this line.</p>${g.map(x => `<button type="button" class="conopt" data-conopt="${esc(conId(x))}" aria-pressed="${x === c}">${optText(x)}</button>`).join("")}</div>` : "";
+  const optText = x => `<b class="mono">${esc(numbered(x.path.length, x.moves))}</b> <span class="muted">${pctOf(x.p)}</span>`;
+  const choice = g.length > 1 ? `<div class="conopts" role="group" aria-label="The ways to connect these lines"><p class="help" style="margin:0">${g.length} ways${c.pair ? ` to connect ${esc(c.pair)}` : " from here"}. Tap one to see it; nothing changes until you press Keep.</p>${g.map(x => `<button type="button" class="conopt" data-conopt="${esc(conId(x))}" aria-pressed="${x === c}">${x.path.length && x !== c && x.src !== c.src ? `<span class="mono muted">${esc(numbered(0, x.path))}</span> ` : ""}${optText(x)}</button>`).join("")}</div>` : "";
   box.innerHTML = head + conFilterHtml() + `<div class="conhead"><span class="lbl">${gi + 1} of ${groups.length}${stale ? ` <span class="muted" aria-live="polite" id="conUpd">· updating for your change…</span>` : ""}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${gi ? "" : "disabled"} aria-label="Previous choice">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${gi < groups.length - 1 ? "" : "disabled"} aria-label="Next choice">▶</button></span></div>
     ${choice}
     <div class="conwrap"><div><div id="conBoard" class="board aoboard" aria-label="The chain on a board"></div><p class="arrowkey conkey" id="conKey"></p></div>
     <div class="conbody">
-      <p>From <b class="mono">${esc(numbered(0, c.path))}</b>${from ? ` <span class="muted">(${esc(from.name)})</span>` : ""}, you reach it in ${pctOf(c.reach)} of games.</p>
+      <p>From <b class="mono">${esc(numbered(0, c.path))}</b>${from ? ` <span class="muted">${esc(from.name)}</span>` : ""}</p>
+      ${kd}
       <ol class="consteps">${stepsHtml}</ol>
-      <p>…and you're in your <b>${esc(to ? to.name : "other line")}</b> line at <span class="mono">${esc(numbered(0, c.toPath))}</span>${c.cards ? `, with ${c.cards} of your moves prepared after it` : ""}.</p>
-      ${kindLine}
+      <p class="help">Whole chain: <b>${c.unknown ? "about " : ""}${pctOf(c.p)}</b> of games from here${c.unknown ? " (fetching some moves)" : ""}. Eval after each move, White's side.</p>
       ${viaLine}
-      <p class="help">The whole chain happens in ${c.unknown ? "about " : ""}${pctOf(c.p)} of games from here${c.unknown ? " (some moves have no data yet: fetching)" : ""}.</p>
-      ${engLine}
-      ${commitHelp}
       <div class="row conacts">${acts}</div>
       <div class="row conacts"><button type="button" class="btn ghost quick" data-conact="skip">Skip${g.length > 1 ? " this one" : ""}</button>${g.length > 1 ? `<button type="button" class="btn ghost quick" data-conact="skipall">Skip all ${g.length}</button>` : ""}<button type="button" class="btn ghost quick" data-conact="build">Open in Build</button></div>
       ${undoNote("con")}
@@ -389,7 +382,7 @@ function renderConnect() {
   conShow(c, g);
   // only for the chain on show, and only if the full check couldn't (no token or engine then)
   if (c.unknown) conFetch(c);
-  if (c.sound.state === "pending") conEval(c);
+  conEval(c); // evals for every move shown (only missing ones are asked for)
 }
 // Re-made board: Board() keeps its element, so a new one is needed when the pane redraws
 /* v0.9.32: arrows. At the start of the chain: the line shown (blue), the other options of this

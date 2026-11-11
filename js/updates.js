@@ -6,6 +6,17 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11i", v: "0.9.35", date: "11 Nov 2026", title: "Your repertoire in pictures, and a shorter Connect card",
+    items: [
+      "New: Openings > Picture, five first drafts for looking at your repertoire and games. They are food for thought, not hard numbers.",
+      "Squares: a heat map of where your pieces (or your opponent's) stand after a given move, and how you score when they're there.",
+      "Tree: your whole repertoire as rings of moves. Width shows how often you get there, colour shows how you score, and hatching marks the holes. Tap a ring to zoom in or open it in Build.",
+      "Fights: where pieces get taken in your openings. Structures: the pawn structures you end up in, with your score and the plans for your side.",
+      "Clock: the time you spend and the centipawns you lose on each move, for each opening, with the move where you usually leave your prep outlined.",
+      "Connect: the card is much shorter. It says what you keep and what you drop (with the size of any branch that goes), the chance of each opponent move and the eval after every move. The button now says what it does: Keep this, drop …, or Add this line.",
+    ],
+  },
+  {
     id: "2026-11-11h", v: "0.9.34", date: "11 Nov 2026", title: "Version numbers here",
     items: [
       "Each entry on this page now shows its version, and the top says which version you're on, so you can check your phone has the latest.",
