@@ -34,6 +34,8 @@
 <script src="../js/covermap.js"></script>
 <script src="../js/similar.js"></script>
 <script src="../js/transpose.js"></script>
+<script src="../js/funnel.js"></script>
+<script src="../js/picture.js"></script>
 <script src="../js/connect.js"></script>
 <script src="../js/review.js"></script>
 <script>
@@ -594,6 +596,57 @@ t("idea lines: key moments are the structure's breaks, pawn levers and regroupin
   eq(/typical in this structure/.test(l.moments[0].why), true);
   eq(l.moments.length <= 3 && l.moments.every(m => m.j % 2 === 0), true, "only my (Black's) moves");
 });
+t("pawn structures: features by file and the type of centre (v0.9.39)", () => {
+  const feats = (moves, s) => { const P = stPawnFiles(boardCells(K(fenOf(moves)))), f = sideFeatures(P, s); return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, [...v].map(x => "abcdefgh"[x]).join("")])); };
+  const centre = (moves, me) => centreType(stPawnFiles(boardCells(K(fenOf(moves)))), me);
+  const naj = "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3";
+  eq(feats(naj, "b"), { missing: "c", isolated: "", doubled: "", backward: "d", passed: "" }, "Najdorf with …e5: Black's d6 is backward, no c-pawn");
+  eq(feats(naj, "w"), { missing: "d", isolated: "", doubled: "", backward: "", passed: "" });
+  eq(centre(naj, "w"), "fixed", "e4 against e5, d6 behind");
+  eq(centre("e4 e6 d4 d5 e5", "w"), "closed", "French Advance");
+  eq(centre("e4 e5", "w"), "fixed", "one pair blocking each other");
+  eq(centre("d4 d5 c4 e6", "w"), "tension", "c4 can take on d5");
+  eq(centre("e4 d5 exd5 Qxd5", "w"), "open");
+  eq(centre("e4 c5 Nf3 d6 d4 cxd4 Nxd4", "w"), "open", "one centre pawn each");
+  eq(centre("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6", "w"), "none", "King's Indian before …e5: no contact");
+  // an isolated queen's pawn, and the passed pawn when the d5 blocker goes
+  eq(feats("d4 d5 c4 e6 Nc3 c5 cxd5 exd5 Nf3 Nc6 g3 cxd4 Nxd4", "b").isolated, "d");
+  eq(feats("e4 d5 exd5 c6 dxc6 e5 cxb7", "w").passed, "bc", "b7, and c2 with no black b-, c- or d-pawn left");
+});
+async function funnelTests() {
+  await at("routes from the start: a plan into the position, by move order and percentage (v0.9.39)", async () => {
+    reset(); resetEx(); S.color = "white";
+    const tok = S.token; S.token = "";
+    const realEx = explorer; explorer = async fen => cachedExplorer(fen); // no Lichess in tests
+    setEx("e4", 100, 40, 20, 40, [mv("e5", 50, 20, 10, 20), mv("c5", 30, 10, 10, 10), mv("Nc6", 20, 10, 0, 10)]);
+    setEx("e4 e5 Nf3", 100, 40, 20, 40, [mv("Nc6", 70, 30, 10, 30), mv("d6", 20, 8, 4, 8), mv("Nf6", 10, 4, 2, 4)]);
+    setEx("e4 Nc6 Nf3", 100, 40, 20, 40, [mv("e5", 40, 15, 10, 15), mv("d6", 30, 10, 10, 10), mv("Nf6", 30, 10, 10, 10)]);
+    setEx("Nf3", 100, 40, 20, 40, [mv("d5", 60, 25, 10, 25), mv("Nf6", 40, 15, 10, 15)]);
+    const target = fenOf("e4 e5 Nf3 Nc6");
+    S.settings.funMin = 0.25;
+    let r = await funSearch(target, 4, "white");
+    eq(Math.round(r.v * 100), 35, "0.5 × 0.7: 1...Nc6 (20%) is under 25%");
+    eq(r.exits.map(e => e.path.join(" ") + " " + Math.round(e.off * 100)), ["e4 50", "e4 e5 Nf3 30"], "most costly exit first (share × how often you get there)");
+    S.settings.funMin = 0.2;
+    r = await funSearch(target, 4, "white");
+    eq(Math.round(r.v * 100), 43, "at 20%: 0.5 × 0.7 + 0.2 × 0.4");
+    eq(r.lines.map(l => l.moves.join(" ") + " " + Math.round(l.p * 100)), ["e4 e5 Nf3 Nc6 35", "e4 Nc6 Nf3 e5 8"]);
+    // a move order already in my tree is kept, and a differing one is reported
+    S.settings.funMin = 0.25;
+    line("white", "d4");
+    r = await funSearch(target, 4, "white");
+    eq(r.conflicts.map(c => c.move + " vs " + c.have.join("/")), ["e4 vs d4"]);
+    // an exchange on the way: the Open Sicilian, with …cxd4 and d2-d4 as the two pawns that go
+    resetEx(); reset();
+    setEx("e4", 100, 40, 20, 40, [mv("c5", 100, 40, 20, 40)]);
+    setEx("e4 c5 Nf3", 100, 40, 20, 40, [mv("d6", 60, 20, 20, 20), mv("Nc6", 40, 20, 0, 20)]);
+    setEx("e4 c5 Nf3 d6 d4", 100, 40, 20, 40, [mv("cxd4", 90, 40, 10, 40), mv("Nf6", 10, 4, 2, 4)]);
+    r = await funSearch(fenOf("e4 c5 Nf3 d6 d4 cxd4 Nxd4"), 7, "white");
+    eq(r.lines.map(l => l.moves.join(" ")), ["e4 c5 Nf3 d6 d4 cxd4 Nxd4"]);
+    eq(Math.round(r.v * 100), 54, "0.6 × 0.9");
+    explorer = realEx; S.token = tok; S.settings.funMin = undefined; resetEx(); reset();
+  });
+}
 async function ideaLineTests() {
   await at("idea lines: built from masters moves, fall back, and stop when sources run out", async () => {
     const realEx = explorer, realAn = Engine.analyse, realFailed = Engine.failed;
@@ -1050,7 +1103,7 @@ t("practice: a chosen starting position is used, and falls back to the start if 
   S.settings.practiceRoot = undefined;
 });
 
-jobTests().then(ideaLineTests).then(() => {
+jobTests().then(ideaLineTests).then(funnelTests).then(() => {
   const fails = results.filter(r => r.startsWith("FAIL")).length;
   document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
   document.title = fails ? "FAIL" : "PASS";

@@ -195,10 +195,12 @@ f.onload = () => {
         });
         touchData();`);
       d.querySelector('[data-nav="openings"]').click(); await sleep(50);
-      d.querySelector('[data-otab="pic"]').click(); await sleep(400);
+      d.querySelector('[data-otab="map"]').click(); await sleep(100);
+      L("map views: " + [...d.querySelectorAll("[data-mapview]")].map(b => b.textContent).join(", ") + " | map shown: " + !d.querySelector("#coverMap").hidden);
+      d.querySelector('[data-mapview="tree"]').click(); await sleep(400);
       const txt = s => (d.querySelector(s) || { textContent: "(missing)" }).textContent.replace(/\s+/g, " ").trim();
       L("tab shown: " + !d.querySelector("#picPane").hidden + " | " + txt("#picPane").slice(0, 80));
-      d.querySelector('[data-picview="tree"]').click(); await sleep(50);
+      d.querySelector('[data-mapview="tree"]').click(); await sleep(50);
       const arcs = d.querySelectorAll("#picPane path.sunarc");
       L("tree: arcs " + arcs.length + ", holes " + d.querySelectorAll("#picPane path.sunarc.gap").length + ", labels " + [...d.querySelectorAll("#picPane text.suntx:not(.core)")].map(t => t.textContent).join(" "));
       d.querySelector('#picPane path[data-picsun="e4 e5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
@@ -209,15 +211,18 @@ f.onload = () => {
       L("zoomed: root=" + G("PIC").sun.root.join(" ") + " arcs " + d.querySelectorAll("#picPane path.sunarc").length);
       d.querySelector("#picPane circle.suncore").dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       L("back out: root='" + G("PIC").sun.root.join(" ") + "'");
-      d.querySelector('[data-picview="structures"]').click(); await sleep(50);
-      L("structures: " + [...d.querySelectorAll("#picPane .sttile")].map(t => t.querySelector(".stname").textContent + " (" + t.querySelector(".help").textContent.trim() + ")").join(" | "));
-      // the Sicilian game's pawns after move 12: the tile's picture must show them where they are
-      const sic = [...d.querySelectorAll("#picPane .sttile")].find(t => /Sicilian/.test(t.textContent));
-      if (sic) { const cells = [...sic.querySelectorAll(".pawnb i")]; L("Sicilian tile pawns: white " + cells.map((c, i) => c.classList.contains("w") ? "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)) : "").filter(Boolean).join(" ") + " | black " + cells.map((c, i) => c.classList.contains("b") ? "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)) : "").filter(Boolean).join(" ")); }
-      d.querySelector('[data-picview="tree"]').click(); await sleep(50);
+      d.querySelector('[data-mapview="structures"]').click(); await sleep(50);
+      L("centre: " + [...d.querySelectorAll("#picPane .sttile2")].map(t => t.querySelector(".stname").textContent.trim() + " " + t.querySelector(".stbig").textContent).join(", "));
+      L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" ") + " | named: " + [...d.querySelectorAll("#picPane .stnamed p:first-child")].map(p => p.textContent).join(" · "));
+      d.querySelector("[data-pstmove=\"14\"]").click(); await sleep(30); d.querySelector("[data-pstby=\"by\"]").click(); await sleep(50);
+      L("by move: rows " + d.querySelectorAll("#picPane .maprow:not(.mhead)").length + " | move now " + G("PIC").st.move);
+      d.querySelector('[data-mapview="tree"]').click(); await sleep(50);
       d.querySelector('#picPane path[data-picsun="e4 c5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       d.querySelector('#picPane .sunsel [data-open]').click(); await sleep(50);
       L("Open in Build: view=" + G("S").view + " path=" + G("S").build.white.join(" "));
+      // v0.9.39: Routes from the start, on My lines (no token here, so it only says what it needs)
+      w.eval(`S.build.white = "e4 c5 Nf3 d6 d4 cxd4 Nxd4".split(" "); S.ptab = "tree"; renderBuild();`); await sleep(100);
+      L("routes box: " + txt("#funBox").slice(0, 140) + " | % options: " + [...d.querySelectorAll("#funBox [data-funmin]")].map(b => b.textContent + (b.getAttribute("aria-pressed") === "true" ? "*" : "")).join(" "));
       L("DONE");
     })();
     if (mode === "catalogue") (async () => {

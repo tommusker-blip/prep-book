@@ -96,6 +96,19 @@ function renderCoverMap(fromCat) {
     <p class="help">${help[mapMode] || help.cover}</p>`;
 }
 
+/* v0.9.39: the Map tab also holds the pictures (picture.js): one switch between the opening map,
+   the tree and the structures */
+let mapView = "map";
+const MAP_VIEWS = [["map", "Openings map"], ["tree", "Tree"], ["structures", "Structures"]];
+function renderMapTab() {
+  const sw = $("#mapViews");
+  if (sw) sw.innerHTML = `<div class="seg" role="group" aria-label="Show">${MAP_VIEWS.map(([k, t]) => `<button type="button" data-mapview="${k}" aria-pressed="${mapView === k}">${t}</button>`).join("")}</div>`;
+  const map = mapView === "map";
+  $("#coverMap").hidden = !map; $("#picPane").hidden = map;
+  if (map) renderCoverMap(); else { PIC.view = mapView; renderPicture(); }
+}
+
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
+onClick("mapview", d => { mapView = d.mapview; renderMapTab(); }, true);
 onClick("mapmode", d => { mapMode = d.mapmode; renderCoverMap(); }, true);
 onClick("mapopen", d => { if (mapOpen.has(d.mapopen)) mapOpen.delete(d.mapopen); else mapOpen.add(d.mapopen); renderCoverMap(); }, true);

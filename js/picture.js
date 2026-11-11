@@ -14,7 +14,7 @@
 const PIC = {
   view: "tree",
   sun: { root: [], stack: [], sel: null, color: "mine" },
-  st: { move: 12 },
+  st: { move: 12, by: false },
 };
 const PIC_RINGS = 8;
 const picSeg = (name, cur, opts, label) => `<div class="seg small" role="group" aria-label="${esc(label)}">${opts.map(([v, t]) => `<button type="button" data-${name}="${esc(v)}" aria-pressed="${String(v) === String(cur)}">${esc(t)}</button>`).join("")}</div>`;
@@ -138,63 +138,148 @@ function picShowBoard() {
   PB.set(c.fen(), { last });
 }
 
-/* ----- Structures ----- */
-// The centre pawns (files c to f) of both sides, for structures the app doesn't name
-function centreOf(cells) {
-  const w = [], b = [];
-  cells.forEach((ch, i) => { const f = i % 8; if (f < 2 || f > 5) return; const sq = "abcdefgh"[f] + (8 - Math.floor(i / 8)); if (ch === "P") w.push(sq); else if (ch === "p") b.push(sq); });
-  const srt = a => a.sort().join(" ") || "none";
-  return `White ${srt(w)} · Black ${srt(b)}`;
+/* ----- Structures (v0.9.39: by pawn features, not by exact pawn setup) -----
+   Grouping games by their exact pawns gave many groups with tiny differences. Instead every game
+   is described by a few features at a given move, and each feature is counted on its own:
+   - the type of centre (after Pachman / Soltis): open, closed, fixed, mobile (whose), tension,
+     or no contact yet, from the pawns on the d- and e-files;
+   - for each side, by file: missing pawns (no pawn of that side on the file), isolated, doubled,
+     backward (no own pawn beside or behind it, and its square in front covered by an enemy pawn)
+     and passed pawns;
+   - named structures (structureOf()) where one matches, with their plans.
+   Each figure is the share of my games with it, and my score in those games against my average
+   (pulled towards the average on few games: shrink()). "By move" shows the shares from move 4 to 20. */
+const ST_MOVES = [4, 6, 8, 10, 12, 14, 16, 18, 20];
+const CENTRES = [
+  ["open", "Open", "Each side has at most one centre pawn (d- or e-file), not blocked or attacked (the Open Sicilian, the Scandinavian). Pieces and open lines decide: develop fast."],
+  ["closed", "Closed", "Both centre files locked: pawns blocking each other on the d- and e-files (French Advance, King's Indian with d5 and e5). Play on the wings, with pawn breaks that attack the chains."],
+  ["fixed", "Fixed", "One pair of centre pawns blocking each other (d4 against d5, or e4 against e5) and no tension. The squares around them are what matter."],
+  ["mobile-me", "Mobile (yours)", "You have two centre pawns and the opponent none: yours can advance, theirs can't stop them easily."],
+  ["mobile-them", "Mobile (theirs)", "The opponent has two centre pawns and you none: block them or attack them before they advance."],
+  ["tension", "Tension", "Centre pawns can take each other: the next exchange decides the structure."],
+  ["none", "No contact yet", "Centre pawns that don't touch yet: the structure is still open to both sides."],
+];
+const FEATS = [["missing", "Missing"], ["isolated", "Isolated"], ["doubled", "Doubled"], ["backward", "Backward"], ["passed", "Passed"]];
+const FEAT_HELP = {
+  missing: "No pawn of that side on the file: a half-open or open file.",
+  isolated: "No pawn of the same side on either neighbouring file.",
+  doubled: "Two or more pawns of the same side on the file.",
+  backward: "No pawn of the same side beside or behind it to support it, and the square in front of it is covered by an enemy pawn.",
+  passed: "No enemy pawn in front of it on its own or the neighbouring files.",
+};
+// Pawn ranks per file for both sides, from the 64 squares
+function stPawnFiles(cells) {
+  const P = { w: Array.from({ length: 8 }, () => []), b: Array.from({ length: 8 }, () => []) };
+  cells.forEach((ch, i) => { if (ch === "P" || ch === "p") P[ch === "P" ? "w" : "b"][i % 8].push(8 - Math.floor(i / 8)); });
+  return P;
 }
-const ST_MIN = 3; // games for an unnamed centre to get its own tile
-function structData(color) {
-  const o = PIC.st;
-  return picCached("st", picSig(o.move), () => {
-    const by = new Map();
-    let total = 0, sum = 0;
+function sideFeatures(P, s) {
+  const own = P[s], opp = P[s === "w" ? "b" : "w"], up = s === "w" ? 1 : -1, ahead = (rr, r) => (s === "w" ? rr > r : rr < r);
+  const out = { missing: new Set(), isolated: new Set(), doubled: new Set(), backward: new Set(), passed: new Set() };
+  for (let f = 0; f < 8; f++) {
+    if (!own[f].length) { out.missing.add(f); continue; }
+    if (own[f].length > 1) out.doubled.add(f);
+    const adj = [f - 1, f + 1].filter(x => x >= 0 && x < 8), iso = adj.every(x => !own[x].length);
+    if (iso) out.isolated.add(f);
+    for (const r of own[f]) {
+      if (![f - 1, f, f + 1].some(x => x >= 0 && x < 8 && opp[x].some(rr => ahead(rr, r)))) out.passed.add(f);
+      if (!iso && adj.every(x => own[x].every(rr => ahead(rr, r))) && adj.some(x => opp[x].includes(r + 2 * up))) out.backward.add(f);
+    }
+  }
+  return out;
+}
+function centreType(P, me) {
+  // centre pawns that have left their starting square (one still on d2 or e7 doesn't shape the centre yet)
+  const W = P.w, B = P.b, moved = (a, home) => a.filter(r => r !== home).length, wc = moved(W[3], 2) + moved(W[4], 2), bc = moved(B[3], 7) + moved(B[4], 7);
+  let rams = 0, tension = false;
+  for (const f of [3, 4]) for (const r of W[f]) if (B[f].includes(r + 1)) rams++;
+  for (let f = 2; f <= 5; f++) for (const r of W[f]) for (const x of [f - 1, f + 1]) if (x >= 0 && x < 8 && (f === 3 || f === 4 || x === 3 || x === 4) && B[x].includes(r + 1)) tension = true;
+  if (tension) return "tension";
+  if (rams >= 2) return "closed";
+  if (rams === 1) return "fixed";
+  if (wc <= 1 && bc <= 1) return "open";
+  if (bc === 0 && wc >= 2) return me === "w" ? "mobile-me" : "mobile-them";
+  if (wc === 0 && bc >= 2) return me === "b" ? "mobile-me" : "mobile-them";
+  return "none";
+}
+const stCell = () => ({ n: 0, sum: 0 });
+function structAt(color, move) {
+  return picCached("st" + move, picSig(), () => {
+    const me = color === "white" ? "w" : "b", them = me === "w" ? "b" : "w";
+    const side = () => Object.fromEntries(FEATS.map(([k]) => [k, { any: stCell(), files: Array.from({ length: 8 }, stCell) }]));
+    const d = { n: 0, sum: 0, centre: Object.fromEntries(CENTRES.map(([k]) => [k, stCell()])), me: side(), them: side(), named: new Map() };
+    const add = (c, sc) => { c.n++; c.sum += sc; };
     for (const g of picGames(color)) {
-      const keys = gameKeys(g), k = keys[Math.min(2 * o.move, keys.length - 1)], cells = boardCells(k), s = structureOf(k), sc = myScore(g);
-      const id = s ? s.id : "c:" + centreOf(cells);
-      total++; sum += sc;
-      if (!by.has(id)) by.set(id, { s, name: s ? s.name : centreOf(cells), named: !!s, n: 0, sum: 0, pawns: new Map() });
-      const e = by.get(id), pk = cells.map(ch => (ch === "P" || ch === "p" ? ch : ".")).join("");
-      e.n++; e.sum += sc; e.pawns.set(pk, (e.pawns.get(pk) || 0) + 1);
+      const k = gameKeys(g)[2 * move];
+      if (!k) continue;
+      const sc = myScore(g), P = stPawnFiles(boardCells(k));
+      add(d, sc); add(d.centre[centreType(P, me)], sc);
+      for (const [who, s] of [["me", me], ["them", them]]) {
+        const f = sideFeatures(P, s);
+        for (const [feat] of FEATS) { if (f[feat].size) add(d[who][feat].any, sc); f[feat].forEach(x => add(d[who][feat].files[x], sc)); }
+      }
+      const st = structureOf(k);
+      if (st) { if (!d.named.has(st.id)) d.named.set(st.id, { s: st, ...stCell() }); add(d.named.get(st.id), sc); }
     }
-    // unnamed centres with few games go together as "Other"
-    const list = [], other = { s: null, name: "Other structures", named: false, other: true, n: 0, sum: 0, pawns: new Map() };
-    for (const e of by.values()) {
-      if (e.named || e.n >= ST_MIN) { list.push(e); continue; }
-      other.n += e.n; other.sum += e.sum; e.pawns.forEach((v, pk) => other.pawns.set(pk, (other.pawns.get(pk) || 0) + v));
-    }
-    list.sort((a, b) => b.n - a.n);
-    if (other.n) list.push(other);
-    return { list, total, avg: total ? sum / total : 0.5 };
+    d.avg = d.n ? d.sum / d.n : 0.5;
+    return d;
   });
 }
-// A small pawns-only board (64 characters, a8 first)
-function pawnBoard(pk, color) {
-  const order = Array.from({ length: 64 }, (_, i) => (color === "black" ? 63 - i : i));
-  return `<span class="pawnb">${order.map(i => { const c = pk[i], l = (Math.floor(i / 8) + (i % 8)) % 2 === 0; return `<i class="${l ? "l" : ""}${c === "P" ? " w" : c === "p" ? " b" : ""}"></i>`; }).join("")}</span>`;
+// "In 34% of games · I score 52% (+4)"
+function stScore(c, d) {
+  if (!c.n) return "";
+  const sc = shrink(c.sum, c.n, d.avg), diff = Math.round((sc - d.avg) * 100);
+  return `I score ${pctOf(c.sum / c.n)}${Math.abs(diff) >= 2 ? ` <span class="${diff > 0 ? "ok" : "bad"}">${diff > 0 ? "+" : "−"}${Math.abs(diff)}</span>` : ""}`;
 }
+const stTone = (c, d) => { if (!c.n) return ""; const diff = shrink(c.sum, c.n, d.avg) - d.avg; return diff >= 0.02 ? "good" : diff <= -0.02 ? "bad" : ""; };
 function renderStructures(color) {
-  const o = PIC.st, d = structData(color), moves = picSeg("pstmove", o.move, [[8, "Move 8"], [12, "12"], [16, "16"], [20, "20"]], "After move");
-  if (!d.total) return `<div class="picctl">${moves}</div><p class="help">No games as ${color} yet.</p>`;
-  const tiles = d.list.map(e => {
-    const top = [...e.pawns.entries()].sort((a, b) => b[1] - a[1])[0][0], share = e.n / d.total;
-    const sc = shrink(e.sum, e.n, d.avg), diff = sc - d.avg, tone = Math.abs(diff) < 0.02 ? "" : diff > 0 ? "good" : "bad";
-    const plans = e.s && e.s[color] ? `<details class="stplans"><summary>Plans for you</summary><ul>${e.s[color].map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : "";
-    return `<div class="sttile ${tone}" style="--w:${Math.round(share * 100)}%">${e.other ? `<span class="pawnb none"></span>` : pawnBoard(top, color)}
-      <div><p class="stname">${esc(e.name)}</p>
-      <p class="help">${e.n} of my games (${pctOf(share)}) · I score ${pctOf(e.sum / e.n)}${tone ? ` <span class="${tone === "good" ? "ok" : "bad"}">${diff > 0 ? "+" : "−"}${Math.round(Math.abs(diff) * 100)}</span>` : ""}</p>
-      <span class="stbar"></span>${plans}</div></div>`;
+  const o = PIC.st, mv = o.move, d = structAt(color, mv);
+  const stepper = `<div class="row ststep" style="gap:6px;align-items:center"><button type="button" class="btn ghost quick" data-pstmove="${mv - 2}" ${mv <= ST_MOVES[0] ? "disabled" : ""} aria-label="Earlier">◀</button><b>Move ${mv}</b><button type="button" class="btn ghost quick" data-pstmove="${mv + 2}" ${mv >= ST_MOVES[ST_MOVES.length - 1] ? "disabled" : ""} aria-label="Later">▶</button>
+    ${picSeg("pstby", o.by ? "by" : "at", [["at", "At this move"], ["by", "By move"]], "Show")}</div>`;
+  if (o.by) return stepper + structByMove(color);
+  if (!d.n) return stepper + `<p class="help">None of your games as ${color} reach move ${mv}.</p>`;
+  const share = c => pctOf(c.n / d.n);
+  const centre = CENTRES.filter(([k]) => d.centre[k].n).sort((a, b) => d.centre[b[0]].n - d.centre[a[0]].n).map(([k, name, help]) => {
+    const c = d.centre[k];
+    return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;
   }).join("");
-  return `<div class="picctl">${moves}</div>
-    <div class="sttiles">${tiles}</div>
-    <p class="help">The pawn structure after move ${o.move} in your own games as ${color}, most common first; the board is its most common pawn setup. Named structures come with plans. The rest are grouped by the centre pawns (files c to f), and those with fewer than ${ST_MIN} games are under Other. The +/− is your score against your average of ${pctOf(d.avg)}, allowing for the number of games.</p>`;
+  const table = (who, title) => `<div class="stfeat"><p class="lbl">${title}</p>
+    <div class="stfrow sthead"><span></span><span>Any</span>${[..."abcdefgh"].map(f => `<span>${f}</span>`).join("")}</div>
+    ${FEATS.map(([k, name]) => {
+      const row = d[who][k], max = Math.max(1, ...row.files.map(c => c.n));
+      return `<div class="stfrow"><span class="stfname">${name} ${info(FEAT_HELP[k], "About " + name.toLowerCase())}</span>
+        <span class="stany ${stTone(row.any, d)}" data-tip="${esc(`${title}: ${name.toLowerCase()} pawns in ${row.any.n} of ${d.n} games at move ${mv}; ${stScore(row.any, d).replace(/<[^>]+>/g, "")}`)}"><b>${share(row.any)}</b></span>
+        ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}">${Math.round((c.n / d.n) * 100)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
+    }).join("")}</div>`;
+  const named = [...d.named.values()].sort((a, b) => b.n - a.n).map(e => `<div class="stnamed ${stTone(e, d)}"><p><b>${share(e)}</b> ${esc(e.s.name)}</p><p class="help">${stScore(e, d)}</p>${e.s[color] ? `<details class="stplans"><summary>Plans for you</summary><ul>${e.s[color].map(t => `<li>${esc(t)}</li>`).join("")}</ul></details>` : ""}</div>`).join("");
+  return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">of your games as ${color} reached move ${mv}; you scored ${pctOf(d.avg)} in them. Blue/orange: you score better/worse than that.</span></p>
+    <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
+    ${table("me", "Your pawns")}${table("them", "Their pawns")}
+    ${named ? `<p class="lbl">Named structures</p><div class="stnamedlist">${named}</div>` : ""}
+    <p class="help">Each figure is the share of your games with it at move ${mv}. The file columns are by file (a to h); tap a number for your score in those games. Scores on few games are pulled towards your average.</p>`;
+}
+// The shares from move 4 to 20: when structures form
+function structByMove(color) {
+  const ds = ST_MOVES.map(m => structAt(color, m));
+  const cell = (pick, label) => `<div class="maprow"><span class="mapname">${label}</span>${ds.map((d, i) => {
+    const c = d.n ? pick(d) : null;
+    if (!c || !c.n) return `<span class="mc"></span>`;
+    const v = c.n / d.n;
+    return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${label}, move ${ST_MOVES[i]}: ${c.n} of ${d.n} games (${pctOf(v)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}">${Math.round(v * 100)}</span>`;
+  }).join("")}<span class="mapend"></span></div>`;
+  const head = `<div class="maprow mhead"><span class="mapname">Move</span>${ST_MOVES.map(m => `<span class="mc mn">${m}</span>`).join("")}<span class="mapend"></span></div>`;
+  return `<div class="covmap" style="--cols:${ST_MOVES.length}">${head}
+      <div class="maprow mhead"><span class="mapname lbl">The centre</span></div>
+      ${CENTRES.map(([k, name]) => cell(d => d.centre[k], name)).join("")}
+      <div class="maprow mhead"><span class="mapname lbl">Your pawns</span></div>
+      ${FEATS.map(([k, name]) => cell(d => d.me[k].any, name)).join("")}
+      <div class="maprow mhead"><span class="mapname lbl">Their pawns</span></div>
+      ${FEATS.map(([k, name]) => cell(d => d.them[k].any, name)).join("")}
+    </div>
+    <p class="help">The share of your games (%) with each at every second move, so you can see when structures form. Tap a cell for your score.</p>`;
 }
 
 /* ----- the tab ----- */
-const PIC_VIEWS = [["tree", "Tree"], ["structures", "Structures"]];
 let picWaiting = false;
 function renderPicture() {
   const box = $("#picPane");
@@ -202,7 +287,7 @@ function renderPicture() {
   const color = S.color;
   if (S.games.some(g => g.my === color && !GAMEKEYS.has(g.id))) {
     box.innerHTML = `<p class="help">Reading your games…</p>`;
-    if (!picWaiting) { picWaiting = true; warmGameKeys(() => { picWaiting = false; if (S.view === "openings" && S.otab === "pic") renderPicture(); }); }
+    if (!picWaiting) { picWaiting = true; warmGameKeys(() => { picWaiting = false; if (S.view === "openings" && S.otab === "map" && mapView !== "map") renderPicture(); }); }
     return;
   }
   // The rings are SVG, not buttons, so the app's click listener doesn't see them
@@ -215,13 +300,13 @@ function renderPicture() {
     renderPicture();
   };
   const v = PIC.view, body = v === "structures" ? renderStructures(color) : renderSun(color);
-  box.innerHTML = `<h3>Your repertoire in pictures ${info("Drafts, more food for thought than hard numbers. Tree: your whole repertoire as rings of moves, coloured by your own score or the peers' score; tap a slice to see the position. Structures: the pawn structures your games end up in, with your score in each. Nothing new is fetched: it uses your games and the Lichess data already loaded.", "About pictures")}</h3>
-    <div class="picviews">${picSeg("picview", v, PIC_VIEWS, "Picture")}</div>${body}`;
+  box.innerHTML = (v === "structures" ? `<h3>Pawn structures ${info("How the pawns stand in your own games at a given move: the type of centre, each side's missing, isolated, doubled, backward and passed pawns by file, and named structures with their plans. Each figure is the share of your games, with your score in them against your average.", "About pawn structures")}</h3>` : `<h3>Your tree ${info("Your whole repertoire as rings of moves, one ring per move. A slice is as wide as how often you get there; colour it by your own score or the peers' score at your level. Tap a slice to see the position.", "About the tree")}</h3>`)
+    + body;
   if (v === "tree") picShowBoard();
 }
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
-onClick("picview", d => { PIC.view = d.picview; renderPicture(); }, true);
 onClick("pscolor", d => { PIC.sun.color = d.pscolor; renderPicture(); }, true);
 onClick("picsunin", d => { PIC.sun.stack.push(PIC.sun.root); PIC.sun.root = d.picsunin.split(" "); PIC.sun.sel = null; renderPicture(); }, true);
-onClick("pstmove", d => { PIC.st.move = +d.pstmove; renderPicture(); }, true);
+onClick("pstmove", d => { PIC.st.move = Math.max(ST_MOVES[0], Math.min(ST_MOVES[ST_MOVES.length - 1], +d.pstmove)); renderPicture(); }, true);
+onClick("pstby", d => { PIC.st.by = d.pstby === "by"; renderPicture(); }, true);

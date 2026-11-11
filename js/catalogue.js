@@ -204,7 +204,7 @@ async function renderCatalogue(force) {
     if (S.view !== "openings" || S.color !== color) return;
   }
   const sig = catSig(color), memo = catMemo[sk];
-  if (memo) { drawCatalogue(memo.root, memo.targets); if (S.otab === "map") renderCoverMap(true); }
+  if (memo) { drawCatalogue(memo.root, memo.targets); if (S.otab === "map" && mapView === "map") renderCoverMap(true); }
   if (memo && memo.sig === sig && !force) { catJob = null; drawCatProgress(); return; }
   if (catJob && catJob.sig === sig && catJob.sk === sk && !force) { drawCatProgress(); return; } // already on it
   startCatalogueJob(sig, color, sk);
@@ -231,7 +231,7 @@ function startCatalogueJob(sig, color, sk) {
     const memo = catMemo[sk] = { v: 2, sig, root, targets, at: Date.now() };
     catJob = null;
     if (typeof IDB !== "undefined") IDB.set(sk, memo).catch(() => {});
-    if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); if (S.otab === "map") renderCoverMap(true); }
+    if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); if (S.otab === "map" && mapView === "map") renderCoverMap(true); }
   };
   const go = () => {
     if (!alive()) return;

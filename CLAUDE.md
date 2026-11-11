@@ -284,6 +284,22 @@ when it loads; the others just define things.
     per `SLIDE_MS`. The loading screen shows the version (inline script reads `?v=` from the app.css link).
   - v0.9.38: Connect's Keep / Drop lines show the eval after the dropped move(s) and after the new first
     move (switches); `conVerify()` and `conEval()` also evaluate the positions after the dropped moves.
+  - v0.9.39:
+    - `js/funnel.js`: Build > My lines > Routes from the start (`#funBox`, `funnelBox()`, state `FUN`).
+      `funSearch(fen, ply, color)`: depth-first from the start to the target (≤ ply + 2), memo by
+      key|ply|detours (a result with cut-short lines is reused only at no higher reach). Moves must
+      head for the target (`funKind()`: direct / progress / exchange / detour, `FUN_DETOURS` per side);
+      on my move the best of the first `FUN_TRY` (tree moves first, then direct, Lichess popularity,
+      centre), a tree move kept unless another is better by more than `FUN_KEEP`; on theirs, replies
+      ≥ `funMin()` (`S.settings.funMin`, 5–25%, default 25%) summed by share. Lichess look-ups capped at
+      `FUN_FETCH_MAX`; prepared replies split evenly where there's no data. Result: `{v, lines, exits,
+      conflicts, partial}`; Add uses `RepUndo` kind "fun". Tests: `funnelTests()` in logic.html.
+    - Openings > Map holds the pictures: `renderMapTab()` (covermap.js), `mapView` = map / tree /
+      structures; the Picture tab is gone.
+    - Structures by feature (`structAt(color, move)`, memo per move): `centreType()` (tension, then
+      rams: 2 = closed, 1 = fixed; open = at most one advanced centre pawn each; mobile; none) and
+      `sideFeatures()` (missing, isolated, doubled, backward, passed, by file); `structByMove()` grid
+      over `ST_MOVES`. Named structures from `structureOf()` underneath.
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".

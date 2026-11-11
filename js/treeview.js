@@ -72,7 +72,8 @@ function renderTreePane() {
     <p class="lbl" style="margin-top:10px">${inTree ? (count ? `Your lines from here (${count} move${count === 1 ? "" : "s"})` : "Your prep ends here") : "Not in your repertoire"}</p>
     ${inTree ? (count ? `<div class="tree">${html}</div>` : `<p class="help">Nothing saved after this position yet. Add moves on the Moves tab.</p>`) : `<p class="help">This position isn't in your saved lines. ⏮ or ◀ go back, or tap a move above.</p>`}
     ${count ? `<p class="help">Blue moves are yours. Tap any move to go there.</p>` : ""}
-    <div id="trBox">${routesBox(fen, key, path)}</div>`;
+    <div id="trBox">${routesBox(fen, key, path)}</div>
+    <div id="funBox" class="funbox">${funnelBox()}</div>`;
   const ta = $("#tNote");
   ta.oninput = () => setNote(key, ta.value);
 }

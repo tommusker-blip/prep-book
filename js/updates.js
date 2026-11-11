@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11m", v: "0.9.39", date: "11 Nov 2026", title: "Routes from the start, pawn features, and one Map tab",
+    items: [
+      "New in Build > My lines: Routes from the start. On a position (say move 10), it finds the likely ways to get there from move 1 by any move order and puts them together as one plan. It shows how often you'd get there, each line with its chance, where opponents step off, and any move that differs from your tree. Add the plan to my tree, with Undo. Choose how often an opponent move must be played to count: 5, 10, 15, 20 or 25% (25% by default).",
+      "Openings: Map and Picture are one tab now, with three views: Openings map, Tree and Structures.",
+      "Structures, redone: at a move you choose (◀ ▶), the type of centre (open, closed, fixed, mobile, tension, no contact yet) and each side's missing, isolated, doubled, backward and passed pawns by file, with the share of your games and your score in them shown large. By move shows how often each comes up from move 4 to 20. Named structures and their plans are listed underneath.",
+    ],
+  },
+  {
     id: "2026-11-11l", v: "0.9.38", date: "11 Nov 2026", title: "Connect: the eval of the move you'd drop",
     items: [
       "Connect: the Drop line shows the eval after the move you'd give up, and the Keep line the eval after your new move from the same position, so you can compare the two directly (White's side, as everywhere).",
