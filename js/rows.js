@@ -208,7 +208,7 @@ function candRow(fen, key, c, ex, path) {
   if (open) {
     const after = fenAfter(fen, [c.san]), exA = after && cachedExplorer(after);
     if (after && !exA && S.token && !explorerBlocked) explorer(after, { prio: PRIO.now, stale: notHere(key) }).then(d => { if (d) rowsChanged(key); });
-    const replies = exA && exA.total ? exA.moves.slice().sort((a, x) => x.n - a.n).slice(0, 2).map(m => `${esc(m.san)} (${pctOf(m.n / exA.total)}, you score ${pctOf(scoreFor(m, S.color))})`).join(", ") : "";
+    const replies = exA && exA.total ? exA.moves.slice().sort((a, x) => x.n - a.n).slice(0, 2).map(m => `${esc(m.san)} (${pctOf(m.n / exA.total)}, your side scores ${pctOf(scoreFor(m, S.color))})`).join(", ") : "";
     const bestReply = e && e.best ? uciToSan(e.after, e.best) : "";
     // Every number from the row in full, in case a narrow screen cuts a column short
     const st = strengthOf(e);

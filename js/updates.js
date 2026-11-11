@@ -6,6 +6,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-11j", v: "0.9.36", date: "11 Nov 2026", title: "Pictures: Tree and Structures, fixed",
+    items: [
+      "Picture now has two views. Squares, Fights and Clock are gone.",
+      "Tree: tap a slice to see its position on a board, with your own results there and the peers' results, kept apart. Colour it by your own score, the peers' score, or how many of your games went there.",
+      "Structures: the pawn pictures now show the right structure (they were scrambled). Structures the app doesn't name are grouped by their centre pawns instead of all going under Other.",
+      "Fixed wording: where a score comes from Lichess players at your level, it now says \"your side scores\" instead of \"you score\" (gaps, Ideas here and hidden gems).",
+    ],
+  },
+  {
     id: "2026-11-11i", v: "0.9.35", date: "11 Nov 2026", title: "Your repertoire in pictures, and a shorter Connect card",
     items: [
       "New: Openings > Picture, five first drafts for looking at your repertoire and games. They are food for thought, not hard numbers.",

@@ -120,7 +120,7 @@ function pickOpp(fen, key, n, mode) {
   const gap = moves.find(m => !prepared.includes(m.san));
   if (gap) return { san: gap.san, why: `not prepared · ${Math.round(f(gap) * 100)}% of games` };
   const worst = moves.slice().sort((a, b) => scoreFor(a, S.color) - scoreFor(b, S.color))[0];
-  return { san: worst.san, why: `you score ${Math.round(scoreFor(worst, S.color) * 100)}% after it` };
+  return { san: worst.san, why: `your side scores ${Math.round(scoreFor(worst, S.color) * 100)}% after it at your level` };
 }
 function quickOppButtons(fen, key, n) {
   const common = pickOpp(fen, key, n, "common"), weak = pickOpp(fen, key, n, "weak");
@@ -171,7 +171,7 @@ function ideaWhy(c, m) {
     if (c.err < 0.1) out.push("opponents rarely go wrong");
     else out.push(`${Math.round(c.err * 100)}% of opponents go wrong (${bad.map(esc).join(", ")}?)${good.length ? `; ${good.map(esc).join(", ")} hold${good.length === 1 ? "s" : ""}` : ""}`);
   }
-  if (c.peer) out.push(`you score ${Math.round(c.peer.sc * 100)}% (${c.peer.n.toLocaleString("en-GB")} games)`);
+  if (c.peer) out.push(`your side scores ${Math.round(c.peer.sc * 100)}% at your level (${c.peer.n.toLocaleString("en-GB")} games)`);
   return out.join(" · ");
 }
 function ideasPanel(fen, key, n, path) {

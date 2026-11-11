@@ -58,8 +58,8 @@ function renderSuggest() {
       (r, i) => row("memorable", i, `${esc(moveLabel(r.path, r.c.san))} · fits your prep ${pc(r.m.score)}`, r.path.join(" "), ideaWhy(r.c, r.m))) +
     section("trick", "Practical tricks", "Not the most played move or the engine's choice, but opponents at your level often go wrong against them. A little worse for the engine is accepted. From \"Find ideas\".", ti.trick,
       (r, i) => row("trick", i, `${esc(moveLabel(r.path, r.c.san))} · ${pc(r.c.err)} go wrong`, r.path.join(" "), `engine ${pawns(r.c.myEval)} (${r.c.loss >= 5 ? "−" + (r.c.loss / 100).toFixed(1) + " vs best" : "best"}) · ${ideaWhy(r.c, r.m)}`)) +
-    section("gems", "Hidden gems", "Rarely played at your level but score well for you. Check the number of games before trusting the score.", s.gems,
-      (r, i) => row("gems", i, `${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · ${r.n.toLocaleString("en-GB")} games · you score ${pc(r.sc)} vs ${pc(r.avg)} on average`)) +
+    section("gems", "Hidden gems", "Rarely played at your level but score well for your side there (Lichess players, not your own games). Check the number of games before trusting the score.", s.gems,
+      (r, i) => row("gems", i, `${esc(moveLabel(r.path, r.san))}`, r.path.join(" "), `${pc(r.f)} of games · ${r.n.toLocaleString("en-GB")} games · your side scores ${pc(r.sc)} vs ${pc(r.avg)} on average at your level`)) +
     section("better", "Better-scoring alternatives", "One move away from your choice, and scoring better at your level.", s.better,
       (r, i) => row("better", i, `${esc(moveLabel(r.path, r.san))} instead of ${esc(r.mine.join(" / "))}`, r.path.join(" "), `${pc(r.sc)} vs ${pc(r.myBest)} for yours · ${r.n.toLocaleString("en-GB")} games`)) +
     section("struct", "Same pawn structure", "Named openings that reach the same pawn structure as one of your lines, so your plans carry over.", s.struct,

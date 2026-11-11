@@ -198,28 +198,22 @@ f.onload = () => {
       d.querySelector('[data-otab="pic"]').click(); await sleep(400);
       const txt = s => (d.querySelector(s) || { textContent: "(missing)" }).textContent.replace(/\s+/g, " ").trim();
       L("tab shown: " + !d.querySelector("#picPane").hidden + " | " + txt("#picPane").slice(0, 80));
-      L("squares: cells with colour " + d.querySelectorAll("#picPane .hc.heat").length + " | e4 tip: " + (d.querySelector('#picPane .hc.heat[data-tip^="e4"]') || { dataset: {} }).dataset.tip);
-      d.querySelector('[data-pqpiece="n"]').click(); d.querySelector('[data-pqshow="score"]').click(); await sleep(50);
-      L("knights score: " + [...d.querySelectorAll("#picPane .hc.good, #picPane .hc.bad")].map(c => c.dataset.tip.split(":")[0] + (c.classList.contains("good") ? "+" : "-")).join(" "));
-      d.querySelector('[data-pqsrc="tree"]').click(); await sleep(50);
-      L("my lines: cells " + d.querySelectorAll("#picPane .hc.heat").length + " | score button gone: " + !d.querySelector("[data-pqshow]"));
       d.querySelector('[data-picview="tree"]').click(); await sleep(50);
       const arcs = d.querySelectorAll("#picPane path.sunarc");
       L("tree: arcs " + arcs.length + ", holes " + d.querySelectorAll("#picPane path.sunarc.gap").length + ", labels " + [...d.querySelectorAll("#picPane text.suntx:not(.core)")].map(t => t.textContent).join(" "));
       d.querySelector('#picPane path[data-picsun="e4 e5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
-      L("tap e5: " + txt("#picPane .sunsel"));
+      L("tap e5: " + txt("#picPane .sunsel") + " | board pieces " + d.querySelectorAll("#picBoard .pc").length);
+      for (const c of ["peers", "played", "mine"]) { d.querySelector(`[data-pscolor="${c}"]`).click(); await sleep(20); }
+      L("colour modes ok, board still there: " + !!d.querySelector("#picBoard .pc"));
       d.querySelector("#picPane [data-picsunin]").click(); await sleep(50);
       L("zoomed: root=" + G("PIC").sun.root.join(" ") + " arcs " + d.querySelectorAll("#picPane path.sunarc").length);
       d.querySelector("#picPane circle.suncore").dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       L("back out: root='" + G("PIC").sun.root.join(" ") + "'");
-      d.querySelector('[data-picview="fights"]').click(); await sleep(50);
-      L("fights: " + txt("#picPane .help").slice(0, 160));
       d.querySelector('[data-picview="structures"]').click(); await sleep(50);
       L("structures: " + [...d.querySelectorAll("#picPane .sttile")].map(t => t.querySelector(".stname").textContent + " (" + t.querySelector(".help").textContent.trim() + ")").join(" | "));
-      d.querySelector('[data-picview="clock"]').click(); await sleep(50);
-      L("clock rows: " + [...d.querySelectorAll("#picPane .maprow:not(.mhead) .mapname")].map(x => x.textContent).join(" | ") + " | cells " + d.querySelectorAll("#picPane .mc.cov").length + " | exit outlined " + d.querySelectorAll("#picPane .mc.to").length);
-      d.querySelector('[data-pcshow="loss"]').click(); await sleep(50);
-      L("accuracy cells: " + d.querySelectorAll("#picPane .mc.cov.loss").length + " first: " + (d.querySelector("#picPane .mc.cov.loss") || { dataset: {} }).dataset.tip);
+      // the Sicilian game's pawns after move 12: the tile's picture must show them where they are
+      const sic = [...d.querySelectorAll("#picPane .sttile")].find(t => /Sicilian/.test(t.textContent));
+      if (sic) { const cells = [...sic.querySelectorAll(".pawnb i")]; L("Sicilian tile pawns: white " + cells.map((c, i) => c.classList.contains("w") ? "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)) : "").filter(Boolean).join(" ") + " | black " + cells.map((c, i) => c.classList.contains("b") ? "abcdefgh"[i % 8] + (8 - Math.floor(i / 8)) : "").filter(Boolean).join(" ")); }
       d.querySelector('[data-picview="tree"]').click(); await sleep(50);
       d.querySelector('#picPane path[data-picsun="e4 c5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       d.querySelector('#picPane .sunsel [data-open]').click(); await sleep(50);

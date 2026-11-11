@@ -334,18 +334,9 @@ div.gap-row{cursor:default}
 .mc.res{opacity:var(--o)}
 .mc.res.hi{background:var(--good)} .mc.res.lo{background:var(--bad)} .mc.res.mid{background:var(--muted)}
 .mapend{font-family:var(--f-mono);font-size:.74rem;text-align:right}
-.mc.cov.loss{background:color-mix(in srgb,var(--bad) var(--v),var(--surface));border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
-.mc.to{outline:2px solid var(--accent);outline-offset:0}
 /* pictures of the repertoire (picture.js) */
 .picviews{margin:6px 0 4px;overflow-x:auto}
 .picctl{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-.heat{display:grid;grid-template-columns:repeat(8,1fr);width:min(100%,360px);aspect-ratio:1;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:6px}
-.hc{display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:.68rem;color:var(--ink);background:color-mix(in srgb,var(--line) 45%,var(--surface))}
-.hc.l{background:var(--surface)}
-.hc.heat{background:color-mix(in srgb,var(--accent) var(--a),var(--surface))}
-.hc.good{background:color-mix(in srgb,var(--good) var(--a),var(--surface))}
-.hc.bad{background:color-mix(in srgb,var(--bad) var(--a),var(--surface))}
-.heatf{display:grid;grid-template-columns:repeat(8,1fr);width:min(100%,360px);font-size:.66rem;color:var(--muted);text-align:center;margin:2px 0 6px}
 .sunwrap{display:flex;justify-content:center}
 .sun{width:min(100%,420px);height:auto;touch-action:manipulation}
 .sunarc{stroke:var(--surface);stroke-width:.6;cursor:pointer}
@@ -353,7 +344,8 @@ div.gap-row{cursor:default}
 .suntx{font-size:7px;text-anchor:middle;dominant-baseline:middle;fill:var(--ink);pointer-events:none;font-family:var(--f-mono)}
 .suntx.core{font-size:8px;fill:var(--muted)}
 .suncore{fill:var(--bg);stroke:var(--line);cursor:pointer}
-.sunsel{border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+.sunsel{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sunsel p{margin:0}
 .sttiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin:6px 0}
 .sttile{display:grid;grid-template-columns:72px 1fr;gap:10px;align-items:start;padding:8px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px}
 .sttile.good{border-left-color:var(--good)} .sttile.bad{border-left-color:var(--bad)}
@@ -365,6 +357,7 @@ div.gap-row{cursor:default}
 .pawnb{display:grid;grid-template-columns:repeat(8,1fr);width:72px;height:72px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .pawnb i{display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--line) 60%,var(--surface))}
 .pawnb i.l{background:var(--surface)}
+.pawnb.none{background:repeating-linear-gradient(45deg,var(--line) 0 2px,var(--surface) 2px 7px)}
 .pawnb i.w::after,.pawnb i.b::after{content:"";width:60%;height:60%;border-radius:50%;border:1px solid var(--ink)}
 .pawnb i.w::after{background:#fff} .pawnb i.b::after{background:var(--ink)}
 /* focus on one opening (focus.js) */

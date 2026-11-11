@@ -274,6 +274,12 @@ when it loads; the others just define things.
     squares), Structures (`structureOf()` at move N, tiles with plans), Clock (time per move from `clk`,
     loss from `S.acc` ev, per family from `bookName()`; median prep exit outlined). Memo `picCached()`.
     `tests/smoke.html#picture`.
+  - v0.9.36: Picture cut to Tree and Structures (Squares, Fights, Clock dropped as not useful).
+    Tree colours: `mine` (my games only, faint under 10), `peers` (Lichess, my side), `played`;
+    a tapped slice shows its position (`picShowBoard()`, board `PB`). Structures: unnamed ones
+    grouped by `centreOf()` (pawns on files c–f), fewer than `ST_MIN` games go to Other; pawn
+    images come from `boardCells()` (`pawnKey()` keeps the "/" separators, which scrambled them).
+    Peer scores are worded "your side scores", never "you score" (that's for my own games).
   - Connect card: Keep / Drop box (`c.drop` = my moves in the dropped branch), steps with opponent
     chance and the eval after every move (White's side, orange where my move loses ≥ `good`);
     `conEval()` now asks for every step's position. Buttons: "Keep this, drop X", "Add this line", "Keep both".
