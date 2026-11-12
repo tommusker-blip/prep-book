@@ -73,9 +73,9 @@ function arcPath(a0, a1, r0, r1) {
   const big = a1 - a0 > 0.5 ? 1 : 0;
   return `M${pt(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${pt(r1, a1)}L${pt(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${pt(r0, a0)}Z`;
 }
-const SUN_COLOURS = [["mine", "My score"], ["peers", "Peers' score"]];
+const SUN_COLOURS = [["mine", "Your score"], ["peers", "Peers' score"]];
 // v0.9.55: my score over all my games, or only those where I left my prep, or only those where the opponent did
-const WHO_OPTS = [["all", "All games"], ["me", "I left prep"], ["them", "They left prep"]];
+const WHO_OPTS = [["all", "All games"], ["me", "You left prep"], ["them", "Opponent left prep"]];
 function renderSun(color) {
   const o = PIC.sun;
   let arcs = sunArcs(color, o.root);
@@ -117,7 +117,7 @@ function renderSun(color) {
     const name = (openingFor(a.path) || {}).name, kids = arcs.some(x => x.d === a.d + 1 && x.path.slice(0, a.path.length).join(" ") === sel);
     side = `<div class="sunsel"><div id="picBoard" class="board" aria-label="The position"></div><div class="sunstats">
       <p><b class="mono">${esc(numbered(0, a.path))}</b>${name ? `<br><span class="help">${esc(name)}</span>` : ""}</p>
-      <p class="help">My games${o.who !== "all" ? ` where ${o.who === "me" ? "I" : "they"} left prep` : ""}: ${a.games && a.games.n ? `${a.games.n}, I score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at my level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, my side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
+      <p class="help">Your games${o.who !== "all" ? ` where ${o.who === "me" ? "you" : "your opponent"} left prep` : ""}: ${a.games && a.games.n ? `${a.games.n}, you score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at your level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, your side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
       <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div></div>`;
   }
   const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games." }[o.color] || "";
@@ -156,8 +156,8 @@ const CENTRES = [
   ["open", "Open", "Each side has at most one centre pawn (d- or e-file), not blocked or attacked (the Open Sicilian, the Scandinavian). Pieces and open lines decide: develop fast."],
   ["closed", "Closed", "Both centre files locked: pawns blocking each other on the d- and e-files (French Advance, King's Indian with d5 and e5). Play on the wings, with pawn breaks that attack the chains."],
   ["fixed", "Fixed", "One pair of centre pawns blocking each other (d4 against d5, or e4 against e5) and no tension. The squares around them are what matter."],
-  ["mobile-me", "Mobile (yours)", "You have two centre pawns and the opponent none: yours can advance, theirs can't stop them easily."],
-  ["mobile-them", "Mobile (theirs)", "The opponent has two centre pawns and you none: block them or attack them before they advance."],
+  ["mobile-me", "Mobile (yours)", "You have two centre pawns and the opponent none: yours can advance, and the opponent's pieces can't easily stop them."],
+  ["mobile-them", "Mobile (opponent's)", "The opponent has two centre pawns and you none: block them or attack them before they advance."],
   ["tension", "Tension", "Centre pawns can take each other: the next exchange decides the structure."],
   ["none", "No contact yet", "Centre pawns that don't touch yet: the structure is still open to both sides."],
 ];
@@ -467,14 +467,14 @@ function comboText(items) {
   const me = part("me"), them = part("them"), bits = [];
   if (centre) { const c = CENTRES.find(([k]) => k === centre.slice(2)); bits.push(`<span class="stc">${esc(c ? c[1] : centre)} centre</span>`); }
   if (me.length) bits.push(`<span class="stwho">You</span> ${esc(me.join(", "))}`);
-  if (them.length) bits.push(`<span class="stwho">Them</span> ${esc(them.join(", "))}`);
+  if (them.length) bits.push(`<span class="stwho">Opponent</span> ${esc(them.join(", "))}`);
   return bits.join(" · ");
 }
 // "In 34% of games · I score 52% (+4)"
 function stScore(c, d) {
   if (!c.n) return "";
   const sc = shrink(c.sum, c.n, d.avg), diff = Math.round((sc - d.avg) * 100);
-  return `I score ${pctOf(c.sum / c.n)}${Math.abs(diff) >= 2 ? ` <span class="${diff > 0 ? "ok" : "bad"}">${diff > 0 ? "+" : "−"}${Math.abs(diff)}</span>` : ""}`;
+  return `you score ${pctOf(c.sum / c.n)}${Math.abs(diff) >= 2 ? ` <span class="${diff > 0 ? "ok" : "bad"}">${diff > 0 ? "+" : "−"}${Math.abs(diff)}</span>` : ""}`;
 }
 const stTone = (c, d) => { if (!c.n) return ""; const diff = shrink(c.sum, c.n, d.avg) - d.avg; return diff >= 0.02 ? "good" : diff <= -0.02 ? "bad" : ""; };
 function renderStructures(color) {
@@ -501,7 +501,7 @@ function renderStructures(color) {
       const row = d[who][k], max = Math.max(1, ...row.files.map(c => c.n));
       return `<div class="stfrow"><span class="stfname">${name} ${info(FEAT_HELP[k], "About " + name.toLowerCase())}</span>
         <span class="stany ${stTone(row.any, d)}" data-tip="${esc(`${title}: ${name.toLowerCase()} pawns in ${row.any.n} of ${d.n} games at move ${mv}; ${stScore(row.any, d).replace(/<[^>]+>/g, "")}`)}"><b>${share(row.any)}</b>${scoreOf(row.any)}</span>
-        ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}"><span>${Math.round((c.n / d.n) * 100)}</span>${scoreOf(c)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
+        ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "opponent's"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}"><span>${Math.round((c.n / d.n) * 100)}</span>${scoreOf(c)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
     }).join("")}</div>`;
   const list = (title, rows, help) => rows.length ? `<p class="lbl">${title}</p>${help ? `<p class="help">${help}</p>` : ""}<div class="stcombos">${rows.map(comboRow).join("")}</div>` : "";
   return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">games reached move ${mv}; you scored ${pctOf(d.avg)}</span></p>
@@ -509,7 +509,7 @@ function renderStructures(color) {
     ${list(`Your most common structures ${info(`Features that come up together at move ${mv}, in at least ${cb.minN} games; a game can have more than one. The small board is the most common position with that structure (in Worth your attention, the one costing you most), with the files it's about tinted. Your score is against your average, pulled towards it on few games. Example plays that game up to move ${mv}.`, "About these structures")}`, cb.common)}
     ${list("Where you score best", cb.best)}
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
-    <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
+    <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Opponent's pawns")}
       <p class="help">Top: the share of your games (%) with each at move ${mv}, by file (a to h). Under it: your score in those games, blue / orange when better / worse than your ${pctOf(d.avg)} average, faint on fewer than 5 games. Tap a cell for the numbers.</p></details>`;
 }
 // The shares from move 4 to 20: when structures form
@@ -527,7 +527,7 @@ function structByMove(color) {
       ${CENTRES.map(([k, name]) => cell(d => d.centre[k], name)).join("")}
       <div class="maprow mhead"><span class="mapname lbl">Your pawns</span></div>
       ${FEATS.map(([k, name]) => cell(d => d.me[k].any, name)).join("")}
-      <div class="maprow mhead"><span class="mapname lbl">Their pawns</span></div>
+      <div class="maprow mhead"><span class="mapname lbl">Opponent's pawns</span></div>
       ${FEATS.map(([k, name]) => cell(d => d.them[k].any, name)).join("")}
     </div>
     <p class="help">The share of your games (%) with each at every second move, so you can see when structures form. Tap a cell for your score.</p>`;

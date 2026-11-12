@@ -401,6 +401,8 @@ when it loads; the others just define things.
     (`data-conback`, `data-sugback`, `*` = all); `Decide.sig()` in `conCompute()`'s signature. The user wants decisions revisited.
 - v0.9.58: Tree: `.sunsel` is a grid, board (46%) beside `.sunstats`; after a tap the page only scrolls ("nearest") if
   the panel is off the bottom, so the rings stay in view.
+- v0.9.59: wording: "your" for my side, "opponent" for theirs, everywhere on screen (see Design). Default book name "Your prep"
+  (`bookList()` shows a stored "My prep" as "Your prep").
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
@@ -863,3 +865,7 @@ Stockfish's choice:
   - 44 px tap targets (40 px for the Build controls), and a fixed bottom tab
     bar that respects safe-area insets.
   - Explanations go behind ⓘ (`info()`), not into the page.
+  - Wording (v0.9.59, the user's rule): everything on screen says "your" / "you" for the user's side (never "my", "I",
+    "me"), and "opponent" / "your opponent" for the other side (never "they", "them", "their"). Peers (Lichess players at
+    your level) say "your side scores". Code comments can stay first person. The old release notes in updates.js keep
+    their wording.

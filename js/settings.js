@@ -11,7 +11,7 @@ function renderLook() {
   $("#arrowOpt").innerHTML = [["on", "Show"], ["off", "Hide"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${(S.settings.arrows !== false) === (v === "on")}" data-arrows="${v}">${l}</button>`).join("");
   $("#autoOpp").value = autoOppMode();
   const th = ["light", "dark", "system"].includes(S.settings.theme) ? S.settings.theme : "light";
-  $("#appTheme").innerHTML = [["light", "Light"], ["dark", "Dark"], ["system", "Match my phone"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${v === th}" data-apptheme="${v}">${l}</button>`).join("");
+  $("#appTheme").innerHTML = [["light", "Light"], ["dark", "Dark"], ["system", "Match your phone"]].map(([v, l]) => `<button type="button" class="chip" aria-pressed="${v === th}" data-apptheme="${v}">${l}</button>`).join("");
   $("#pieceCredits").innerHTML = PIECE_SETS.map(p => `<li><b>${esc(p.name)}</b>: ${esc(p.credit)}</li>`).join("");
 }
 function renderSettings() {
@@ -33,7 +33,7 @@ function renderSettings() {
   const cc = S.settings.ccRating, sug = cc ? bandsFor(cc.r) : null;
   $("#bandHint").innerHTML = !cc ? (validChessComUser(S.settings.user || "") ? "Your chess.com rating will be checked to suggest bands." : "Add your chess.com username to get bands that match your rating.")
     : `Your chess.com rapid rating is <b>${cc.r}</b>, which suggests Lichess <b>${bandLabel(sug)}</b>. ` + (S.settings.bandAuto === false
-      ? `You've set the bands by hand. <button type="button" class="linkbtn" data-bandauto>Follow my rating again</button>`
+      ? `You've set the bands by hand. <button type="button" class="linkbtn" data-bandauto>Follow your rating again</button>`
       : "The bands follow your rating automatically; tap a band to set them by hand.");
   $("#bands").innerHTML =BANDS.map(b => `<button type="button" class="chip" aria-pressed="${S.settings.band.includes(b)}" data-band="${b}">${b}${b === 2500 ? "+" : "–" + (b === 2200 ? 2499 : b + 199)}</button>`).join("");
   $("#storeNote").textContent = S.storeMode === "db"
@@ -48,7 +48,7 @@ function renderSettings() {
 }
 
 /* ---------- prep books ---------- */
-const prepBookName = (id = S.book) => (bookList().find(b => b.id === id) || { name: "My prep" }).name;
+const prepBookName = (id = S.book) => (bookList().find(b => b.id === id) || { name: "Your prep" }).name;
 const bookCount = (id, color) => Object.keys((S.books[id] && S.books[id][color].cards) || {}).length;
 function resetWorkspace() {
   stopTraining(); T.state = "idle";

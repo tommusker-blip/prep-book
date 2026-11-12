@@ -203,7 +203,7 @@ function renderIdea() {
   // the structure and its plans, mine first
   const mine = l.color, theirs = mine === "white" ? "black" : "white";
   $("#iPlans").innerHTML = st
-    ? `<p class="lbl">Pawn structure</p><h3>${esc(st.name)}</h3><p class="lbl" style="margin-top:8px">Your plan</p><ul class="plans">${st[mine].map(t => `<li>${esc(t)}</li>`).join("")}</ul><p class="lbl" style="margin-top:6px">Their plan</p><ul class="plans">${st[theirs].map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
+    ? `<p class="lbl">Pawn structure</p><h3>${esc(st.name)}</h3><p class="lbl" style="margin-top:8px">Your plan</p><ul class="plans">${st[mine].map(t => `<li>${esc(t)}</li>`).join("")}</ul><p class="lbl" style="margin-top:6px">Your opponent's plan</p><ul class="plans">${st[theirs].map(t => `<li>${esc(t)}</li>`).join("")}</ul>`
     : `<p class="help">No standard pawn structure is recognised at the end of this line. Follow the blue moves: they carry the plan.</p>`;
   $("#iBack").disabled = IV.i <= 0; $("#iFwd").disabled = IV.i >= IV.frames.length - 1; $("#iStart").disabled = IV.i === IV.start;
 }

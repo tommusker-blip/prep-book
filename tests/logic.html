@@ -289,7 +289,7 @@ t("loading several books keeps them apart and opens the saved one", () => {
   applyData({ white: main, "white@b2": second, settings: { books: [{ id: "main", name: "My prep" }, { id: "b2", name: "Queen's pawn" }], book: "b2" } });
   eq(S.book, "b2"); eq(rep("white").pos[K(START)].m, ["d4"]);
   eq(S.books.main.white.pos[K(START)].m, ["e4"]);
-  eq(bookList().map(b => b.name), ["My prep", "Queen's pawn"]);
+  eq(bookList().map(b => b.name), ["Your prep", "Queen's pawn"], "the old default name \"My prep\" shows as \"Your prep\" (v0.9.59)");
   eq(allDocNames().sort(), ["acc", "black", "black@b2", "games", "puzzles", "settings", "white", "white@b2"]);
   const snap = localSnapshot();
   eq(Object.keys(snap.white.pos).length > 0 && Object.keys(snap["white@b2"].pos).length > 0, true);
@@ -571,7 +571,7 @@ t("spot the difference: look-alike positions with different moves (v0.9.24)", ()
   const p = similarPairs("white"), ka = K(fenAfter(START, "e4 e5 Nf3 Nc6".split(" "))), kb = K(fenAfter(START, "e4 e5 Nf3 d6".split(" ")));
   eq(p.some(x => [x.a, x.b].sort().join() === [ka, kb].sort().join()), true, JSON.stringify(p.map(x => x.d)));
   const pr = p.find(x => x.a === ka || x.b === ka), txt = pr.a === ka ? simDiffText(pr.aArr, pr.bArr, "white") : simDiffText(pr.bArr, pr.aArr, "white");
-  eq(/their knight on c6/.test(txt) && /their pawn on d6/.test(txt), true, txt);
+  eq(/the opponent's knight on c6/.test(txt) && /the opponent's pawn on d6/.test(txt), true, txt);
 });
 t("my lines: notation from a position, with transpositions marked (v0.9.24)", () => {
   reset(); S.color = "white";
@@ -628,7 +628,7 @@ t("pawn structures: indicators linked into structures, most common and best (v0.
   eq(cb.common.map(txt), ["me:missing:3 16", "me:missing:3+them:missing:2 10"], "their missing c-pawn always comes with my missing d-pawn: shown as the pair; the open centre is under 5 games");
   eq(cb.best.map(txt), ["me:missing:3+them:missing:2 10"]);
   eq(cb.common[1].ex, "a0", "example: the first (newest) game with it");
-  eq(comboText(["c:fixed", "me:isolated:3", "them:missing:2"]).replace(/<[^>]+>/g, ""), "Fixed centre · You isolated d-pawn · Them no c-pawn");
+  eq(comboText(["c:fixed", "me:isolated:3", "them:missing:2"]).replace(/<[^>]+>/g, ""), "Fixed centre · You isolated d-pawn · Opponent no c-pawn");
 });
 t("board colours: a1 and h8 are dark, h1 and a8 light, flipped or not (v0.9.45)", () => {
   const el = document.createElement("div"), b = Board(el), dk = sq => el.querySelector(`[data-sq="${sq}"]`).classList.contains("dk");

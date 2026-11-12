@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12m", v: "0.9.59", date: "12 Nov 2026", title: "Consistent wording: your and opponent",
+    items: [
+      "The app now always says \"your\" for your side: Scan your tree, Find ideas across your tree, Build your tree from your games, the Your lines tab, Your score, and so on. The default book name is \"Your prep\" (if you'd renamed it, your name stays).",
+      "The other side is always \"opponent\": the Opponent left prep switch, Opponent's pawns in Structures, Opponent in Connect's steps and under opening names, Where your opponent steps off in Routes, and Your opponent's plan in idea lines.",
+    ],
+  },
+  {
     id: "2026-11-12l", v: "0.9.58", date: "12 Nov 2026", title: "Tree: stats beside the board",
     items: [
       "Visualise > Tree: when you tap a slice, its stats (your games and score, the peers' score) sit beside the board instead of under it, so you can see them while you tap around the rings.",

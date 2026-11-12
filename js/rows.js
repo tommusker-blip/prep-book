@@ -229,7 +229,7 @@ function candRow(fen, key, c, ex, path) {
       ${b ? `<p class="help">Expected score for you: <b>${pctOf(b.score)}</b> (${esc(b.basis)})</p>` : ""}
       <p class="help">${replies ? `Usually ${replies}` : S.token ? (exA ? (exA.total ? "No common replies at your level" : "Peers rarely reach this position") : "Loading likely replies…") : "Add a Lichess token for likely replies"}${bestReply ? ` · Stockfish's best reply: ${esc(bestReply)}` : ""}</p>
       ${myTurn ? fitLine(fen, c, path) : ""}
-      ${fu && fu.good ? `<p class="help">Good replies for your opponent (within ${(adv().good / 100).toFixed(1)} of their best): <b>${fu.good.map(esc).join(", ")}</b> (${fu.label.toLowerCase()})${fu.find != null ? ` · players at your level find one ${pctOf(fu.find)} of the time (n = ${nOf(fu.exA.total)})` : ""}</p>` : ""}
+      ${fu && fu.good ? `<p class="help">Good replies for your opponent (within ${(adv().good / 100).toFixed(1)} of the best reply): <b>${fu.good.map(esc).join(", ")}</b> (${fu.label.toLowerCase()})${fu.find != null ? ` · players at your level find one ${pctOf(fu.find)} of the time (n = ${nOf(fu.exA.total)})` : ""}</p>` : ""}
     </div>`;
   }
   return `<div class="cand${open ? " open" : ""}${state ? " " + state : ""}" data-cand="${esc(c.san)}" role="button" tabindex="0" aria-expanded="${open}">${head}${detail}</div>`;

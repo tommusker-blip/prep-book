@@ -154,8 +154,8 @@ function revNote(g, a, mv) {
     if (best && best !== played) h += `<p class="help">Stockfish's choice: <b>${esc(best)}</b>${evTxt(cpAfter(a.ply))}.${m && m.mark ? ` Your move gave up ${pawnsTxt(m.loss).replace(/^\+/, "")}.` : ""}</p>`;
     else if (best === played) h += `<p class="help">That was Stockfish's choice too.</p>`;
     h += `<p class="help">Evals: + is good for White, − for Black; the game's are depth 10, your prep's depth 12.</p><div class="row rvacts">`;
-    if (a.type === "misplay") h += btn("replace", `Make ${played} my move`, true) + btn("add", `Add ${played} as an option`);
-    else h += btn("add", `Add ${played} to my tree`, true);
+    if (a.type === "misplay") h += btn("replace", `Make ${played} your move`, true) + btn("add", `Add ${played} as an option`);
+    else h += btn("add", `Add ${played} to your tree`, true);
     if (best && best !== played && !prep.includes(best)) h += btn(a.type === "misplay" ? "best" : "bestadd", `Use ${best}`);
     h += go + build([played, ...prep].join(" ")) + `</div>`;
   } else {
@@ -163,7 +163,7 @@ function revNote(g, a, mv) {
     h += `<p>Your opponent played <b>${esc(here)}</b>, ${a.type === "end" ? "where your prep stops" : "which you hadn't prepared"}.</p>`;
     if (theirLoss != null) h += `<p class="help">${theirLoss >= adv().mistake ? "It was a mistake" : theirLoss >= adv().good ? "It wasn't quite the best" : "It was a good move"}${theirLoss >= adv().good ? ` (it gave you ${pawnsTxt(theirLoss).replace(/^\+/, "")})` : ""} at depth 10${best && best !== a.played ? `; Stockfish preferred ${esc(best)}` : ""}.</p>`;
     if (reply) h += `<p class="help">You answered <b>${esc(moveLabel(a.path.concat(a.played), reply.san))}</b>${reply.mark ? reply.mark : ""}${evTxt(cpAfter(a.ply + 2))}.</p>`;
-    h += `<div class="row rvacts">${btn("opp", reply ? `Add ${a.played} and my ${reply.san}` : `Add ${a.played}`, true)}${reply ? btn("opponly", `Add ${a.played} only`) : ""}${go}<button type="button" class="btn ghost quick" data-rvbuild="" data-rvpath="1">Open in Build</button></div>`;
+    h += `<div class="row rvacts">${btn("opp", reply ? `Add ${a.played} and your ${reply.san}` : `Add ${a.played}`, true)}${reply ? btn("opponly", `Add ${a.played} only`) : ""}${go}<button type="button" class="btn ghost quick" data-rvbuild="" data-rvpath="1">Open in Build</button></div>`;
   }
   return h + undoNote("rev");
 }

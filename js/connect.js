@@ -423,7 +423,7 @@ function renderConnect() {
     const lbl = moveLabel(c.path.concat(c.moves.slice(0, j)), s.san), ev = whiteCp(after(j));
     const lost = s.mine ? (() => { const b = conMyCp(s.fen, S.color), a = conMyCp(after(j), S.color); return b != null && a != null ? b - a : null; })() : null;
     const pct = s.mine ? "" : `<span class="conpct">${s.f == null ? "?" : pctOf(s.f)}</span>`;
-    return `<li><button type="button" class="linkish${CON.step === j + 1 ? " cur" : ""}" data-constep="${j + 1}"><span class="muted">${s.mine ? "You" : "They"}</span> <b class="mono">${esc(lbl)}</b></button>${pct}<span class="conev${lost != null && lost >= adv().good ? " bad" : ""}">${evTxt(ev)}</span></li>`;
+    return `<li><button type="button" class="linkish${CON.step === j + 1 ? " cur" : ""}" data-constep="${j + 1}"><span class="muted">${s.mine ? "You" : "Opponent"}</span> <b class="mono">${esc(lbl)}</b></button>${pct}<span class="conev${lost != null && lost >= adv().good ? " bad" : ""}">${evTxt(ev)}</span></li>`;
   }).join("");
   // v0.9.38: the eval after the move dropped, and after my new move, from the same position (White's side)
   const evAfter = m => { const fa = fenAfter(START, c.path.concat(m)); return fa ? `<span class="conev kdev">${evTxt(whiteCp(fa))}</span>` : ""; };

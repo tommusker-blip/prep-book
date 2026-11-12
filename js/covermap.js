@@ -43,7 +43,7 @@ function unknownLine() {
   if (Scan.running) return `<p class="help" aria-live="polite">Fetching Lichess data: ${Scan.done} of ${Scan.total} positions… the map updates when it's done.</p>`;
   const todo = scanTodo().length;
   if (!todo) return "";
-  return `<p class="help">${todo} of your positions have no Lichess data on this device, so gaps after them can't be seen: cells marked ? may be lower. <button type="button" class="btn ghost quick" data-mapscan>Scan my tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button></p>`;
+  return `<p class="help">${todo} of your positions have no Lichess data on this device, so gaps after them can't be seen: cells marked ? may be lower. <button type="button" class="btn ghost quick" data-mapscan>Scan your tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button></p>`;
 }
 function renderCoverMap(fromCat) {
   const box = $("#coverMap");
@@ -73,7 +73,7 @@ function renderCoverMap(fromCat) {
       const gaps = (s.gapsTop || []).filter(g => g.mv <= m).slice(0, 3).map(g => `${g.l} (${pctOf(g.f)})`);
       // v0.9.56: "?" where a good part of it has no Lichess data yet: gaps there can't be seen, so it may be lower
       const u = s.unk ? s.unk[m - 1] : 0, unsure = u >= UNK_SHOW;
-      return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}${m === coverTo() ? " to" : ""}${unsure ? " unk" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} of games through it still in your prep after move ${m}.${gaps.length ? ` Biggest gaps by then: ${gaps.join("; ")}.` : ""}${unsure ? ` About ${pctOf(u)} of them reach positions with no Lichess data yet, where gaps can't be seen, so it may well be lower: Scan my tree.` : ""}`)}">${Math.round(v * 100)}${unsure ? "?" : ""}</span>`;
+      return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}${m === coverTo() ? " to" : ""}${unsure ? " unk" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} of games through it still in your prep after move ${m}.${gaps.length ? ` Biggest gaps by then: ${gaps.join("; ")}.` : ""}${unsure ? ` About ${pctOf(u)} of them reach positions with no Lichess data yet, where gaps can't be seen, so it may well be lower: Scan your tree.` : ""}`)}">${Math.round(v * 100)}${unsure ? "?" : ""}</span>`;
     }
     if (mapMode === "played") {
       // my games through it that were still in my prep at move m
@@ -112,7 +112,7 @@ function renderCoverMap(fromCat) {
     ${progressLine(S.color)}
     ${mapMode === "cover" ? unknownLine() : ""}
     <div class="seg small" role="group" aria-label="Show">${Object.entries(MODES).map(([k, t]) => `<button type="button" data-mapmode="${k}" aria-pressed="${mapMode === k}">${t}</button>`).join("")}</div>
-    ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "I left prep"], ["them", "They left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
+    ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "You left prep"], ["them", "Opponent left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
     <div class="covmap ${mapMode}" style="--cols:${MAP_MOVES}">
       <div class="maprow mhead"><span class="mapname"><span class="mapnm">Move</span><span class="mapfreq">freq ${info("How often you meet this opening: the share of games at your level that reach it when you play your moves (Lichess). Your own games through it are under Played.", "About frequency")}</span></span>${cols.map(m => `<span class="mc mn${m === coverTo() && mapMode === "cover" ? " to" : ""}">${m}${m === MAP_MOVES ? "+" : ""}</span>`).join("")}<span class="mapend">${mapMode === "cover" ? `to ${coverTo()}` : mapMode === "played" ? "games" : "score"}</span></div>
       ${row(root, 0, `All your ${C} openings`, true)}

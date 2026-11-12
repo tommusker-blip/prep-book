@@ -240,7 +240,7 @@ function drawCatProgress() {
     bar.innerHTML = undo + `<p class="help" aria-live="polite">${memo ? "Updating… " : ""}${esc(j.step)}${j.total ? ` ${j.done} of ${j.total}` : ""}</p><progress max="${j.total || 1}" value="${j.done}"></progress>`;
     return;
   }
-  bar.innerHTML = undo + (memo ? `<p class="help catwhen">Worked out ${esc(agoText(memo.at))}. <button type="button" class="btn ghost quick" data-catrecalc>Recalculate</button>${info("Kept so the page opens at once. It's worked out again by itself when your tree, games or analysis change. Recalculate also picks up new Lichess data (coverage), for example after Scan my tree.", "About this page")}</p>` : "");
+  bar.innerHTML = undo + (memo ? `<p class="help catwhen">Worked out ${esc(agoText(memo.at))}. <button type="button" class="btn ghost quick" data-catrecalc>Recalculate</button>${info("Kept so the page opens at once. It's worked out again by itself when your tree, games or analysis change. Recalculate also picks up new Lichess data (coverage), for example after Scan your tree.", "About this page")}</p>` : "");
 }
 function agoText(t) {
   const m = Math.round((Date.now() - (t || 0)) / 60000);
@@ -281,7 +281,7 @@ function startCatalogueJob(sig, color, sk) {
 }
 function drawCatalogue(root, targets) {
   const box = $("#catBody"), C = S.color === "white" ? "White" : "Black";
-  if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet. Add moves in Build, or use Build my tree from my games on the Games tab.</p>`; return; }
+  if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet. Add moves in Build, or use Build your tree from your games on the Games tab.</p>`; return; }
   const bi = branchInfo(S.color), fp = focusPath().join(" ");
   /* v0.9.24: compact. One line per entry: the name (up to two lines, so long names show), then
      covered and score in fixed columns under one header; the moves, accuracy, comment and the
@@ -300,7 +300,7 @@ function drawCatalogue(root, targets) {
     if (!mv.length) return "";
     if (mv.length <= CAT_MV_MAX) return (from ? "… " : "") + numbered(from, mv);
     const myW = S.color === "white", them = mv.map((san, i) => ({ san, ply: from + i })).filter(x => (x.ply % 2 === 0) !== myW);
-    return "Them: " + them.map(x => `${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "…" : "."}${x.san}`).join(" ");
+    return "Opponent: " + them.map(x => `${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "…" : "."}${x.san}`).join(" ");
   };
   const entry = (c, parent) => {
     const s = c.stats || {}, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = bi[c.key] && bi[c.key].cards;

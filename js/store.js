@@ -15,7 +15,9 @@ const parseRepDoc = name => { const m = /^(white|black)(?:@(.+))?$/.exec(name); 
 function ensureBook(id) { return S.books[id] || (S.books[id] = { white: emptyRep(), black: emptyRep() }); }
 function bookList() {
   const list = (S.settings.books || []).filter((b, i, all) => (S.books[b.id] || b.id === "main") && all.findIndex(x => x.id === b.id) === i);
-  if (!list.some(b => b.id === "main")) list.unshift({ id: "main", name: "My prep" });
+  if (!list.some(b => b.id === "main")) list.unshift({ id: "main", name: "Your prep" });
+  // v0.9.59: the default name was "My prep"; it's "Your prep" now, unless renamed
+  for (let i = 0; i < list.length; i++) if (list[i].id === "main" && list[i].name === "My prep") list[i] = { ...list[i], name: "Your prep" };
   for (const id of Object.keys(S.books)) if (!list.some(b => b.id === id)) list.push({ id, name: "Untitled book" });
   return list;
 }

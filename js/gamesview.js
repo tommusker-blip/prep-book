@@ -168,7 +168,7 @@ function renderAutoBuild() {
 function importPasted() {
   const text = $("#pgnIn").value;
   if (!text.trim()) { toast("Paste one or more games first."); return; }
-  if (!S.settings.user.trim()) { toast("Add your chess.com username in Settings so I know which side you played."); return; }
+  if (!S.settings.user.trim()) { toast("Add your chess.com username in Settings so the app knows which side you played."); return; }
   const list = splitGames(text).map(g => gameFromPGN(g, S.settings.user));
   const mine = list.filter(g => g.my);
   const rapid = mine.filter(g => g.tc === "rapid");

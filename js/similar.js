@@ -49,7 +49,7 @@ const PIECE_NAMES = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen"
 // What's on the differing squares: "Here: your bishop on c4. In the last one: your bishop on b5."
 function simDiffText(hereArr, otherArr, color = S.color) {
   const mineUpper = color === "white", sq = i => "abcdefgh"[i % 8] + (8 - Math.floor(i / 8));
-  const who = ch => ((ch === ch.toUpperCase()) === mineUpper ? "your" : "their");
+  const who = ch => ((ch === ch.toUpperCase()) === mineUpper ? "your" : "the opponent's");
   const name = ch => `${who(ch)} ${PIECE_NAMES[ch.toLowerCase()]}`;
   const here = [], there = [];
   for (let i = 0; i < 64; i++) {

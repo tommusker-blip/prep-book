@@ -34,7 +34,7 @@ function renderScanBox() {
   box.innerHTML = `<div class="scanrow"><span class="help">${Scan.note ? esc(Scan.note) + " " : ""}${todo
     ? `${todo} position${todo === 1 ? "" : "s"} in your ${who} repertoire ${todo === 1 ? "has" : "have"} no Lichess data yet.`
     : `Lichess data is loaded for every position in your ${who} repertoire.`}</span>
-    ${todo ? `<button type="button" class="btn" data-scan>Scan my tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
+    ${todo ? `<button type="button" class="btn" data-scan>Scan your tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
 }
 
 /* ----- Ideas, one at a time (v0.9.43) -----
@@ -141,7 +141,7 @@ function renderSuggest() {
   const ps = myPosStats(e.key, color), ms = myMoveStats(e.key, e.san, color);
   lines.push(`<li><b>Your games</b>: ${ps && ps.n ? `${ps.n} reached this position, you scored ${pc(wdlScore(ps))}${ms && ms.n ? `; ${ms.n} with ${esc(e.san)}, ${pc(wdlScore(ms))}` : ""}` : "none reached this position"}. You'd get here in about ${e.reach >= 0.1 ? pc(e.reach) : (e.reach * 100).toFixed(1) + "%"} of your games as ${color}.</li>`);
   const acts = e.mine.map((m, j) => `<button type="button" class="btn quick${j ? " ghost" : ""}" data-sugact="${j}">Replace ${esc(m)}</button>`).join("")
-    + `<button type="button" class="btn ${e.mine.length ? "ghost " : ""}quick" data-sugact="add">${e.mine.length ? "Add as an option" : "Add to my repertoire"}</button>`;
+    + `<button type="button" class="btn ${e.mine.length ? "ghost " : ""}quick" data-sugact="add">${e.mine.length ? "Add as an option" : "Add to your repertoire"}</button>`;
   out.innerHTML = undoNote("sug") + `<div class="sugcard">
     <div class="row sugnav"><button type="button" class="btn ghost quick" data-sugstep="-1" ${SUG.i ? "" : "disabled"} aria-label="Previous idea">◀</button><b>Idea ${SUG.i + 1} of ${list.length}</b><button type="button" class="btn ghost quick" data-sugstep="1" ${SUG.i < list.length - 1 ? "" : "disabled"} aria-label="Next idea">▶</button></div>
     <p class="sugkinds">${e.kinds.map(k => `<span class="pill gem">${SUG_KINDS[k][0]}</span>`).join(" ")}</p>
@@ -184,7 +184,7 @@ function renderIdeaBox() {
   box.innerHTML = `<div class="scanrow"><span class="help">${IdeaJob.note && !IdeaJob.running ? esc(IdeaJob.note) + " " : ""}${todo
     ? `${todo} of your move positions haven't been checked for practical tricks and easy-to-remember moves (Stockfish).`
     : "Every position where it's your move has been checked for practical tricks and easy-to-remember moves."}</span>
-    ${todo ? `<button type="button" class="btn ghost" data-ideas="tree">Find ideas across my tree (about ${Math.max(1, Math.round(todo * 15 / 60))} min)</button>` : ""}</div>`;
+    ${todo ? `<button type="button" class="btn ghost" data-ideas="tree">Find ideas across your tree (about ${Math.max(1, Math.round(todo * 15 / 60))} min)</button>` : ""}</div>`;
 }
 function onIdeaTick(finished) {
   renderBg();

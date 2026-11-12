@@ -198,9 +198,9 @@ function funnelBox() {
       <p class="funbig"><b>${pctOf(res.v)}</b> <span class="help">of games reach this position if you follow the plan${res.partial ? " (some positions had no Lichess data yet, so it may be more)" : ""}</span></p>
       <ul class="funlines">${shown.map(lineHtml).join("")}</ul>
       ${res.lines.length > shown.length ? `<p class="help">…and ${res.lines.length - shown.length} more.</p>` : ""}
-      ${res.exits.length ? `<p class="lbl" style="margin-top:6px">Where they step off</p><ul class="funlines">${res.exits.slice(0, 3).map(e => `<li><span><span class="mono">${esc(numbered(0, e.path) || "Start")}</span> <span class="help">${e.top.length ? esc(e.top.join(", ")) + (e.top.length > 1 ? "…" : "") : "other moves"}</span></span><span class="conpct">${pctOf(e.off)}</span></li>`).join("")}</ul>` : ""}
+      ${res.exits.length ? `<p class="lbl" style="margin-top:6px">Where your opponent steps off</p><ul class="funlines">${res.exits.slice(0, 3).map(e => `<li><span><span class="mono">${esc(numbered(0, e.path) || "Start")}</span> <span class="help">${e.top.length ? esc(e.top.join(", ")) + (e.top.length > 1 ? "…" : "") : "other moves"}</span></span><span class="conpct">${pctOf(e.off)}</span></li>`).join("")}</ul>` : ""}
       ${res.conflicts.length ? `<p class="help"><b>Differs from your tree:</b> ${res.conflicts.map(x => `${esc(moveLabel(x.path, x.move))} where you play ${esc(x.have.join(" / "))}`).join("; ")}. Add makes ${res.conflicts.length === 1 ? "it" : "them"} another option.</p>` : ""}
-      <div class="row conacts"><button type="button" class="btn quick" data-funadd>Add the plan to my tree</button><button type="button" class="btn ghost quick" data-funrun>Search again</button></div>
+      <div class="row conacts"><button type="button" class="btn quick" data-funadd>Add the plan to your tree</button><button type="button" class="btn ghost quick" data-funrun>Search again</button></div>
     </div>${undoNote("fun")}`;
 }
 // "Searching… about 35% done, roughly 2 min left. 140 of at most 220 Lichess look-ups…"
