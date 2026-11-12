@@ -1053,6 +1053,18 @@ t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
   eq(setupSim(a, same), 1, "the same position by another order");
   eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
 });
+t("gaps: a rare reply met in my games is sized by how often I get there (v0.9.54)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "e4 e5 f4 exf4 Nf3");
+  setEx("e4", 1000, 400, 100, 500, [mv("e5", 500, 200, 50, 250), mv("c5", 500, 200, 50, 250)]);
+  setEx("e4 e5 f4", 1000, 450, 100, 450, [mv("exf4", 970, 440, 90, 440), mv("Nf6", 30, 10, 10, 10)]);
+  // 30 of my games where they answered 2.f4 with 2...g6, which Lichess players at my level hardly play
+  S.games = Array.from({ length: 30 }, (_, i) => ({ id: "kg" + i, my: "white", tc: "rapid", result: "1-0", moves: "e4 e5 f4 g6", white: "me", black: "x" }));
+  S.games.forEach(g => gameKeys(g)); touchData();
+  const g = findGaps("white").find(x => x.opp === "g6");
+  eq(g && Math.round(g.freq * 1000) / 1000, 0.005, "0.5 (1...e5) × 1% (not listed): it was 30 × 2% = 0.6");
+  S.games = []; touchData(); reset(); resetEx();
+});
 t("connect: the other way round (v0.9.48)", () => {
   reset(); resetEx(); S.color = "white";
   line("white", "d4 Nf6 Bf4 d5 e3"); line("white", "d4 d5 Nf3 Nf6 c4");

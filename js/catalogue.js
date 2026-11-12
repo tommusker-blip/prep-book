@@ -130,7 +130,7 @@ function catalogueContext(color = S.color) {
   };
 }
 // v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
-const CAT_MEMO_V = 3;
+const CAT_MEMO_V = 4; // 4 (v0.9.54): gap sizes fixed, so saved results are worked out again
 // "No answer to 3…f6" / "No move after 2…Nf6" / "Line ends after 4.Nf3"
 function gapLabel(g) {
   if (g.opp) return g.text;

@@ -43,6 +43,13 @@ function oppFaced(color = S.color) {
   facedMemo[color] = { sig, map };
   return map;
 }
+// How often the opponent plays `san` at a position, for a move found in my games: Lichess's share if
+// there's data (1% when it isn't listed), else its share of my games through the position
+function oppShare(ex, san, g, key, color = S.color) {
+  if (ex && ex.total) { const m = ex.moves.find(x => x.san === san); return m ? m.n / ex.total : 0.01; }
+  const here = (myPosStats(key, color) || {}).n || 0;
+  return here ? Math.min(1, (g || 0) / here) : 0.02;
+}
 function findGaps(color = S.color) {
   const R = rep(color), games = oppSeen(color), gaps = [], only = gapOnly();
   walk(color);
@@ -75,7 +82,10 @@ function findGaps(color = S.color) {
     for (const [s, c] of Object.entries(games[key] || {})) (cand[s] = cand[s] || {}).g = c;
     for (const [s, v] of Object.entries(cand)) {
       if (prepared.includes(s) || !keepReply(key, s)) continue;
-      const r = v.f != null ? reach * v.f : (v.g || 0) * 0.02;
+      // v0.9.54: a move met in my games but under 3% at my level: its own Lichess share (1% if it isn't listed),
+      // or without Lichess data its share of my games here, always times the reach. It used to be 2% of all
+      // games per game met, unscaled, so a line I play a lot (the King's Gambit) lost all its coverage.
+      const r = v.f != null ? reach * v.f : reach * oppShare(ex, s, v.g, key);
       add({ id: "o|" + key + "|" + s, path, opp: s, text: `No answer to ${moveLabel(path, s)}`, f: v.f, g: v.g }, r, expect(myMoveStats(key, s, color), v.peer != null ? v.peer : null));
     }
     if (!prepared.length && !Object.keys(cand).length && reached(key))

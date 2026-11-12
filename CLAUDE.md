@@ -371,6 +371,9 @@ when it loads; the others just define things.
     column: an extra grid column squeezed the move cells on phones. The view is labelled "Move by move".
 - v0.9.53: Coverage cells show their number; `stats.gapsTop` (catalogue memo format `CAT_MEMO_V` = 3, older saved
   results are recomputed) holds each entry's biggest gaps (`gapLabel()`, share of the entry), listed in the cell tip.
+- v0.9.54: `findGaps()` sized a reply met only in my games (under 3% on Lichess, so not in `cand` from the explorer)
+  as `games × 0.02` of ALL games, unscaled by reach; a much-played line (King's Gambit) lost all coverage. Now
+  `reach × oppShare()` (Lichess share, 1% if unlisted; else share of my games there). `CAT_MEMO_V` = 4.
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's

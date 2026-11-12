@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12h", v: "0.9.54", date: "12 Nov 2026", title: "Coverage fixed for lines you play a lot",
+    items: [
+      "Fixed: a reply you'd met in your own games but that's rare at your level counted as 2% of all your games for every game you'd met it, whatever the line. In an opening you play a lot, such as the King's Gambit, these added up to more than the whole opening, so its coverage dropped to 0 by move 4.",
+      "Now such a reply counts by how often players at your level play it (or, without Lichess data, how often you met it there), times how often you reach that position. Gap › ranks these gaps the same way, so it no longer sends you to rare replies first.",
+      "Your Openings page is worked out again the first time you open it.",
+    ],
+  },
+  {
     id: "2026-11-12g", v: "0.9.53", date: "12 Nov 2026", title: "Coverage numbers you can read",
     items: [
       "Move by move, Coverage: every cell now shows its number (the % of games through that opening still in your prep after that move), not just a shade.",
