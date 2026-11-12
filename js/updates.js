@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12o", v: "0.9.61", date: "12 Nov 2026", title: "Tidy up keeps what Connect needs",
+    items: [
+      "Settings > Lichess data > Tidy up now keeps data for positions near your lines (within about 4 moves), not just the ones in your repertoire. Connect and Routes from the start use those positions, and deleting them meant fetching them again.",
+      "It now only deletes data far from everything you play, for example from an opening you've dropped, and says how many nearby positions it kept.",
+    ],
+  },
+  {
     id: "2026-11-12n", v: "0.9.60", date: "12 Nov 2026", title: "Lichess data: refreshed when old, and a tidy-up",
     items: [
       "Settings > Lichess data: choose how old saved data can get before Scan your tree fetches it again (Never, 3, 6 or 12 months; 6 by default). Data saved before today counts from today.",

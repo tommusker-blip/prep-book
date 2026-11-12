@@ -207,12 +207,31 @@ function repertoireKeys() {
   return keep;
 }
 const explPos = k => k.slice(0, k.lastIndexOf("|"));
-// What a tidy would delete: {local: [keys], remote: [keys]} (remote only when signed in)
-async function explTidyPlan() {
+/* v0.9.61: what a tidy would delete: {local: [keys], remote: [keys]} (remote only when signed in). Positions near
+   the repertoire are kept too, because Connect (chains of up to 4 moves between your lines) and Routes from the
+   start use their data: near = at most TIDY_NEAR squares different from some repertoire position, the same test
+   Connect uses for its chains (2 × 4 plies + 2). Only data far from everything you play is deleted. */
+const TIDY_NEAR = 10;
+async function explTidyPlan(onTick = () => {}) {
   const keep = repertoireKeys();
-  const local = Object.keys(EXPL).filter(k => !keep.has(explPos(k)));
-  const remote = (await Stash.keys("expl")).filter(k => !keep.has(explPos(k)));
-  return { local, remote, keep: keep.size };
+  const remoteAll = await Stash.keys("expl");
+  const cand = [...new Set([...Object.keys(EXPL), ...remoteAll].map(explPos))].filter(p => !keep.has(p));
+  const trees = [...keep].map(k => boardArr(k));
+  const far = new Set();
+  for (let i = 0; i < cand.length; i++) {
+    const a = boardArr(cand[i]);
+    let near = false;
+    for (const t of trees) {
+      let d = 0;
+      for (let j = 0; j < 64 && d <= TIDY_NEAR; j++) if (a[j] !== t[j]) d++;
+      if (d <= TIDY_NEAR) { near = true; break; }
+    }
+    if (!near) far.add(cand[i]);
+    if (i % 200 === 199) { onTick(i + 1, cand.length); await new Promise(r => setTimeout(r, 0)); }
+  }
+  const local = Object.keys(EXPL).filter(k => far.has(explPos(k)));
+  const remote = remoteAll.filter(k => far.has(explPos(k)));
+  return { local, remote, keep: keep.size, near: cand.length - far.size };
 }
 async function explTidy(plan) {
   plan.local.forEach(k => delete EXPL[k]);

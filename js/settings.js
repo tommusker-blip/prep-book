@@ -134,7 +134,7 @@ function renderExplData() {
     <p class="help">Saved for ${n.toLocaleString("en-GB")} position${n === 1 ? "" : "s"} on this device${signed ? ", and in your account" : ""}. Scan your tree only fetches what's missing, and fetches again data older than:</p>
     <div class="seg small" role="group" aria-label="Fetch again after">${EXPL_AGES.map(m => `<button type="button" data-explage="${m}" aria-pressed="${m === age}">${m ? `${m} months` : "Never"}</button>`).join("")}</div>
     <div class="row" style="margin:8px 0 0"><button type="button" class="btn ghost" data-expltidy ${EXPL_TIDY.busy ? "disabled" : ""}>${EXPL_TIDY.busy ? "Tidying…" : "Tidy up"}</button></div>
-    <p class="help">Tidy up deletes the saved data for positions that aren't in any of your repertoires (lines you've removed, or positions you only looked at), so your account only keeps what you use. You'll see how many first.</p>
+    <p class="help">Tidy up deletes the saved data for positions far from all your repertoires (more than about 4 moves from anything you play), for example from an opening you've dropped. Data in and near your lines stays, because Connect and Routes from the start use it. You'll see how many first.</p>
     ${EXPL_TIDY.note ? `<p class="help" role="status">${esc(EXPL_TIDY.note)}</p>` : ""}`;
 }
 onClick("explage", d => { S.settings.explMaxAge = +d.explage; Store.save("settings"); renderExplData(); }, true);
@@ -142,11 +142,11 @@ onClick("expltidy", async () => {
   if (EXPL_TIDY.busy) return;
   EXPL_TIDY.busy = true; EXPL_TIDY.note = "Checking what's saved…"; renderExplData();
   try {
-    const plan = await explTidyPlan();
+    const plan = await explTidyPlan((i, n) => { EXPL_TIDY.note = `Checking which positions are near your lines: ${i} of ${n}…`; renderExplData(); });
     const total = plan.local.length + plan.remote.length;
-    if (!total) { EXPL_TIDY.note = "Nothing to tidy: everything saved is for positions in your repertoires."; return; }
+    if (!total) { EXPL_TIDY.note = `Nothing to tidy: everything saved is in or near your repertoires${plan.near ? ` (${plan.near.toLocaleString("en-GB")} positions near your lines are kept)` : ""}.`; return; }
     const what = [plan.remote.length && `${plan.remote.length.toLocaleString("en-GB")} in your account`, plan.local.length && `${plan.local.length.toLocaleString("en-GB")} on this device`].filter(Boolean).join(" and ");
-    if (!confirm(`Delete the Lichess data for positions not in any of your repertoires: ${what}? It's fetched again if you need it.`)) { EXPL_TIDY.note = ""; return; }
+    if (!confirm(`Delete the Lichess data for positions far from all your repertoires: ${what}? Data in and near your lines (${plan.near.toLocaleString("en-GB")} positions near them) is kept. Anything deleted is fetched again if you need it.`)) { EXPL_TIDY.note = ""; return; }
     const r = await explTidy(plan);
     EXPL_TIDY.note = `Deleted ${[r.remote && `${r.remote.toLocaleString("en-GB")} from your account`, r.local && `${r.local.toLocaleString("en-GB")} from this device`].filter(Boolean).join(" and ")}.`;
   } catch (e) { EXPL_TIDY.note = "Couldn't tidy up: " + (e.message || e); }
