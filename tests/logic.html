@@ -671,6 +671,11 @@ t("pawn structures: the ones costing me most, and where they come from (v0.9.42)
   eq(/12 of 12/.test(nx.html) && /knight moves/.test(nx.html), true, "mistakes and their kind: " + nx.html.replace(/<[^>]+>/g, ""));
   eq(nx.ex && nx.ex.ply, 12, "a mistake to show");
   eq(a2.fams.map(f => f.name + " " + f.n).join(), "Sicilian Defence 12", "every opening listed");
+  // v0.9.49: the main opening only, and one-offs counted together
+  const kga = { id: "kg1", my: "white", moves: "e4 e5 f4 exf4 Nf3 g5", result: "1-0" }, kgd = { id: "kg2", my: "white", moves: "e4 e5 f4 Bc5 Nf3 d6", result: "1-0" };
+  eq([stFamily(kga, 6), stFamily(kgd, 6)].join(" / "), "King's Gambit / King's Gambit", "accepted and declined are one opening");
+  const fl = stFamsLine([{ name: "Sicilian Defence", n: 9 }, { name: "French Defence", n: 3 }, { name: "Caro-Kann Defence", n: 1 }, { name: "Pirc Defence", n: 1 }]).replace(/<[^>]+>/g, "");
+  eq(fl, "From Sicilian Defence 9 · French Defence 3 · 2 other", "openings in 1 game are counted together");
   S.acc = {};
   // v0.9.43: its typical (costliest) position, drawn small, with the structure's files tinted
   const x = stExample(d, a.c, true);

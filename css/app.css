@@ -334,6 +334,8 @@ div.gap-row{cursor:default}
 .mc.res{opacity:var(--o)}
 .mc.res.hi{background:var(--good)} .mc.res.lo{background:var(--bad)} .mc.res.mid{background:var(--muted)}
 .mapend{font-family:var(--f-mono);font-size:.74rem;text-align:right}
+.covmap.withfreq .maprow{grid-template-columns:minmax(7rem,1fr) 2.6rem repeat(var(--cols),minmax(12px,20px)) 2.6rem}
+.mapfreq{font-family:var(--f-mono);font-size:.74rem;text-align:right;white-space:nowrap}
 /* pictures of the repertoire (picture.js) */
 .picviews{margin:6px 0 4px;overflow-x:auto}
 .picctl{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
@@ -477,10 +479,11 @@ details.cat > summary{list-style:none;cursor:pointer;padding:7px 10px 7px 8px;di
 details.cat > summary::-webkit-details-marker{display:none}
 details.cat > summary::before{content:"▸";color:var(--muted);transition:transform .15s}
 details.cat[open] > summary::before{transform:rotate(90deg)}
-.catname{font-weight:600;font-size:.88rem;line-height:1.2;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.catname{grid-column:2 / -1;font-weight:600;font-size:.88rem;line-height:1.2;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .catkids .catname{font-weight:500}
-.catnm{min-width:0;display:flex;flex-direction:column;gap:1px}
-.catmv{font-size:.72rem;color:var(--muted);font-weight:400;line-height:1.25;overflow-wrap:anywhere}
+.catmv{grid-column:2;font-size:.72rem;color:var(--muted);font-weight:400;line-height:1.25;overflow-wrap:anywhere;min-width:0}
+/* v0.9.49: opening an entry hides the entries beside it, and the opened parent shows only its children */
+#catBody:has(> details.cat[open]) > details.cat:not([open]),.catkids:has(> details.cat[open]) > details.cat:not([open]),.catbody:has(> .catkids > details.cat[open]) > :not(.catkids){display:none}
 .catn{position:relative;text-align:right;font-family:var(--f-mono);font-size:.8rem;padding-bottom:3px;white-space:nowrap}
 .catn b{font-weight:500}
 .catn small{display:block;font-size:.66rem;color:var(--muted);line-height:1}

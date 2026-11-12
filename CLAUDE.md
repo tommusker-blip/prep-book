@@ -362,6 +362,14 @@ when it loads; the others just define things.
     `data-conact="rev"` applies it (`RepUndo` "con").
   - Catalogue: `movesOf()` puts the moves since the parent entry under each name (`.catnm`, `.catmv`); over
     `CAT_MV_MAX` plies, only the opponent's moves.
+- v0.9.49:
+  - Structure cards: `stFamily()` strips " Accepted/Declined/Refused/Deferred" (main opening only);
+    `stFamsLine()` lists only families with ≥ `ST_FAM_MIN` games and ≥ `ST_FAM_SHARE` of the set, "N other".
+  - Catalogue: `.catname` spans the summary row (`grid-column: 2 / -1`), `.catmv` + Covered + Score below. CSS `:has()`
+    hides an open entry's siblings and an open child's parent body (everything but `.catkids`).
+  - Map: `freqCell()` (`.covmap.withfreq`, `.mapfreq`) = the entry's `reach`.
+  - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
+    ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

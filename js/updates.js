@@ -6,6 +6,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12c", v: "0.9.49", date: "12 Nov 2026", title: "Cleaner openings lists",
+    items: [
+      "Structures cards only list openings with at least 3 games (and a tenth of the total); the rest are counted together as \"other\". Versions of one opening are merged: King's Gambit, not King's Gambit Accepted and Declined.",
+      "Openings: the stray characters before sub-openings' moves are fixed. The name now runs across the whole card, with the moves, covered and score on the line below.",
+      "Opening an entry hides the openings beside it, and opening a sub-opening hides its parent's details, so you only see the one you're looking at. Close it to see the others again.",
+      "Visualise > Openings map has a Freq column: how often you meet each opening at your level.",
+    ],
+  },
+  {
     id: "2026-11-12b", v: "0.9.48", date: "12 Nov 2026", title: "Structures: what happens next; Connect both ways; moves under opening names",
     items: [
       "Structures cards list every main opening the games come from, with counts. The frequency bar is back, as a thin bar across the top, and the buttons now run across the whole card.",

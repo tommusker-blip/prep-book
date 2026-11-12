@@ -273,9 +273,9 @@ function drawCatalogue(root, targets) {
   const movesOf = (c, parent) => {
     const from = parent ? parent.path.length : 0, mv = c.path.slice(from);
     if (!mv.length) return "";
-    if (mv.length <= CAT_MV_MAX) return (from ? "â€¦ " : "") + numbered(from, mv);
+    if (mv.length <= CAT_MV_MAX) return (from ? "… " : "") + numbered(from, mv);
     const myW = S.color === "white", them = mv.map((san, i) => ({ san, ply: from + i })).filter(x => (x.ply % 2 === 0) !== myW);
-    return "Them: " + them.map(x => `${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "â€¦" : "."}${x.san}`).join(" ");
+    return "Them: " + them.map(x => `${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "…" : "."}${x.san}`).join(" ");
   };
   const entry = (c, parent) => {
     const s = c.stats || {}, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = bi[c.key] && bi[c.key].cards;
@@ -284,7 +284,7 @@ function drawCatalogue(root, targets) {
     const focused = fp && fp === ps;
     return `<details class="cat${focused ? " focused" : ""}"${open ? " open" : ""} data-catpath="${esc(ps)}">
       <summary>
-        <span class="catnm"><span class="catname">${esc(short(c.label, parent && parent.label))}</span>${movesOf(c, parent) ? `<span class="catmv mono">${esc(movesOf(c, parent))}</span>` : ""}</span>
+        <span class="catname">${esc(short(c.label, parent && parent.label))}</span><span class="catmv mono">${esc(movesOf(c, parent))}</span>
         <span class="catn ${covCls}"><i style="width:${s.cover == null ? 0 : Math.round(s.cover * 100)}%"></i><b>${s.cover == null ? "–" : pctOf(s.cover)}</b></span>
         <span class="catn ${scoreCls}"><b>${s.score == null ? "–" : pctOf(s.score)}</b>${s.games ? `<small>${s.games}</small>` : ""}</span>
       </summary>

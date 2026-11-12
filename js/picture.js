@@ -273,7 +273,7 @@ const ST_ATTN = 3, ST_OVERLAP = 0.7, ST_ATTN_MIN = 10;
 function stFamily(g, plies) {
   let name = "";
   for (const k of gameKeys(g).slice(0, plies + 1)) { const b = bookName(k); if (b) name = b.name; }
-  return name ? family(name) : "Unnamed";
+  return name ? family(name).replace(/ (Accepted|Declined|Refused|Deferred)$/, "") : "Unnamed"; // v0.9.49: the main opening (King's Gambit, not Accepted / Declined)
 }
 function stAttention(d, color, move) {
   if (d.attn) return d.attn;
@@ -321,7 +321,14 @@ function attentionHtml(d, color, move) {
 // The frequency bar across the top of a card: the share of my games at that move with it
 const stBar = (c, d) => `<div class="stbar" role="img" aria-label="${esc(`In ${pctOf(c.n / d.n)} of your games at this move`)}"><i style="width:${Math.max(2, Math.round((c.n / d.n) * 100))}%"></i></div>`;
 // Every main opening (family) the games come from: "Sicilian Defence 12 · French Defence 3"
-const stFamsLine = fams => `<p class="stfrom"><span class="stwho">From</span> ${fams.map(f => `${esc(f.name)} <b>${f.n}</b>`).join(" · ")}</p>`;
+// v0.9.49: only openings with at least ST_FAM_MIN games and ST_FAM_SHARE of them (common, general indicators); the rest counted together
+const ST_FAM_MIN = 3, ST_FAM_SHARE = 0.1;
+const stFamsLine = fams => {
+  const total = fams.reduce((s, f) => s + f.n, 0), main = fams.filter(f => f.n >= ST_FAM_MIN && f.n >= ST_FAM_SHARE * total && f.name !== "Unnamed");
+  const rest = total - main.reduce((s, f) => s + f.n, 0);
+  if (!main.length) return `<p class="stfrom"><span class="stwho">From</span> a mix of openings, none in ${ST_FAM_MIN}+ games</p>`;
+  return `<p class="stfrom"><span class="stwho">From</span> ${main.map(f => `${esc(f.name)} <b>${f.n}</b>`).join(" · ")}${rest ? ` <span class="muted">· ${rest} other</span>` : ""}</p>`;
+};
 function stFams(d, c, move) {
   if (c.fams) return c.fams;
   const fam = new Map();
