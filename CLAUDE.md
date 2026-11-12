@@ -369,6 +369,8 @@ when it loads; the others just define things.
     hides an open entry's siblings and an open child's parent body (everything but `.catkids`).
   - Map: `freqCell()` (`.mapfreq`) = the entry's `reach`. v0.9.52: it sits inside the name button (`.mapnm` + `.mapfreq`), not a
     column: an extra grid column squeezed the move cells on phones. The view is labelled "Move by move".
+- v0.9.53: Coverage cells show their number; `stats.gapsTop` (catalogue memo format `CAT_MEMO_V` = 3, older saved
+  results are recomputed) holds each entry's biggest gaps (`gapLabel()`, share of the entry), listed in the cell tip.
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's

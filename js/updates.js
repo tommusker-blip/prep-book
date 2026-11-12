@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12g", v: "0.9.53", date: "12 Nov 2026", title: "Coverage numbers you can read",
+    items: [
+      "Move by move, Coverage: every cell now shows its number (the % of games through that opening still in your prep after that move), not just a shade.",
+      "Tap a cell to see the biggest gaps that bring it down by then, for example \"No move after 2…Nf6 (10%)\".",
+      "A parent row (like King's Gambit) also counts the gaps above its sub-openings, such as a reply you've prepared but have no move after, so it can be lower than each sub-opening. The help under the map says so.",
+    ],
+  },
+  {
     id: "2026-11-12f", v: "0.9.52", date: "12 Nov 2026", title: "Move by move map fixed",
     items: [
       "Visualise: the openings map's cells are back to their proper shape. The Freq column squeezed them on phones; how often you meet each opening now sits at the end of its name instead.",

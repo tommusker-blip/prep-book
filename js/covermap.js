@@ -56,7 +56,9 @@ function renderCoverMap(fromCat) {
     if (mapMode === "cover") {
       const v = s.curve ? s.curve[m - 1] : null;
       if (v == null) return `<span class="mc"></span>`;
-      return `<span class="mc cov${m === coverTo() ? " to" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} still in your prep after move ${m}`)}"></span>`;
+      // v0.9.53: the number in the cell, and the tip says which gaps take it down by then
+      const gaps = (s.gapsTop || []).filter(g => g.mv <= m).slice(0, 3).map(g => `${g.l} (${pctOf(g.f)})`);
+      return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}${m === coverTo() ? " to" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} of games through it still in your prep after move ${m}.${gaps.length ? ` Biggest gaps by then: ${gaps.join("; ")}.` : ""}`)}">${Math.round(v * 100)}</span>`;
     }
     if (mapMode === "played") {
       // my games through it that were still in my prep at move m
@@ -87,7 +89,7 @@ function renderCoverMap(fromCat) {
   };
   const MODES = { cover: "Coverage", played: "Played", res: "Results" };
   const help = {
-    cover: "Light cells early in a row are where to build next: Gap › in Build goes there first (Move by move).",
+    cover: "Each cell is the % of games through that opening still in your prep after that move. A parent row also counts the gaps that sit above its sub-openings (a reply you have no move for, or haven't prepared), so it can be lower than each of them. Tap a cell for the biggest gaps by then. Light cells early in a row are where to build next: Gap › in Build goes there first.",
     played: "How many of your games through each opening were still in your prep at each move. Where the numbers drop fast is where your games leave your prep.",
     res: "Your score (%) in the games that left your prep at that move. Orange cells are where leaving your prep costs you: worth building that opening deeper, or training it. Tap a cell for the number of games.",
   };

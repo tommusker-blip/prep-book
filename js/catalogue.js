@@ -124,11 +124,20 @@ function catalogueContext(color = S.color) {
     color, R: rep(color), now: Date.now(),
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
     cr: coverShare(color),
-    gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g) }; }); })(),
+    gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g), lbl: gapLabel(g) }; }); })(),
     exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s }])),
     games: ideaGameSets(color),
   };
 }
+// v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
+const CAT_MEMO_V = 3;
+// "No answer to 3…f6" / "No move after 2…Nf6" / "Line ends after 4.Nf3"
+function gapLabel(g) {
+  if (g.opp) return g.text;
+  const p = g.path, last = p.length ? moveLabel(p.slice(0, -1), p[p.length - 1]) : "the start";
+  return g.id.startsWith("m|") ? `No move after ${last}` : `Line ends after ${last}`;
+}
+const CAT_GAPS_TOP = 8;
 const catUnder = (ps, x) => !ps || x === ps || x.startsWith(ps + " ");
 function statNode(c, ctx) {
   const ps = c.path.join(" ");
@@ -150,6 +159,8 @@ function statNode(c, ctx) {
   }
   const avg = a => (a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null);
   c.stats = {
+    // the biggest gaps under it, as a share of it, for the map's tips
+    gapsTop: share > 0 ? under.slice().sort((a, b) => b.f - a.f).slice(0, CAT_GAPS_TOP).map(g => ({ l: g.lbl, f: g.f / share, mv: g.mv })) : [],
     cover: curve[coverTo() - 1], curve, exits: Array.from({ length: COVER_MOVES }, (_, i) => exits[i] || null),
     positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= ctx.now).length,
     games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
@@ -200,7 +211,7 @@ async function renderCatalogue(force) {
   if (!catMemo[sk] && !catLoaded[sk] && typeof IDB !== "undefined") {
     catLoaded[sk] = true;
     if (!box.innerHTML.trim()) box.innerHTML = `<p class="help">Loading your openings…</p>`;
-    try { const saved = await IDB.get(sk); if (saved && saved.v === 2 && saved.root && !catMemo[sk]) catMemo[sk] = saved; } catch (e) { /* worked out below */ }
+    try { const saved = await IDB.get(sk); if (saved && saved.v === CAT_MEMO_V && saved.root && !catMemo[sk]) catMemo[sk] = saved; } catch (e) { /* worked out below */ }
     if (S.view !== "openings" || S.color !== color) return;
   }
   const sig = catSig(color), memo = catMemo[sk];
@@ -228,7 +239,7 @@ function startCatalogueJob(sig, color, sk) {
   drawCatProgress();
   const alive = () => catJob === job;
   const finish = (root, targets) => {
-    const memo = catMemo[sk] = { v: 2, sig, root, targets, at: Date.now() };
+    const memo = catMemo[sk] = { v: CAT_MEMO_V, sig, root, targets, at: Date.now() };
     catJob = null;
     if (typeof IDB !== "undefined") IDB.set(sk, memo).catch(() => {});
     if (S.view === "openings" && catStoreKey(S.color) === sk) { drawCatalogue(root, targets); drawCatProgress(); if (S.otab === "map" && mapView === "map") renderCoverMap(true); }
