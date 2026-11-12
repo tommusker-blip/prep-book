@@ -403,6 +403,11 @@ when it loads; the others just define things.
   the panel is off the bottom, so the rings stay in view.
 - v0.9.59: wording: "your" for my side, "opponent" for theirs, everywhere on screen (see Design). Default book name "Your prep"
   (`bookList()` shows a stored "My prep" as "Your prep").
+- v0.9.60: Lichess data age and tidy-up (explore.js, Settings `#explData`, `renderExplData()`): entries carry `at` (set by
+  `storeExpl()`; undated ones count from first sight); `scanStale()` = tree positions older than `explMaxAge()` months
+  (`S.settings.explMaxAge`, `EXPL_AGES` 0/3/6/12, default 6); `scanTree()` does missing, then a database check for newer
+  copies, then `fetchLichess(..., {force: true})`. Tidy: `repertoireKeys()` (every book, both colours, positions with moves
+  and the positions after them), `explTidyPlan()` / `explTidy()`, `Stash.keys()` / `Stash.del()`; confirms first.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

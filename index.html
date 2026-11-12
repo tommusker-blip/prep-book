@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=block&text=%E2%99%9A%E2%99%9B%E2%99%9C%E2%99%9D%E2%99%9E%E2%99%9F">
-<link rel="stylesheet" href="css/app.css?v=0.9.59">
+<link rel="stylesheet" href="css/app.css?v=0.9.60">
 </head>
 <body>
 
@@ -280,6 +280,7 @@
       <label class="check"><input type="checkbox" id="setAutoImport"> Check chess.com for new games when the app opens (only the latest month is fetched)</label>
       <div class="field"><label for="setToken">Lichess API token</label><input type="text" id="setToken" class="secret" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore><p class="help">Needed for opponent move frequencies and win rates. Create one free at lichess.org/account/oauth/token with no scopes ticked. Saved with your settings, so every device you sign in on uses it.</p></div>
       <div class="field"><span class="lbl" style="margin:0">Lichess rating bands</span><div class="chips" id="bands"></div><p class="help" id="bandHint"></p><p class="help">Lichess ratings usually run higher than chess.com ones. For a 1500–1600 chess.com rapid player, 1600–1999 is a reasonable starting point.</p></div>
+      <div class="field" id="explData"></div>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:14px">
       <h3>Board</h3>
@@ -360,47 +361,47 @@
 <div id="toast" role="status" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/core.js?v=0.9.59"></script>
-<script src="js/openings.js?v=0.9.59"></script>
-<script src="js/book.js?v=0.9.59"></script>
-<script src="js/store.js?v=0.9.59"></script>
-<script src="js/games.js?v=0.9.59"></script>
-<script src="js/evals.js?v=0.9.59"></script>
-<script src="js/stash.js?v=0.9.59"></script>
-<script src="js/decisions.js?v=0.9.59"></script>
-<script src="js/rep.js?v=0.9.59"></script>
-<script src="js/jobs.js?v=0.9.59"></script>
-<script src="js/engine.js?v=0.9.59"></script>
-<script src="js/explore.js?v=0.9.59"></script>
-<script src="js/ideas.js?v=0.9.59"></script>
-<script src="js/rows.js?v=0.9.59"></script>
-<script src="js/gaps.js?v=0.9.59"></script>
-<script src="js/practice.js?v=0.9.59"></script>
-<script src="js/puzzles.js?v=0.9.59"></script>
-<script src="js/report.js?v=0.9.59"></script>
-<script src="js/autobuild.js?v=0.9.59"></script>
-<script src="js/catalogue.js?v=0.9.59"></script>
-<script src="js/doubles.js?v=0.9.59"></script>
-<script src="js/addopening.js?v=0.9.59"></script>
-<script src="js/structures.js?v=0.9.59"></script>
-<script src="js/idealines.js?v=0.9.59"></script>
-<script src="js/focus.js?v=0.9.59"></script>
-<script src="js/treeview.js?v=0.9.59"></script>
-<script src="js/covermap.js?v=0.9.59"></script>
-<script src="js/picture.js?v=0.9.59"></script>
-<script src="js/similar.js?v=0.9.59"></script>
-<script src="js/transpose.js?v=0.9.59"></script>
-<script src="js/funnel.js?v=0.9.59"></script>
-<script src="js/connect.js?v=0.9.59"></script>
-<script src="js/updates.js?v=0.9.59"></script>
-<script src="js/importer.js?v=0.9.59"></script>
-<script src="js/board.js?v=0.9.59"></script>
-<script src="js/build.js?v=0.9.59"></script>
-<script src="js/suggest.js?v=0.9.59"></script>
-<script src="js/train.js?v=0.9.59"></script>
-<script src="js/gamesview.js?v=0.9.59"></script>
-<script src="js/review.js?v=0.9.59"></script>
-<script src="js/settings.js?v=0.9.59"></script>
-<script src="js/app.js?v=0.9.59"></script>
+<script src="js/core.js?v=0.9.60"></script>
+<script src="js/openings.js?v=0.9.60"></script>
+<script src="js/book.js?v=0.9.60"></script>
+<script src="js/store.js?v=0.9.60"></script>
+<script src="js/games.js?v=0.9.60"></script>
+<script src="js/evals.js?v=0.9.60"></script>
+<script src="js/stash.js?v=0.9.60"></script>
+<script src="js/decisions.js?v=0.9.60"></script>
+<script src="js/rep.js?v=0.9.60"></script>
+<script src="js/jobs.js?v=0.9.60"></script>
+<script src="js/engine.js?v=0.9.60"></script>
+<script src="js/explore.js?v=0.9.60"></script>
+<script src="js/ideas.js?v=0.9.60"></script>
+<script src="js/rows.js?v=0.9.60"></script>
+<script src="js/gaps.js?v=0.9.60"></script>
+<script src="js/practice.js?v=0.9.60"></script>
+<script src="js/puzzles.js?v=0.9.60"></script>
+<script src="js/report.js?v=0.9.60"></script>
+<script src="js/autobuild.js?v=0.9.60"></script>
+<script src="js/catalogue.js?v=0.9.60"></script>
+<script src="js/doubles.js?v=0.9.60"></script>
+<script src="js/addopening.js?v=0.9.60"></script>
+<script src="js/structures.js?v=0.9.60"></script>
+<script src="js/idealines.js?v=0.9.60"></script>
+<script src="js/focus.js?v=0.9.60"></script>
+<script src="js/treeview.js?v=0.9.60"></script>
+<script src="js/covermap.js?v=0.9.60"></script>
+<script src="js/picture.js?v=0.9.60"></script>
+<script src="js/similar.js?v=0.9.60"></script>
+<script src="js/transpose.js?v=0.9.60"></script>
+<script src="js/funnel.js?v=0.9.60"></script>
+<script src="js/connect.js?v=0.9.60"></script>
+<script src="js/updates.js?v=0.9.60"></script>
+<script src="js/importer.js?v=0.9.60"></script>
+<script src="js/board.js?v=0.9.60"></script>
+<script src="js/build.js?v=0.9.60"></script>
+<script src="js/suggest.js?v=0.9.60"></script>
+<script src="js/train.js?v=0.9.60"></script>
+<script src="js/gamesview.js?v=0.9.60"></script>
+<script src="js/review.js?v=0.9.60"></script>
+<script src="js/settings.js?v=0.9.60"></script>
+<script src="js/app.js?v=0.9.60"></script>
 </body>
 </html>

@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12n", v: "0.9.60", date: "12 Nov 2026", title: "Lichess data: refreshed when old, and a tidy-up",
+    items: [
+      "Settings > Lichess data: choose how old saved data can get before Scan your tree fetches it again (Never, 3, 6 or 12 months; 6 by default). Data saved before today counts from today.",
+      "A scan still only fetches what's missing; old data is fetched again after that, unless another of your devices has already refreshed it.",
+      "Tidy up deletes the saved Lichess data for positions that aren't in any of your repertoires (removed lines, or positions you only looked at), on this device and in your account. It tells you how many first.",
+    ],
+  },
+  {
     id: "2026-11-12m", v: "0.9.59", date: "12 Nov 2026", title: "Consistent wording: your and opponent",
     items: [
       "The app now always says \"your\" for your side: Scan your tree, Find ideas across your tree, Build your tree from your games, the Your lines tab, Your score, and so on. The default book name is \"Your prep\" (if you'd renamed it, your name stays).",

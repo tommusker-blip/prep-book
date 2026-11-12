@@ -30,11 +30,12 @@ function renderScanBox() {
       <progress max="${Scan.total}" value="${Scan.done}"></progress>`;
     return;
   }
-  const todo = scanTodo().length;
+  const todo = scanTodo().length, old = scanStale().length, n = todo + old;
   box.innerHTML = `<div class="scanrow"><span class="help">${Scan.note ? esc(Scan.note) + " " : ""}${todo
-    ? `${todo} position${todo === 1 ? "" : "s"} in your ${who} repertoire ${todo === 1 ? "has" : "have"} no Lichess data yet.`
+    ? `${todo} position${todo === 1 ? "" : "s"} in your ${who} repertoire ${todo === 1 ? "has" : "have"} no Lichess data yet${old ? `, and ${old} ${old === 1 ? "has data" : "have data"} older than ${explMaxAge()} months` : ""}.`
+    : old ? `${old} position${old === 1 ? "" : "s"} in your ${who} repertoire ${old === 1 ? "has" : "have"} Lichess data older than ${explMaxAge()} months.`
     : `Lichess data is loaded for every position in your ${who} repertoire.`}</span>
-    ${todo ? `<button type="button" class="btn" data-scan>Scan your tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
+    ${n ? `<button type="button" class="btn" data-scan>Scan your tree (about ${Math.max(1, Math.ceil((n * EXPL_GAP) / 60000))} min)</button>` : ""}</div>`;
 }
 
 /* ----- Ideas, one at a time (v0.9.43) -----

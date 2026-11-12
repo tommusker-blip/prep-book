@@ -74,6 +74,33 @@ const Stash = {
     }
     return out;
   },
+  // v0.9.60: every key of a kind (no data), and deleting rows, for the tidy-up in Settings
+  async keys(kind) {
+    const out = [];
+    if (!this.usable()) return out;
+    for (let from = 0; ; from += 1000) {
+      try {
+        const { data, error } = await Store.sb.from("stash").select("key").eq("kind", kind).range(from, from + 999);
+        if (error) throw error;
+        this.table = true;
+        data.forEach(r => out.push(r.key));
+        if (data.length < 1000) break;
+      } catch (e) { if (missingTable(e)) this.table = false; break; }
+    }
+    return out;
+  },
+  async del(kind, keys) {
+    let n = 0;
+    if (!this.usable()) return n;
+    for (let i = 0; i < keys.length; i += 200) {
+      const part = keys.slice(i, i + 200);
+      const { error } = await Store.sb.from("stash").delete().eq("kind", kind).in("key", part);
+      if (error) throw error;
+      n += part.length;
+      part.forEach(k => { this.out.delete(kind + "|" + k); this.missed.add(kind + "|" + k); });
+    }
+    return n;
+  },
   put(kind, key, data) {
     if (!this.usable() || data == null) return;
     this.missed.delete(kind + "|" + key);

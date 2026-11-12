@@ -34,7 +34,14 @@ function cachedExplorer(fen, src = bandKey()) {
   if (d && explTouched++ % 4 === 0) { delete EXPL[k]; EXPL[k] = d; } // now and then, so reads stay cheap
   return d || null;
 }
+/* v0.9.60: each position's data carries when it was fetched (at); a scan re-fetches data older than
+   explMaxAge() months (Settings, default 6; 0 = never). Data saved before this had no date: it counts from
+   when this version first sees it. */
+const EXPL_AGES = [0, 3, 6, 12];
+const explMaxAge = () => (EXPL_AGES.includes(S.settings.explMaxAge) ? S.settings.explMaxAge : 6);
+const explOld = d => { const m = explMaxAge(); return !!m && !!d && Date.now() - (d.at || Date.now()) > m * 30.44 * 864e5; };
 function storeExpl(k, small) {
+  if (!small.at) small.at = Date.now();
   EXPL[k] = small;
   explVer++;
   const keys = Object.keys(EXPL);
@@ -73,7 +80,7 @@ function fetchExplorer(fen, opts = {}) {
 }
 function fetchLichess(fen, src, opts) {
   return Jobs.add("net", async () => {
-    const again = cachedExplorer(fen, src);
+    const again = !opts.force && cachedExplorer(fen, src); // force: re-fetch old data (v0.9.60)
     if (again) return again;
     const wait = explNext - Date.now();
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
@@ -183,26 +190,65 @@ function indexTree(color = S.color) {
 // Fetch explorer data for every position in the tree that has none, most-reached first.
 const Scan = { running: false, stop: false, done: 0, total: 0, note: "", color: "" };
 function scanTodo(color = S.color) { return Object.values(indexTree(color)).filter(p => !cachedExplorer(p.fen)); }
+/* v0.9.60: tidy up. Positions in any prep book's repertoire, either colour: every position with saved moves
+   and the positions those moves lead to (line ends). Lichess data for anything else (lines removed, or
+   positions only looked at in Build, Connect or Routes) can be deleted, here and in the database. */
+function repertoireKeys() {
+  const keep = new Set();
+  for (const book of Object.values(S.books)) for (const color of ["white", "black"]) {
+    const R = book[color];
+    if (!R || !R.pos) continue;
+    for (const [key, n] of Object.entries(R.pos)) {
+      keep.add(key);
+      for (const m of n.m || []) { const f = fenAfter(key + " 0 1", [m]); if (f) keep.add(K(f)); }
+    }
+  }
+  keep.add(K(START));
+  return keep;
+}
+const explPos = k => k.slice(0, k.lastIndexOf("|"));
+// What a tidy would delete: {local: [keys], remote: [keys]} (remote only when signed in)
+async function explTidyPlan() {
+  const keep = repertoireKeys();
+  const local = Object.keys(EXPL).filter(k => !keep.has(explPos(k)));
+  const remote = (await Stash.keys("expl")).filter(k => !keep.has(explPos(k)));
+  return { local, remote, keep: keep.size };
+}
+async function explTidy(plan) {
+  plan.local.forEach(k => delete EXPL[k]);
+  explVer++; clearTimeout(explSaveTimer); lsSet("pb_expl", EXPL);
+  const n = plan.remote.length ? await Stash.del("expl", plan.remote) : 0;
+  return { local: plan.local.length, remote: n };
+}
+// v0.9.60: positions whose data is older than explMaxAge() (a scan fetches them again)
+function scanStale(color = S.color) { return Object.values(indexTree(color)).filter(p => explOld(cachedExplorer(p.fen))); }
 async function scanTree(color = S.color, onTick = () => {}) {
   if (Scan.running) { Scan.stop = true; Scan.note = "Stopping…"; onTick(); return; }
   if (!S.token) { toast("Add a Lichess token in Settings first."); return; }
-  // v0.9.57: what the database already has comes first, in one go; Lichess only for the rest
-  const all = scanTodo(color);
-  Object.assign(Scan, { running: true, stop: false, done: 0, total: all.length, note: "Checking what's saved…", color });
+  // v0.9.57: what the database already has comes first, in one go; Lichess only for the rest.
+  // v0.9.60: then data older than explMaxAge() is fetched again (another device may have done it already).
+  const missing = scanTodo(color), old0 = scanStale(color);
+  Object.assign(Scan, { running: true, stop: false, done: 0, total: missing.length + old0.length, note: "Checking what's saved…", color });
   onTick();
-  const saved = await explPrefetch(all.map(p => p.fen));
-  const todo = scanTodo(color).sort((a, b) => b.reach - a.reach);
-  Object.assign(Scan, { done: saved, total: saved + todo.length, note: "" });
+  let saved = await explPrefetch(missing.map(p => p.fen));
+  if (old0.length && Stash.usable()) {
+    const src = bandKey(), got = await Stash.getMany("expl", old0.map(p => K(p.fen) + "|" + src));
+    for (const [k, d] of got) { const mine = EXPL[k]; if (!explOld(d) && (d.at || 0) > ((mine && mine.at) || 0)) { storeExpl(k, d); saved++; } }
+  }
+  const todo = scanTodo(color).sort((a, b) => b.reach - a.reach), old = scanStale(color).sort((a, b) => b.reach - a.reach);
+  Object.assign(Scan, { done: saved, total: saved + todo.length + old.length, note: "" });
   onTick();
-  for (const p of todo) {
+  const jobs = [...todo.map(p => [p, false]), ...old.map(p => [p, true])];
+  for (const [p, force] of jobs) {
     if (Scan.stop) break;
-    let d = await fetchExplorer(p.fen);
-    if (d.error === "rate") { Scan.note = "Lichess asked for a pause. Waiting a minute…"; onTick(); d = await fetchExplorer(p.fen); }
+    const get = () => (force ? fetchLichess(p.fen, bandKey(), { force: true }) : fetchExplorer(p.fen));
+    let d = await get();
+    if (d.error === "rate") { Scan.note = "Lichess asked for a pause. Waiting a minute…"; onTick(); d = await get(); }
     if (d.error === "auth") { Scan.note = "Lichess rejected the token. Check it in Settings."; break; }
     if (d.error === "net" || d.error === "rate") { Scan.note = "Couldn't reach Lichess. Try again later."; break; }
     Scan.done++; Scan.note = ""; onTick();
   }
-  if (!Scan.note || Scan.note === "Stopping…") Scan.note = Scan.stop ? `Stopped after ${Scan.done} of ${Scan.total}.` : `Fetched ${Scan.done} position${Scan.done === 1 ? "" : "s"}.`;
+  if (!Scan.note || Scan.note === "Stopping…") Scan.note = Scan.stop ? `Stopped after ${Scan.done} of ${Scan.total}.` : `Fetched ${Scan.done} position${Scan.done === 1 ? "" : "s"}${old.length ? ` (${old.length} refreshed)` : ""}.`;
   Scan.running = false; Scan.stop = false;
   clearTimeout(explSaveTimer); lsSet("pb_expl", EXPL);
   onTick(true);
