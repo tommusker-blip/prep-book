@@ -633,7 +633,7 @@ stay in `localStorage` and never go to the database.
     and `settings.gamesEpoch` tells other devices when games were cleared.
   - `0004_evals_table.sql` (G2, applied 2026-11-08): `evals`, Stockfish results by position key.
     Without it, `Evals` does nothing. Sync logic is tested in `tests/sync.html` (fake client).
-  - `0005_stash_table.sql` (v0.9.57, to be applied): `stash`, Lichess data, Find ideas results and idea lines by kind and key.
+  - `0005_stash_table.sql` (v0.9.57, applied 2026-11-12, checked: RLS, 4 policies, trigger): `stash`, Lichess data, Find ideas results and idea lines by kind and key.
     Without it, `Stash` does nothing.
 - Claude Code reaches the database through the claude.ai Supabase connector,
   which has **write** access. Ask before running anything other than reads.
