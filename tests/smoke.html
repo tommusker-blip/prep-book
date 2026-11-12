@@ -208,6 +208,8 @@ f.onload = () => {
       d.querySelector('#picPane path[data-picsun="e4 e5"]').dispatchEvent(new w.MouseEvent("click", { bubbles: true })); await sleep(50);
       L("tap e5: " + txt("#picPane .sunsel") + " | board pieces " + d.querySelectorAll("#picBoard .pc").length);
       for (const c of ["peers", "mine"]) { d.querySelector(`[data-pscolor="${c}"]`).click(); await sleep(20); }
+      d.querySelector('[data-pscolor="mine"]').click(); await sleep(20); d.querySelector('[data-pswho="them"]').click(); await sleep(50);
+      L("tree, they left prep: " + txt("#picPane .sunsel").slice(0, 160)); d.querySelector('[data-pswho="all"]').click(); await sleep(20);
       L("colour modes ok, board still there: " + !!d.querySelector("#picBoard .pc"));
       d.querySelector("#picPane [data-picsunin]").click(); await sleep(50);
       L("zoomed: root=" + G("PIC").sun.root.join(" ") + " arcs " + d.querySelectorAll("#picPane path.sunarc").length);
@@ -266,6 +268,11 @@ f.onload = () => {
       L("opened Italian, visible top entries: " + [...d.querySelectorAll("#catBody > details.cat")].filter(x => x.offsetParent).map(x => x.querySelector(".catname").textContent.trim()).join(" | "));
       d.querySelector('[data-otab="map"]').click(); await sleep(300);
       L("map freq: " + [...d.querySelectorAll("#coverMap .maprow")].slice(0, 4).map(r => (r.querySelector(".mapnm") || r.querySelector(".mapname")).textContent.trim() + " " + ((r.querySelector(".mapfreq") || {}).textContent || "").trim() + " cells " + r.querySelectorAll(".mc").length + " w=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetWidth || 0) + " h=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetHeight || 0)).join(" | "));
+      d.querySelector('[data-mapmode="res"]').click(); await sleep(50);
+      const ends = () => [...d.querySelectorAll("#coverMap .maprow:not(.mhead)")].slice(0, 3).map(r => r.querySelector(".mapend").textContent).join(" ");
+      L("results all: " + ends() + " | who buttons: " + d.querySelectorAll("#coverMap [data-mapwho]").length);
+      for (const w2 of ["me", "them"]) { d.querySelector(`[data-mapwho="${w2}"]`).click(); await sleep(50); L("results " + w2 + ": " + ends()); }
+      d.querySelector('[data-mapwho="all"]').click(); d.querySelector('[data-mapmode="cover"]').click();
       d.querySelector('[data-otab="cat"]').click(); await sleep(100);
       w.eval("renderCatalogue()");
       const again = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));

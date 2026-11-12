@@ -125,12 +125,12 @@ function catalogueContext(color = S.color) {
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
     cr: coverShare(color),
     gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g), lbl: gapLabel(g) }; }); })(),
-    exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s }])),
+    exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s, w: exitWho(x.a.type) }])),
     games: ideaGameSets(color),
   };
 }
 // v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
-const CAT_MEMO_V = 4; // 4 (v0.9.54): gap sizes fixed, so saved results are worked out again
+const CAT_MEMO_V = 5; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep
 // "No answer to 3…f6" / "No move after 2…Nf6" / "Line ends after 4.Nf3"
 function gapLabel(g) {
   if (g.opp) return g.text;
@@ -148,20 +148,20 @@ function statNode(c, ctx) {
   const share = c.path.length ? (ctx.cr[c.key] != null ? ctx.cr[c.key] : 0) : 1;
   for (let m = 1; m <= COVER_MOVES; m++) curve.push(share > 0 ? Math.max(0, Math.min(1, 1 - under.filter(g => g.mv <= m).reduce((s, g) => s + g.f, 0) / share)) : null);
   // My results by the move where my games through it left my prep: [{n, s}] per move
-  const exits = [];
+  const exits = [], byWho = { me: [], them: [] }; // v0.9.55: also split by who left the prep
   const me = c.path.length ? myPosStats(c.key, ctx.color) : null;
   const inb = [], post = [];
   for (const x of ctx.games) {
     if (c.path.length && !x.keys.has(c.key)) continue;
     const ex = ctx.exits.get(x.g.id);
-    if (ex && ex.s != null) { const i = Math.min(COVER_MOVES, ex.mv) - 1, e = exits[i] || (exits[i] = { n: 0, s: 0 }); e.n++; e.s += ex.s; }
+    if (ex && ex.s != null) { const i = Math.min(COVER_MOVES, ex.mv) - 1; for (const arr of [exits, byWho[ex.w]]) if (arr) { const e = arr[i] || (arr[i] = { n: 0, s: 0 }); e.n++; e.s += ex.s; } }
     if (c.path.length && x.a && x.a.v === 2) { if (x.a.inb) inb.push(...x.a.inb); if (x.a.post) post.push(...x.a.post); }
   }
   const avg = a => (a.length ? Math.round(a.reduce((s, v) => s + v, 0) / a.length) : null);
   c.stats = {
     // the biggest gaps under it, as a share of it, for the map's tips
     gapsTop: share > 0 ? under.slice().sort((a, b) => b.f - a.f).slice(0, CAT_GAPS_TOP).map(g => ({ l: g.lbl, f: g.f / share, mv: g.mv })) : [],
-    cover: curve[coverTo() - 1], curve, exits: Array.from({ length: COVER_MOVES }, (_, i) => exits[i] || null),
+    cover: curve[coverTo() - 1], curve, exits: Array.from({ length: COVER_MOVES }, (_, i) => exits[i] || null), exitsMe: Array.from({ length: COVER_MOVES }, (_, i) => byWho.me[i] || null), exitsThem: Array.from({ length: COVER_MOVES }, (_, i) => byWho.them[i] || null),
     positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= ctx.now).length,
     games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
     accIn: avg(inb), accOut: avg(post),

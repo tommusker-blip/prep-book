@@ -15,6 +15,7 @@
 const MAP_MOVES = 12;
 const mapOpen = new Set();
 let mapMode = "cover";
+let mapWho = "all"; // v0.9.55: Played / Results over all games, or only where I / they left the prep
 const todayStr = () => new Date().toISOString().slice(0, 10);
 function noteProgress(color, st) {
   if (!st || st.cover == null) return;
@@ -45,12 +46,15 @@ function renderCoverMap(fromCat) {
   if (!root.children.length) { box.innerHTML = `<p class="help">Nothing in your ${C} repertoire yet.</p>`; return; }
   const cols = Array.from({ length: MAP_MOVES }, (_, i) => i + 1);
   const short = n => (n >= 1000 ? Math.round(n / 1000) + "k" : String(n));
+  // v0.9.55: the exits for the games chosen (all, or where I / they left the prep)
+  const exitsOf = s => (mapWho === "me" ? s.exitsMe : mapWho === "them" ? s.exitsThem : s.exits);
+  const whoScore = s => { const t = (exitsOf(s) || []).reduce((a, e) => (e ? { n: a.n + e.n, s: a.s + e.s } : a), { n: 0, s: 0 }); return t.n ? t.s / t.n : null; };
   // My games through an entry by the move they left my prep: the last column takes the rest
   const exitAt = (s, m) => {
-    const ex = s.exits || [], list = m < MAP_MOVES ? [ex[m - 1]] : ex.slice(m - 1);
+    const ex = exitsOf(s) || [], list = m < MAP_MOVES ? [ex[m - 1]] : ex.slice(m - 1);
     return list.reduce((a, e) => (e ? { n: a.n + e.n, s: a.s + e.s } : a), { n: 0, s: 0 });
   };
-  const totalOf = s => (s.exits || []).reduce((a, e) => a + (e ? e.n : 0), 0);
+  const totalOf = s => (exitsOf(s) || []).reduce((a, e) => a + (e ? e.n : 0), 0);
   const cell = (c, m) => {
     const s = c.stats || {};
     if (mapMode === "cover") {
@@ -83,7 +87,7 @@ function renderCoverMap(fromCat) {
   const row = (c, depth, label, top) => {
     const ps = c.path.join(" "), kids = !top && c.children && c.children.length && depth < 2, open = mapOpen.has(ps);
     const s = c.stats || {};
-    const end = mapMode === "cover" ? (s.cover == null ? "–" : pctOf(s.cover)) : mapMode === "played" ? short(totalOf(s)) : (s.score == null ? "–" : pctOf(s.score));
+    const end = mapMode === "cover" ? (s.cover == null ? "–" : pctOf(s.cover)) : mapMode === "played" ? short(totalOf(s)) : mapWho === "all" ? (s.score == null ? "–" : pctOf(s.score)) : (whoScore(s) == null ? "–" : pctOf(whoScore(s)));
     return `<div class="maprow d${depth}"><button type="button" class="mapname" ${kids ? `data-mapopen="${esc(ps)}" aria-expanded="${open}"` : "disabled"}>${kids ? `<span class="caret">${open ? "▾" : "▸"}</span>` : ""}<span class="mapnm">${esc(label || c.label)}</span>${freqCell(c, top)}</button>${cols.map(m => cell(c, m)).join("")}<span class="mapend">${end}</span></div>`
       + (kids && open ? c.children.map(k => row(k, depth + 1)).join("") : "");
   };
@@ -96,12 +100,13 @@ function renderCoverMap(fromCat) {
   box.innerHTML = `<h3>Your openings, move by move ${info("One row per opening, with how often you meet it (freq) next to its name, one cell per move. Coverage: how much of what you'll meet at your level through that opening is still in your prep after each move; darker is more, and the outlined column is the move coverage is counted to (Settings > Building your tree). Played: how many of your own games through that opening were still in your prep at each move. Results: your score in the games that left your prep at that move, blue where you scored well, orange where you scored badly, fainter on few games. The last column takes move 12 and later. Tap a cell for its numbers, and an opening's name for its branches.", "About this view")}</h3>
     ${progressLine(S.color)}
     <div class="seg small" role="group" aria-label="Show">${Object.entries(MODES).map(([k, t]) => `<button type="button" data-mapmode="${k}" aria-pressed="${mapMode === k}">${t}</button>`).join("")}</div>
+    ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "I left prep"], ["them", "They left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
     <div class="covmap ${mapMode}" style="--cols:${MAP_MOVES}">
       <div class="maprow mhead"><span class="mapname"><span class="mapnm">Move</span><span class="mapfreq">freq ${info("How often you meet this opening: the share of games at your level that reach it when you play your moves (Lichess). Your own games through it are under Played.", "About frequency")}</span></span>${cols.map(m => `<span class="mc mn${m === coverTo() && mapMode === "cover" ? " to" : ""}">${m}${m === MAP_MOVES ? "+" : ""}</span>`).join("")}<span class="mapend">${mapMode === "cover" ? `to ${coverTo()}` : mapMode === "played" ? "games" : "score"}</span></div>
       ${row(root, 0, `All your ${C} openings`, true)}
       ${root.children.map(c => row(c, 0)).join("")}
     </div>
-    <p class="help">${help[mapMode] || help.cover}</p>`;
+    <p class="help">${help[mapMode] || help.cover}${mapMode !== "cover" && mapWho !== "all" ? ` Only your games where ${mapWho === "me" ? "you left your prep: a mistake, or a choice of yours" : "your opponent left your prep with a move you hadn't prepared"}.` : ""}</p>`;
 }
 
 /* v0.9.39: the Visualise tab (was Map) also holds the pictures (picture.js): one switch between the opening map,
@@ -119,4 +124,5 @@ function renderMapTab() {
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("mapview", d => { mapView = d.mapview; renderMapTab(); }, true);
 onClick("mapmode", d => { mapMode = d.mapmode; renderCoverMap(); }, true);
+onClick("mapwho", d => { mapWho = d.mapwho; renderCoverMap(); }, true);
 onClick("mapopen", d => { if (mapOpen.has(d.mapopen)) mapOpen.delete(d.mapopen); else mapOpen.add(d.mapopen); renderCoverMap(); }, true);

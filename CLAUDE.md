@@ -374,6 +374,9 @@ when it loads; the others just define things.
 - v0.9.54: `findGaps()` sized a reply met only in my games (under 3% on Lichess, so not in `cand` from the explorer)
   as `games × 0.02` of ALL games, unscaled by reach; a much-played line (King's Gambit) lost all coverage. Now
   `reach × oppShare()` (Lichess share, 1% if unlisted; else share of my games there). `CAT_MEMO_V` = 4.
+- v0.9.55: who left the prep: `exitWho()` (rep.js; me = misplay / you_new, them = opp_new), `myPosStatsBy(key, color, who)`
+  (memo on the `analysis()` list). Tree: `PIC.sun.who` (`data-pswho`). Map: `mapWho` (`data-mapwho`) picks `stats.exits` /
+  `exitsMe` / `exitsThem` for Played and Results (`CAT_MEMO_V` = 5).
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's

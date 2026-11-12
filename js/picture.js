@@ -13,7 +13,7 @@
    Classic script: shares one global scope with the others (see index.html for the load order). */
 const PIC = {
   view: "tree",
-  sun: { root: [], stack: [], sel: null, color: "mine" },
+  sun: { root: [], stack: [], sel: null, color: "mine", who: "all" },
   st: { move: 12, by: false },
 };
 const PIC_RINGS = 8;
@@ -57,7 +57,7 @@ function sunArcs(color, rootPath) {
     kids.forEach((k, i) => {
       const w = span * Math.min(shares[i], 1), p = path.concat(k.san);
       const mv = ex && ex.moves.find(m => m.san === k.san);
-      out.push({ d, a0: a, a1: a + w, san: k.san, path: p, key: k.key, mine, games: myPosStats(k.key, color), peer: mv ? scoreFor(mv, color) : null, peerN: mv ? mv.n : 0 });
+      out.push({ d, a0: a, a1: a + w, san: k.san, path: p, key: k.key, mine, games: myPosStatsBy(k.key, color, PIC.sun.who), peer: mv ? scoreFor(mv, color) : null, peerN: mv ? mv.n : 0 });
       const s2 = new Set(seen); s2.add(k.key);
       rec(k.key, p, a, a + w, d + 1, s2);
       a += w;
@@ -74,6 +74,8 @@ function arcPath(a0, a1, r0, r1) {
   return `M${pt(r1, a0)}A${r1} ${r1} 0 ${big} 1 ${pt(r1, a1)}L${pt(r0, a1)}A${r0} ${r0} 0 ${big} 0 ${pt(r0, a0)}Z`;
 }
 const SUN_COLOURS = [["mine", "My score"], ["peers", "Peers' score"]];
+// v0.9.55: my score over all my games, or only those where I left my prep, or only those where the opponent did
+const WHO_OPTS = [["all", "All games"], ["me", "I left prep"], ["them", "They left prep"]];
 function renderSun(color) {
   const o = PIC.sun;
   let arcs = sunArcs(color, o.root);
@@ -115,14 +117,14 @@ function renderSun(color) {
     const name = (openingFor(a.path) || {}).name, kids = arcs.some(x => x.d === a.d + 1 && x.path.slice(0, a.path.length).join(" ") === sel);
     side = `<div class="sunsel"><div id="picBoard" class="board aoboard" aria-label="The position"></div>
       <p><b class="mono">${esc(numbered(0, a.path))}</b>${name ? `<br><span class="help">${esc(name)}</span>` : ""}</p>
-      <p class="help">My games: ${a.games && a.games.n ? `${a.games.n}, I score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at my level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, my side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
+      <p class="help">My games${o.who !== "all" ? ` where ${o.who === "me" ? "I" : "they"} left prep` : ""}: ${a.games && a.games.n ? `${a.games.n}, I score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at my level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, my side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
       <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div>`;
   }
   const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games." }[o.color] || "";
-  return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}</div>
+  return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}${o.color === "mine" ? picSeg("pswho", o.who, WHO_OPTS, "Which games") : ""}</div>
     ${o.root.length ? `<p class="help">From <b>${esc(rootName)}</b>. Tap the centre to back out.</p>` : ""}
     <div class="conwrap"><div class="sunwrap">${svg}</div>${side}</div>
-    <p class="help">${key} Each ring is a move; a slice is as wide as how often you get there. Hatched: replies you haven't prepared. Score counts a draw as half.</p>`;
+    <p class="help">${key}${o.color === "mine" && o.who !== "all" ? ` Only your games where ${o.who === "me" ? "you left your prep (a mistake, or a choice of yours)" : "your opponent left your prep (a move you hadn't prepared)"}.` : ""} Each ring is a move; a slice is as wide as how often you get there. Hatched: replies you haven't prepared. Score counts a draw as half.</p>`;
 }
 // The board for the slice tapped (re-made after each redraw, like Connect's)
 let PB = null;
@@ -562,6 +564,7 @@ function renderPicture() {
 
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("pscolor", d => { PIC.sun.color = d.pscolor; renderPicture(); }, true);
+onClick("pswho", d => { PIC.sun.who = d.pswho; renderPicture(); }, true);
 onClick("picsunin", d => { PIC.sun.stack.push(PIC.sun.root); PIC.sun.root = d.picsunin.split(" "); PIC.sun.sel = null; renderPicture(); }, true);
 onClick("pstmove", d => { PIC.st.move = Math.max(ST_MOVES[0], Math.min(ST_MOVES[ST_MOVES.length - 1], +d.pstmove)); renderPicture(); }, true);
 onClick("pstby", d => { PIC.st.by = d.pstby === "by"; renderPicture(); }, true);

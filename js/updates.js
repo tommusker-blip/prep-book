@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12i", v: "0.9.55", date: "12 Nov 2026", title: "Results by who left the prep",
+    items: [
+      "Visualise > Tree (My score) and Move by move (Played and Results) have a new switch: All games, I left prep, They left prep.",
+      "I left prep: games where you played something other than your prep, or had no move ready (a mistake, or your own choice). They left prep: games where your opponent played a move you hadn't prepared. Games that stayed in your prep, or reached the end of it, count only under All games.",
+    ],
+  },
+  {
     id: "2026-11-12h", v: "0.9.54", date: "12 Nov 2026", title: "Coverage fixed for lines you play a lot",
     items: [
       "Fixed: a reply you'd met in your own games but that's rare at your level counted as 2% of all your games for every game you'd met it, whatever the line. In an opening you play a lot, such as the King's Gambit, these added up to more than the whole opening, so its coverage dropped to 0 by move 4.",

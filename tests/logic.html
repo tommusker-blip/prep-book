@@ -1053,6 +1053,15 @@ t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
   eq(setupSim(a, same), 1, "the same position by another order");
   eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
 });
+t("my score split by who left the prep (v0.9.55)", () => {
+  reset(); S.color = "white";
+  line("white", "e4 e5 Nf3 Nc6 Bc4");
+  S.games = [["a", "e4 e5 Nf3 Nc6 Bb5 a6", "1-0"], ["b", "e4 e5 Nf3 d6 d4", "0-1"], ["c", "e4 e5 Nf3 Nc6 Bc4 Bc5", "1/2-1/2"]].map(([id, moves, result]) => ({ id, my: "white", tc: "rapid", result, moves, white: "me", black: "x" }));
+  S.games.forEach(g => gameKeys(g)); touchData();
+  const k = K(fenOf("e4 e5")), str = o => o ? `${o.n} ${o.w}/${o.d}/${o.l}` : "none";
+  eq([str(myPosStatsBy(k, "white", "all")), str(myPosStatsBy(k, "white", "me")), str(myPosStatsBy(k, "white", "them"))].join(" | "), "3 1/1/1 | 1 1/0/0 | 1 0/0/1", "all; I left (3.Bb5 instead of 3.Bc4); they left (2...d6)");
+  S.games = []; touchData(); reset();
+});
 t("gaps: a rare reply met in my games is sized by how often I get there (v0.9.54)", () => {
   reset(); resetEx(); S.color = "white";
   line("white", "e4 e5 f4 exf4 Nf3");

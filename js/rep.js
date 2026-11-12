@@ -313,6 +313,27 @@ function myStats(color = S.color) {
 const myPosStats = (key, color = S.color) => myStats(color).pos[key] || null;
 const myMoveStats = (key, san, color = S.color) => ((myStats(color).mv[key] || {})[san]) || null;
 const wdlScore = o => (o && o.n ? (o.w + o.d / 2) / o.n : null);
+/* v0.9.55: the same, over only the games where I left my prep (a misplay, or no move ready: a mistake or a
+   choice of mine) or only those where the opponent did (a move I hadn't prepared). Games that stayed in prep or
+   reached the end of my tree count only under "all". By analyseGame() against the tree as it is now. */
+const EXIT_WHO = { me: ["misplay", "you_new"], them: ["opp_new"] };
+const exitWho = t => (EXIT_WHO.me.includes(t) ? "me" : EXIT_WHO.them.includes(t) ? "them" : "");
+let myByMemo = {};
+function myPosStatsBy(key, color = S.color, who = "all") {
+  if (who === "all" || !EXIT_WHO[who]) return myPosStats(key, color);
+  const list = analysis(color), id = color + "|" + who;
+  let m = myByMemo[id];
+  if (!m || m.list !== list) {
+    const pos = {};
+    for (const { g, a } of list) {
+      if (exitWho(a.type) !== who || !GAMEKEYS.has(g.id)) continue;
+      const s = myScore(g), seen = new Set();
+      for (const key of GAMEKEYS.get(g.id)) { if (seen.has(key)) continue; seen.add(key); wdlAdd(pos[key] || (pos[key] = newWdl()), s); }
+    }
+    m = myByMemo[id] = { list, pos };
+  }
+  return m.pos[key] || null;
+}
 
 // Opponent replies seen in games at positions inside the tree: key -> san -> count
 function oppSeen(color = S.color) {
