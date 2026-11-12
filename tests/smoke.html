@@ -217,6 +217,7 @@ f.onload = () => {
       L("centre: " + [...d.querySelectorAll("#picPane .sttile2")].map(t => t.querySelector(".stname").textContent.trim() + " " + t.querySelector(".stbig").textContent).join(", "));
       L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" "));
       L("structures: " + [...d.querySelectorAll("#picPane .stcombo")].map(c => c.querySelector(".stctext").textContent + " = " + c.querySelector(".stm b").textContent).join(" | ") + " | example buttons " + d.querySelectorAll("#picPane .stcombo [data-review]").length);
+      L("file table scores: " + [...d.querySelectorAll("#picPane .stfeat .stsc")].slice(0, 4).map(s => s.textContent).join(" "));
       L("mini boards: " + d.querySelectorAll("#picPane .stcombo .board.mini").length + " of " + d.querySelectorAll("#picPane .stcombo").length + " cards, pieces on the first " + d.querySelectorAll("#picPane .board.mini")[0].querySelectorAll(".pc").length);
       // v0.9.43: Example opens the game at the structure's move, playing the moves up to it
       const exb = d.querySelector("#picPane .stcombo [data-review]"), at = +exb.dataset.rvat;

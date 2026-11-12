@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12e", v: "0.9.51", date: "12 Nov 2026", title: "More kinds of mistake, and scores by file",
+    items: [
+      "Structures, What happens next: up to 3 kinds of mistake (each in at least 2 games), with the rest counted as other kinds. Tap a kind to open a game at that mistake.",
+      "Each indicator by file: every cell shows your score under the frequency, blue or orange when it's better or worse than your average (faint on fewer than 5 games).",
+    ],
+  },
+  {
     id: "2026-11-12d", v: "0.9.50", date: "12 Nov 2026", title: "Clearer kinds of mistake",
     items: [
       "Structures, What happens next: captures now say what took what: pawn takes pawn, pawn takes a piece, a piece takes a pawn, or piece takes piece.",

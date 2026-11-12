@@ -341,7 +341,7 @@ function stFams(d, c, move) {
      the most common kind (a pawn move on a wing or in the centre, a capture, or a piece's move);
    - the change: the feature that most often appears ST_NEXT_MOVES moves later, with my score then.
    Only analysed games count for the mistakes. */
-const ST_NEXT_PLIES = 12, ST_NEXT_MOVES = 4;
+const ST_NEXT_PLIES = 12, ST_NEXT_MOVES = 4, ST_KIND_MIN = 2, ST_KINDS = 3;
 function stMistakes(list, color, move) {
   const sg = color === "white" ? 1 : -1, from = 2 * move, A = adv();
   let n = 0, hit = 0;
@@ -362,7 +362,8 @@ function stMistakes(list, color, move) {
       break;
     }
   }
-  return { n, hit, top: [...kinds.values()].sort((a, b) => b.n - a.n)[0] || null };
+  const sorted = [...kinds.values()].sort((a, b) => b.n - a.n);
+  return { n, hit, kinds: sorted, top: sorted[0] || null };
 }
 /* The kind of a mistake, from the move itself (what was moved, not why it was bad). v0.9.50: captures
    say what took what, from the board before the move (keyBefore: GAMEKEYS, so up to move 20):
@@ -391,7 +392,13 @@ function stNext(d, c, color, move) {
   if (m.n >= 3) {
     const rate = m.hit / m.n, base = all.n ? all.hit / all.n : null;
     let t = `<b>${m.hit} of ${m.n}</b> analysed games had a mistake of yours in the next ${ST_NEXT_PLIES / 2} moves${base != null ? ` <span class="muted">(${pctOf(rate)}, against ${pctOf(base)} in all your games here)</span>` : ""}`;
-    if (m.top && m.top.n >= 2) { t += `; most often <b>${esc(m.top.kind)}</b> (${m.top.n})`; ex = m.top.ex; }
+    // v0.9.51: every kind in at least ST_KIND_MIN games, up to ST_KINDS, each opening one of its games at the mistake
+    const top = m.kinds.filter(k => k.n >= ST_KIND_MIN).slice(0, ST_KINDS);
+    if (top.length) {
+      ex = top[0].ex;
+      const rest = m.hit - top.reduce((s, k) => s + k.n, 0);
+      t += `. Most often: ${top.map(k => `<button type="button" class="linkish" data-review="${esc(k.ex.id)}" data-rvat="${k.ex.ply}" aria-label="${esc(`Show a game with ${k.kind}`)}"><b>${esc(k.kind)}</b></button> (${k.n})`).join(", ")}${rest ? `, other kinds (${rest})` : ""}`;
+    }
     lines.push(t + ".");
   }
   const later = move + ST_NEXT_MOVES;
@@ -484,13 +491,15 @@ function renderStructures(color) {
     const c = d.centre[k];
     return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;
   }).join("");
+  // v0.9.51: my score in each cell too, under the frequency: blue / orange against my average, faint on fewer than 5 games
+  const scoreOf = c => !c.n ? "" : `<small class="stsc ${stTone(c, d)}${c.n < 5 ? " few" : ""}">${Math.round((c.sum / c.n) * 100)}%</small>`;
   const table = (who, title) => `<div class="stfeat"><p class="lbl">${title}</p>
     <div class="stfrow sthead"><span></span><span>Any</span>${[..."abcdefgh"].map(f => `<span>${f}</span>`).join("")}</div>
     ${FEATS.map(([k, name]) => {
       const row = d[who][k], max = Math.max(1, ...row.files.map(c => c.n));
       return `<div class="stfrow"><span class="stfname">${name} ${info(FEAT_HELP[k], "About " + name.toLowerCase())}</span>
-        <span class="stany ${stTone(row.any, d)}" data-tip="${esc(`${title}: ${name.toLowerCase()} pawns in ${row.any.n} of ${d.n} games at move ${mv}; ${stScore(row.any, d).replace(/<[^>]+>/g, "")}`)}"><b>${share(row.any)}</b></span>
-        ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}">${Math.round((c.n / d.n) * 100)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
+        <span class="stany ${stTone(row.any, d)}" data-tip="${esc(`${title}: ${name.toLowerCase()} pawns in ${row.any.n} of ${d.n} games at move ${mv}; ${stScore(row.any, d).replace(/<[^>]+>/g, "")}`)}"><b>${share(row.any)}</b>${scoreOf(row.any)}</span>
+        ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}"><span>${Math.round((c.n / d.n) * 100)}</span>${scoreOf(c)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
     }).join("")}</div>`;
   const list = (title, rows, help) => rows.length ? `<p class="lbl">${title}</p>${help ? `<p class="help">${help}</p>` : ""}<div class="stcombos">${rows.map(comboRow).join("")}</div>` : "";
   return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">games reached move ${mv}; you scored ${pctOf(d.avg)}</span></p>
@@ -499,7 +508,7 @@ function renderStructures(color) {
     ${list("Where you score best", cb.best)}
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
     <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
-      <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>`;
+      <p class="help">Top: the share of your games (%) with each at move ${mv}, by file (a to h). Under it: your score in those games, blue / orange when better / worse than your ${pctOf(d.avg)} average, faint on fewer than 5 games. Tap a cell for the numbers.</p></details>`;
 }
 // The shares from move 4 to 20: when structures form
 function structByMove(color) {

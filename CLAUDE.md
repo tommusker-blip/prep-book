@@ -372,6 +372,8 @@ when it loads; the others just define things.
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's
   moves, castling, or captures by what took what (board from `gameKeys()` before the move). `ST_MISTAKE_HELP` is the ⓘ.
+- v0.9.51: `stMistakes()` returns `kinds` (sorted); What happens next lists up to `ST_KINDS` with ≥ `ST_KIND_MIN` games,
+  each a `data-review` link at its mistake. The by-file table shows my score under each share (`scoreOf()`, `.stsc`).
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

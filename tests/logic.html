@@ -669,6 +669,8 @@ t("pawn structures: the ones costing me most, and where they come from (v0.9.42)
   picMemo.clear();
   const d2 = structAt("white", 6), a2 = stAttention(d2, "white", 6)[0], nx = stNext(d2, a2.c, "white", 6);
   eq(/12 of 12/.test(nx.html) && /knight moves/.test(nx.html), true, "mistakes and their kind: " + nx.html.replace(/<[^>]+>/g, ""));
+  eq(/Most often: .*data-review=.*knight moves/.test(nx.html), true, "each kind opens a game at its mistake (v0.9.51)");
+  eq(stMistakes(d2.games, "white", 6).kinds.map(k => k.kind + " " + k.n).join(), "knight moves 12", "all the kinds, most first");
   eq(nx.ex && nx.ex.ply, 12, "a mistake to show");
   // v0.9.50: captures say what took what
   const kAt = moves => K(fenOf(moves));
