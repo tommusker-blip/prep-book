@@ -369,6 +369,12 @@ when it loads; the others just define things.
     hides an open entry's siblings and an open child's parent body (everything but `.catkids`).
   - Map: `freqCell()` (`.mapfreq`) = the entry's `reach`. v0.9.52: it sits inside the name button (`.mapnm` + `.mapfreq`), not a
     column: an extra grid column squeezed the move cells on phones. The view is labelled "Move by move".
+  - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
+    ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
+- v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's
+  moves, castling, or captures by what took what (board from `gameKeys()` before the move). `ST_MISTAKE_HELP` is the ⓘ.
+- v0.9.51: `stMistakes()` returns `kinds` (sorted); What happens next lists up to `ST_KINDS` with ≥ `ST_KIND_MIN` games,
+  each a `data-review` link at its mistake. The by-file table shows my score under each share (`scoreOf()`, `.stsc`).
 - v0.9.53: Coverage cells show their number; `stats.gapsTop` (catalogue memo format `CAT_MEMO_V` = 3, older saved
   results are recomputed) holds each entry's biggest gaps (`gapLabel()`, share of the entry), listed in the cell tip.
 - v0.9.54: `findGaps()` sized a reply met only in my games (under 3% on Lichess, so not in `cand` from the explorer)
@@ -393,12 +399,6 @@ when it loads; the others just define things.
   - `js/decisions.js`: `Decide` keeps Connect (`con`) and Ideas (`sug`) decisions in `S.settings.decisions` with times in
     `S.settings.decidedAt` (synced); `pb_conskip`/`pb_sugskip` merged in once. `decisionsHtml()` lists them with Bring back
     (`data-conback`, `data-sugback`, `*` = all); `Decide.sig()` in `conCompute()`'s signature. The user wants decisions revisited.
-  - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
-    ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
-- v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's
-  moves, castling, or captures by what took what (board from `gameKeys()` before the move). `ST_MISTAKE_HELP` is the ⓘ.
-- v0.9.51: `stMistakes()` returns `kinds` (sorted); What happens next lists up to `ST_KINDS` with ≥ `ST_KIND_MIN` games,
-  each a `data-review` link at its mistake. The by-file table shows my score under each share (`scoreOf()`, `.stsc`).
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
