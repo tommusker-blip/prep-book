@@ -367,7 +367,8 @@ when it loads; the others just define things.
     `stFamsLine()` lists only families with ≥ `ST_FAM_MIN` games and ≥ `ST_FAM_SHARE` of the set, "N other".
   - Catalogue: `.catname` spans the summary row (`grid-column: 2 / -1`), `.catmv` + Covered + Score below. CSS `:has()`
     hides an open entry's siblings and an open child's parent body (everything but `.catkids`).
-  - Map: `freqCell()` (`.covmap.withfreq`, `.mapfreq`) = the entry's `reach`.
+  - Map: `freqCell()` (`.mapfreq`) = the entry's `reach`. v0.9.52: it sits inside the name button (`.mapnm` + `.mapfreq`), not a
+    column: an extra grid column squeezed the move cells on phones. The view is labelled "Move by move".
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's

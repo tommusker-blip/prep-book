@@ -265,7 +265,7 @@ f.onload = () => {
       it.open = true; await sleep(50);
       L("opened Italian, visible top entries: " + [...d.querySelectorAll("#catBody > details.cat")].filter(x => x.offsetParent).map(x => x.querySelector(".catname").textContent.trim()).join(" | "));
       d.querySelector('[data-otab="map"]').click(); await sleep(300);
-      L("map freq: " + [...d.querySelectorAll("#coverMap .maprow")].slice(0, 4).map(r => r.querySelector(".mapname").textContent.trim() + " " + r.querySelector(".mapfreq").textContent.trim()).join(" | "));
+      L("map freq: " + [...d.querySelectorAll("#coverMap .maprow")].slice(0, 4).map(r => (r.querySelector(".mapnm") || r.querySelector(".mapname")).textContent.trim() + " " + ((r.querySelector(".mapfreq") || {}).textContent || "").trim() + " cells " + r.querySelectorAll(".mc").length + " w=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetWidth || 0) + " h=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetHeight || 0)).join(" | "));
       d.querySelector('[data-otab="cat"]').click(); await sleep(100);
       w.eval("renderCatalogue()");
       const again = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));

@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12f", v: "0.9.52", date: "12 Nov 2026", title: "Move by move map fixed",
+    items: [
+      "Visualise: the openings map's cells are back to their proper shape. The Freq column squeezed them on phones; how often you meet each opening now sits at the end of its name instead.",
+      "The view is renamed Move by move (\"Your openings, move by move\"), since it shows each opening's coverage, games and results move by move.",
+    ],
+  },
+  {
     id: "2026-11-12e", v: "0.9.51", date: "12 Nov 2026", title: "More kinds of mistake, and scores by file",
     items: [
       "Structures, What happens next: up to 3 kinds of mistake (each in at least 2 games), with the rest counted as other kinds. Tap a kind to open a game at that mistake.",

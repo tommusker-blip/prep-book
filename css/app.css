@@ -318,7 +318,7 @@ div.gap-row{cursor:default}
 .covmap{display:flex;flex-direction:column;gap:2px;margin:10px 0 6px}
 .maprow{display:grid;grid-template-columns:minmax(7rem,1fr) repeat(var(--cols),minmax(12px,20px)) 2.6rem;gap:2px;align-items:center}
 .maprow.mhead{font-size:.66rem;color:var(--muted);font-weight:600}
-.mapname{border:0;background:none;font:inherit;font-size:.8rem;text-align:left;color:inherit;padding:4px 2px;min-height:30px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.mapname{border:0;background:none;font:inherit;font-size:.8rem;text-align:left;color:inherit;padding:4px 2px;min-height:30px;overflow:hidden;white-space:nowrap;cursor:pointer;display:flex;align-items:center;min-width:0}
 .mapname:disabled{cursor:default;color:inherit}
 .mhead .mapname{min-height:0;font-size:.66rem}
 .maprow.d1 .mapname{padding-left:14px;color:var(--muted)}
@@ -334,8 +334,8 @@ div.gap-row{cursor:default}
 .mc.res{opacity:var(--o)}
 .mc.res.hi{background:var(--good)} .mc.res.lo{background:var(--bad)} .mc.res.mid{background:var(--muted)}
 .mapend{font-family:var(--f-mono);font-size:.74rem;text-align:right}
-.covmap.withfreq .maprow{grid-template-columns:minmax(7rem,1fr) 2.6rem repeat(var(--cols),minmax(12px,20px)) 2.6rem}
-.mapfreq{font-family:var(--f-mono);font-size:.74rem;text-align:right;white-space:nowrap}
+.mapfreq{flex:none;margin-left:auto;padding-left:4px;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);font-weight:400}
+.mapnm{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* pictures of the repertoire (picture.js) */
 .picviews{margin:6px 0 4px;overflow-x:auto}
 .picctl{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
