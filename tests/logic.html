@@ -1053,6 +1053,17 @@ t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
   eq(setupSim(a, same), 1, "the same position by another order");
   eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
 });
+t("coverage: positions without Lichess data are marked unknown (v0.9.56)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "e4 d5 d4 dxe4 Nc3 Nf6 f3 exf3 Nxf3");
+  setEx("e4", 1000, 450, 100, 450, [mv("e5", 600, 270, 60, 270), mv("d5", 400, 180, 40, 180)]);
+  const u = catUnknown("white");
+  eq(u.map(x => x.ps + " @" + x.mv).join(), "e4 d5 d4 @2", "only the shallowest position without data counts; the rest is under it");
+  eq(Math.round(u[0].f * 100), 40, "its share: 1...d5 is 40% here");
+  setEx("e4 d5 d4", 1000, 450, 100, 450, [mv("dxe4", 700, 300, 70, 330), mv("e6", 300, 150, 30, 120)]);
+  eq(catUnknown("white").map(x => x.ps).join(), "e4 d5 d4 dxe4 Nc3", "once it has data, the next one down without data");
+  reset(); resetEx();
+});
 t("my score split by who left the prep (v0.9.55)", () => {
   reset(); S.color = "white";
   line("white", "e4 e5 Nf3 Nc6 Bc4");

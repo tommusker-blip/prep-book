@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12j", v: "0.9.56", date: "12 Nov 2026", title: "Coverage you can trust: unknown positions marked",
+    items: [
+      "Coverage can only find gaps where it knows which replies players at your level make (Lichess data on this device). Where a position had no data, nothing after it counted as missing, so a line could show 100% to move 12.",
+      "Now Move by move marks those cells with a ? and a dashed edge when 10% or more of the games through them reach positions without data. Tap one for how much.",
+      "Above the map: how many of your positions have no data, with Scan my tree to fetch it. The map is worked out again when the scan is done.",
+    ],
+  },
+  {
     id: "2026-11-12i", v: "0.9.55", date: "12 Nov 2026", title: "Results by who left the prep",
     items: [
       "Visualise > Tree (My score) and Move by move (Played and Results) have a new switch: All games, I left prep, They left prep.",

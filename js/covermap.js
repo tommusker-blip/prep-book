@@ -15,6 +15,7 @@
 const MAP_MOVES = 12;
 const mapOpen = new Set();
 let mapMode = "cover";
+const UNK_SHOW = 0.1; // v0.9.56: mark coverage cells where this share or more has no Lichess data
 let mapWho = "all"; // v0.9.55: Played / Results over all games, or only where I / they left the prep
 const todayStr = () => new Date().toISOString().slice(0, 10);
 function noteProgress(color, st) {
@@ -35,6 +36,14 @@ function progressLine(color) {
   if (!old) return `<p class="possum">Covered to move ${coverTo()}: <b>${pctOf(now.c)}</b> across your ${color === "white" ? "White" : "Black"} openings, ${now.n} of your moves.</p>`;
   const dc = Math.round((now.c - old.c) * 100);
   return `<p class="possum">Covered to move ${coverTo()}: <b>${pctOf(now.c)}</b>, <span class="${dc > 0 ? "ok" : dc < 0 ? "bad" : ""}">${dc > 0 ? "up" : dc < 0 ? "down" : "no change"}${dc ? ` ${Math.abs(dc)} points` : ""}</span> since ${date(old)} (${old.n} → ${now.n} of your moves).</p>`;
+}
+// v0.9.56: how many of my positions have no Lichess data, with Scan my tree (shares the scan on the Ideas tab)
+function unknownLine() {
+  if (!S.token) return "";
+  if (Scan.running) return `<p class="help" aria-live="polite">Fetching Lichess data: ${Scan.done} of ${Scan.total} positions… the map updates when it's done.</p>`;
+  const todo = scanTodo().length;
+  if (!todo) return "";
+  return `<p class="help">${todo} of your positions have no Lichess data on this device, so gaps after them can't be seen: cells marked ? may be lower. <button type="button" class="btn ghost quick" data-mapscan>Scan my tree (about ${Math.max(1, Math.ceil((todo * EXPL_GAP) / 60000))} min)</button></p>`;
 }
 function renderCoverMap(fromCat) {
   const box = $("#coverMap");
@@ -62,7 +71,9 @@ function renderCoverMap(fromCat) {
       if (v == null) return `<span class="mc"></span>`;
       // v0.9.53: the number in the cell, and the tip says which gaps take it down by then
       const gaps = (s.gapsTop || []).filter(g => g.mv <= m).slice(0, 3).map(g => `${g.l} (${pctOf(g.f)})`);
-      return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}${m === coverTo() ? " to" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} of games through it still in your prep after move ${m}.${gaps.length ? ` Biggest gaps by then: ${gaps.join("; ")}.` : ""}`)}">${Math.round(v * 100)}</span>`;
+      // v0.9.56: "?" where a good part of it has no Lichess data yet: gaps there can't be seen, so it may be lower
+      const u = s.unk ? s.unk[m - 1] : 0, unsure = u >= UNK_SHOW;
+      return `<span class="mc cov pl${v >= 0.5 ? " dk" : ""}${m === coverTo() ? " to" : ""}${unsure ? " unk" : ""}" style="--v:${Math.round(v * 100)}%" data-tip="${esc(`${c.label}: ${pctOf(v)} of games through it still in your prep after move ${m}.${gaps.length ? ` Biggest gaps by then: ${gaps.join("; ")}.` : ""}${unsure ? ` About ${pctOf(u)} of them reach positions with no Lichess data yet, where gaps can't be seen, so it may well be lower: Scan my tree.` : ""}`)}">${Math.round(v * 100)}${unsure ? "?" : ""}</span>`;
     }
     if (mapMode === "played") {
       // my games through it that were still in my prep at move m
@@ -99,6 +110,7 @@ function renderCoverMap(fromCat) {
   };
   box.innerHTML = `<h3>Your openings, move by move ${info("One row per opening, with how often you meet it (freq) next to its name, one cell per move. Coverage: how much of what you'll meet at your level through that opening is still in your prep after each move; darker is more, and the outlined column is the move coverage is counted to (Settings > Building your tree). Played: how many of your own games through that opening were still in your prep at each move. Results: your score in the games that left your prep at that move, blue where you scored well, orange where you scored badly, fainter on few games. The last column takes move 12 and later. Tap a cell for its numbers, and an opening's name for its branches.", "About this view")}</h3>
     ${progressLine(S.color)}
+    ${mapMode === "cover" ? unknownLine() : ""}
     <div class="seg small" role="group" aria-label="Show">${Object.entries(MODES).map(([k, t]) => `<button type="button" data-mapmode="${k}" aria-pressed="${mapMode === k}">${t}</button>`).join("")}</div>
     ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "I left prep"], ["them", "They left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
     <div class="covmap ${mapMode}" style="--cols:${MAP_MOVES}">
@@ -125,4 +137,5 @@ function renderMapTab() {
 onClick("mapview", d => { mapView = d.mapview; renderMapTab(); }, true);
 onClick("mapmode", d => { mapMode = d.mapmode; renderCoverMap(); }, true);
 onClick("mapwho", d => { mapWho = d.mapwho; renderCoverMap(); }, true);
+onClick("mapscan", () => scanTree(S.color, finished => { catStale(S.color); if (S.view === "openings" && S.otab === "map" && mapView === "map") { if (finished) renderCatalogue(true); else renderCoverMap(true); } }), true);
 onClick("mapopen", d => { if (mapOpen.has(d.mapopen)) mapOpen.delete(d.mapopen); else mapOpen.add(d.mapopen); renderCoverMap(); }, true);

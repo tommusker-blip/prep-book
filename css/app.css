@@ -329,6 +329,7 @@ div.gap-row{cursor:default}
 .mc.mn.to{color:var(--accent);font-weight:700}
 .mc.cov{background:color-mix(in srgb,var(--good) var(--v),var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,transparent)}
 .mc.cov.to{outline:2px solid var(--accent);outline-offset:0}
+.mc.cov.unk{border:1px dashed var(--warn)}
 .mc.cov.pl{color:var(--ink,inherit)} .mc.cov.pl.dk{color:var(--accent-ink,#fff)}
 .res .mc:not(.mn):not(.res){background:color-mix(in srgb,var(--line) 50%,transparent)}
 .mc.res{opacity:var(--o)}

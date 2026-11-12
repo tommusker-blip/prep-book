@@ -127,10 +127,21 @@ function catalogueContext(color = S.color) {
     gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g), lbl: gapLabel(g) }; }); })(),
     exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s, w: exitWho(x.a.type) }])),
     games: ideaGameSets(color),
+    unknown: catUnknown(color),
   };
 }
 // v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
-const CAT_MEMO_V = 5; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep
+const CAT_MEMO_V = 6; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep; 6 (v0.9.56): unknown share
+/* v0.9.56: positions where it's the opponent's move, with replies prepared but no Lichess data on this device. Gaps
+   are only found where the replies at my level are known, so these used to count as fully covered (a whole line
+   showing 100% to move 12). Each: its coverage share and move; only the shallowest of a chain counts (the share
+   under it is part of its own). The map marks cells where they make up UNK_SHOW or more. */
+function catUnknown(color = S.color) {
+  const idx = indexTree(color), cr = coverShare(color), R = rep(color), out = [];
+  const list = Object.entries(idx).filter(([key, p]) => !isMine(key, color) && R.pos[key] && R.pos[key].m.length && !cachedExplorer(p.fen)).map(([key, p]) => ({ ps: p.path.join(" "), f: cr[key] || 0, mv: Math.floor(p.path.length / 2) + 1 })).sort((a, b) => a.ps.split(" ").length - b.ps.split(" ").length);
+  for (const u of list) if (!out.some(o => catUnder(o.ps, u.ps))) out.push(u);
+  return out;
+}
 // "No answer to 3…f6" / "No move after 2…Nf6" / "Line ends after 4.Nf3"
 function gapLabel(g) {
   if (g.opp) return g.text;
@@ -161,6 +172,7 @@ function statNode(c, ctx) {
   c.stats = {
     // the biggest gaps under it, as a share of it, for the map's tips
     gapsTop: share > 0 ? under.slice().sort((a, b) => b.f - a.f).slice(0, CAT_GAPS_TOP).map(g => ({ l: g.lbl, f: g.f / share, mv: g.mv })) : [],
+    unk: share > 0 ? Array.from({ length: COVER_MOVES }, (_, i) => Math.min(1, ctx.unknown.filter(u => catUnder(ps, u.ps) && u.mv <= i + 1).reduce((s, u) => s + u.f, 0) / share)) : null,
     cover: curve[coverTo() - 1], curve, exits: Array.from({ length: COVER_MOVES }, (_, i) => exits[i] || null), exitsMe: Array.from({ length: COVER_MOVES }, (_, i) => byWho.me[i] || null), exitsThem: Array.from({ length: COVER_MOVES }, (_, i) => byWho.them[i] || null),
     positions: cards.length, learned: cards.filter(k => k.reps >= 2).length, due: cards.filter(k => k.due <= ctx.now).length,
     games: me ? me.n : 0, score: me && me.n ? wdlScore(me) : null, wdl: me,
@@ -234,6 +246,8 @@ function agoText(t) {
   const m = Math.round((Date.now() - (t || 0)) / 60000);
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
 }
+// v0.9.56: new Lichess data (a scan) changes coverage, but catSig() leaves explorer data out: mark the saved result stale
+function catStale(color = S.color) { const m = catMemo[catStoreKey(color)]; if (m) m.sig = ""; }
 function startCatalogueJob(sig, color, sk) {
   const job = catJob = { sig, sk, step: "Reading your games…", done: 0, total: 0 };
   drawCatProgress();

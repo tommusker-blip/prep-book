@@ -155,6 +155,7 @@ function renderSuggest() {
   SGB.set(fen, { arrows });
 }
 function onScanTick(finished) {
+  if (finished) catStale(Scan.color || S.color);
   renderBg();
   if (sugShowing()) { if (finished) renderSuggest(); else renderScanBox(); }
   else if (finished && S.view === "build") renderBuild();
