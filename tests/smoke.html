@@ -581,8 +581,8 @@ f.onload = () => {
       d.querySelector("#sugOut [data-sugstep=\"1\"]") && d.querySelector("#sugOut [data-sugstep=\"1\"]").click();
       L("next idea: " + G("SUG").cur.san + " (was " + first + ")");
       d.querySelector("#sugOut [data-sugskip]").click();
-      L("after Skip: " + d.querySelector("#sugOut .sugnav b").textContent + " | " + ((d.querySelector("#sugOut [data-sugunskip]") || {}).parentNode || {}).textContent);
-      d.querySelector("#sugOut [data-sugunskip]").click();
+      L("after Skip: " + d.querySelector("#sugOut .sugnav b").textContent + " | " + ((d.querySelector("#sugOut [data-sugback]") || {}).parentNode || {}).textContent);
+      d.querySelector("#sugOut [data-sugback]").click();
       d.querySelector("#sugOut [data-sugstep=\"-1\"]").click();
       L("unskipped: " + d.querySelector("#sugOut .sugnav b").textContent + " showing " + G("SUG").cur.san);
       // v0.9.10: act on a suggestion without going through Build

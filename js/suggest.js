@@ -47,7 +47,7 @@ function renderScanBox() {
      well as are left out;
    - how sure: the peers' edge against its sampling error (sugSure()), Stockfish at SUG_DEPTH on both
      moves (asked when the card shows), and my own games in the position;
-   - Skip hides it on this device (pb_sugskip: colour|book|key|san).
+   - Skip hides it (synced since v0.9.57, decisions.js: colour|book|key|san); the Skipped list brings them back.
    Same pawn structure (links to Lichess, nothing to act on here) was dropped. */
 const SUG_TRICK = 0.2, SUG_EASY = 0.04, SUG_DEPTH = 12;
 const SUG = { i: 0, cur: null, tok: 0 };
@@ -57,7 +57,18 @@ const SUG_KINDS = {
   trick: ["Practical trick", "Opponents at your level often go wrong against it."],
   memorable: ["Easy to remember", "It leads back into your prep or builds the same setup as your other lines."],
 };
-const sugSkips = () => lsGet("pb_sugskip", {});
+const sugSkips = () => Decide.all("sug"); // v0.9.57: synced (decisions.js); was pb_sugskip
+// The skipped ideas for this colour and book, to bring back (decisions.js)
+function sugDecisionsHtml() {
+  const s = sugSkips(), pre = `${S.color}|${S.book}|`, nodes = walk(S.color).nodes, items = [];
+  for (const k of Object.keys(s)) {
+    if (!k.startsWith(pre)) continue;
+    const rest = k.slice(pre.length), i = rest.lastIndexOf("|"), key = rest.slice(0, i), san = rest.slice(i + 1), p = nodes[key] ? nodes[key].path : null;
+    if (p) items.push({ k, html: `<b>Skipped</b> <b class="mono">${esc(moveLabel(p, san))}</b> after <span class="mono">${esc(numbered(0, p) || "the start")}</span>`, at: Decide.at("sug", k) });
+  }
+  SUG.decKeys = items.map(x => x.k);
+  return decisionsHtml(items, "sugback", "Skipped ideas");
+}
 function sugQueue(color = S.color) {
   const s = suggestions(color), ti = treeIdeas(color), R = rep(color), skip = sugSkips(), idx = indexTree(color), by = new Map();
   const add = (kind, path, san, gain, r) => {
@@ -101,7 +112,7 @@ function renderSuggest() {
   const out = $("#sugOut");
   if (!S.token) { out.innerHTML = `<p class="help">Add a Lichess token in Settings to get ideas.</p>`; return; }
   const color = S.color, q = sugQueue(color), list = q.list;
-  const again = q.skipped ? `<p class="help">${q.skipped} skipped. <button type="button" class="linkish" data-sugunskip>Show them again</button></p>` : "";
+  const again = sugDecisionsHtml();
   if (!list.length) {
     SUG.cur = null;
     out.innerHTML = undoNote("sug") + `<p class="help" style="margin-top:10px">${scanTodo().length ? "Scan your tree (Find more ideas, below) to look for ideas." : "No ideas with the current thresholds. You can change them in Settings."}</p>` + again;
@@ -198,7 +209,7 @@ function onSugAct(how) {
 onClick("scan", d => scanTree(S.color, onScanTick), true);
 onClick("sugact", d => onSugAct(d.sugact));
 onClick("sugstep", d => { SUG.i += +d.sugstep; renderSuggest(); }, true);
-onClick("sugskip", () => { if (!SUG.cur) return; const s = sugSkips(); s[SUG.cur.id] = 1; lsSet("pb_sugskip", s); renderSuggest(); }, true);
-onClick("sugunskip", () => { const s = sugSkips(), pre = `${S.color}|${S.book}|`; Object.keys(s).forEach(k => { if (k.startsWith(pre)) delete s[k]; }); lsSet("pb_sugskip", s); renderSuggest(); }, true);
+onClick("sugskip", () => { if (!SUG.cur) return; const s = sugSkips(); s[SUG.cur.id] = 1; Decide.save("sug", s); renderSuggest(); }, true);
+onClick("sugback", d => { Decide.drop("sug", d.sugback === "*" ? SUG.decKeys || [] : [d.sugback]); renderSuggest(); }, true);
 onClick("otab", d => { S.otab = d.otab; showOpeningsTab(); });
 onClick("sugopen", () => { const e = SUG.cur; if (!e) return; S.build[S.color] = e.path.slice(); candOpen.add(e.key + "|" + e.san); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 }); }, true);

@@ -25,7 +25,38 @@ const bandLabel = band => { const lo = Math.min(...band), hi = Math.max(...band)
 // Where explorer numbers come from, in words
 const srcLine = ex => `Lichess rapid, ${S.settings.band.map(b => b + "+").join(" & ")}, ${ex.total.toLocaleString("en-GB")} games`;
 // src: my rating bands (default), "masters" (the Lichess masters database) or another band ("2200,2500")
-function cachedExplorer(fen, src = bandKey()) { return EXPL[K(fen) + "|" + src] || null; }
+/* v0.9.57: the local copy keeps the most recently used EXPL_MAX positions (a read moves a position to the
+   back of the queue, so the tree's positions, read all the time, stay); everything fetched is also kept in
+   the database (Stash kind "expl"), which is asked before Lichess and filled in for the tree at start-up. */
+let explTouched = 0;
+function cachedExplorer(fen, src = bandKey()) {
+  const k = K(fen) + "|" + src, d = EXPL[k];
+  if (d && explTouched++ % 4 === 0) { delete EXPL[k]; EXPL[k] = d; } // now and then, so reads stay cheap
+  return d || null;
+}
+function storeExpl(k, small) {
+  EXPL[k] = small;
+  explVer++;
+  const keys = Object.keys(EXPL);
+  if (keys.length > EXPL_MAX) for (const x of keys.slice(0, keys.length - EXPL_MAX + 200)) delete EXPL[x];
+  saveExplSoon();
+}
+// Fill the local copy from the database for these positions (no Lichess requests)
+async function explPrefetch(fens, src = bandKey()) {
+  if (!Stash.usable()) return 0;
+  const want = [...new Set(fens.map(f => K(f) + "|" + src))].filter(k => !EXPL[k]);
+  if (!want.length) return 0;
+  const got = await Stash.getMany("expl", want);
+  for (const [k, d] of got) storeExpl(k, d);
+  return got.size;
+}
+// Both colours' trees: everything my repertoire needs, from the database (start-up, in the background)
+async function explPrefetchTrees() {
+  let n = 0;
+  for (const color of ["white", "black"]) n += await explPrefetch(Object.values(indexTree(color)).map(p => p.fen));
+  if (n) { treeMemo.sig = ""; if (typeof catStale === "function") { catStale("white"); catStale("black"); } if (typeof render === "function") render(); }
+  return n;
+}
 function saveExplSoon() { clearTimeout(explSaveTimer); explSaveTimer = setTimeout(() => lsSet("pb_expl", EXPL), 1500); }
 
 // Lookups run in the job queue's "net" lane (G3), one at a time and about a second apart, so
@@ -36,6 +67,11 @@ function fetchExplorer(fen, opts = {}) {
   const src = opts.src || bandKey();
   const hit = cachedExplorer(fen, src);
   if (hit) return Promise.resolve(hit);
+  // v0.9.57: the database first (fast, and no Lichess quota); then Lichess, in the queue
+  if (Stash.usable()) return Stash.get("expl", K(fen) + "|" + src).then(d => { if (d) { storeExpl(K(fen) + "|" + src, d); return d; } return fetchLichess(fen, src, opts); });
+  return fetchLichess(fen, src, opts);
+}
+function fetchLichess(fen, src, opts) {
   return Jobs.add("net", async () => {
     const again = cachedExplorer(fen, src);
     if (again) return again;
@@ -56,11 +92,8 @@ function fetchExplorer(fen, opts = {}) {
       total: d.white + d.draws + d.black, w: d.white, d: d.draws, b: d.black,
       moves: (d.moves || []).map(m => ({ san: m.san, n: m.white + m.draws + m.black, w: m.white, d: m.draws, b: m.black })),
     };
-    EXPL[K(fen) + "|" + src] = small;
-    explVer++;
-    const keys = Object.keys(EXPL);
-    if (keys.length > EXPL_MAX) for (const k of keys.slice(0, keys.length - EXPL_MAX + 200)) delete EXPL[k];
-    saveExplSoon();
+    storeExpl(K(fen) + "|" + src, small);
+    Stash.put("expl", K(fen) + "|" + src, small);
     return small;
   }, { prio: opts.prio ?? PRIO.background, key: K(fen) + "|" + src, stale: opts.stale || null });
 }
@@ -153,8 +186,13 @@ function scanTodo(color = S.color) { return Object.values(indexTree(color)).filt
 async function scanTree(color = S.color, onTick = () => {}) {
   if (Scan.running) { Scan.stop = true; Scan.note = "Stopping…"; onTick(); return; }
   if (!S.token) { toast("Add a Lichess token in Settings first."); return; }
+  // v0.9.57: what the database already has comes first, in one go; Lichess only for the rest
+  const all = scanTodo(color);
+  Object.assign(Scan, { running: true, stop: false, done: 0, total: all.length, note: "Checking what's saved…", color });
+  onTick();
+  const saved = await explPrefetch(all.map(p => p.fen));
   const todo = scanTodo(color).sort((a, b) => b.reach - a.reach);
-  Object.assign(Scan, { running: true, stop: false, done: 0, total: todo.length, note: "", color });
+  Object.assign(Scan, { done: saved, total: saved + todo.length, note: "" });
   onTick();
   for (const p of todo) {
     if (Scan.stop) break;

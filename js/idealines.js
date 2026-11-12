@@ -16,7 +16,18 @@ const IDEA_PLIES = 16, IDEA_MASTERS_MIN = 20, IDEA_CLUB_MIN = 50, IDEA_CLUB_SRC 
 let IDEAL = lsGet("pb_idealines", {});
 const IL = { running: false, stop: false, done: 0, total: 0, note: "" };
 const ideaId = (color, path, book = S.book) => [book, color, path.join(" ")].join("|");
-const saveIdeaLines = () => lsSet("pb_idealines", IDEAL);
+// v0.9.57: also in the database (Stash kind "idealine"); only lines that changed are sent
+const ideaSent = {};
+const saveIdeaLines = () => {
+  lsSet("pb_idealines", IDEAL);
+  for (const [id, l] of Object.entries(IDEAL)) { const j = JSON.stringify(l); if (ideaSent[id] !== j) { ideaSent[id] = j; Stash.put("idealine", id, l); } }
+};
+async function ideaLinesFromStash() {
+  const got = await Stash.all("idealine");
+  let n = 0;
+  for (const [id, l] of got) { ideaSent[id] = JSON.stringify(l); if (!IDEAL[id]) { IDEAL[id] = l; n++; } }
+  if (n) lsSet("pb_idealines", IDEAL);
+}
 // Lines for one colour (and the open book), optionally only those under a path
 function ideaLinesFor(color = S.color, under = null) {
   return Object.values(IDEAL).filter(l => l.color === color && l.book === S.book &&

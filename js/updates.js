@@ -6,6 +6,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12k", v: "0.9.57", date: "12 Nov 2026", title: "More kept in your account",
+    items: [
+      "Lichess data (Scan my tree, Build, masters) is now saved in your account as well as on the device. It's looked up there before asking Lichess, and on start-up the positions in your repertoire are filled in from it, so a scan is done once for all your devices and isn't forgotten when the device's store fills up.",
+      "Find ideas results, idea lines and Stockfish checks at depth 12 (Connect, Ideas, puzzles) are saved in your account too.",
+      "Your decisions in Connect (skipped, decided, put away) and Ideas (skipped) now sync, with the date each was made. Each tab has a list of them (Skipped and decided, Skipped ideas) where you can bring any one back, or all of them.",
+      "Needs a small database update (migration 0005); until it's applied, everything works as before.",
+    ],
+  },
+  {
     id: "2026-11-12j", v: "0.9.56", date: "12 Nov 2026", title: "Coverage you can trust: unknown positions marked",
     items: [
       "Coverage can only find gaps where it knows which replies players at your level make (Lichess data on this device). Where a position had no data, nothing after it counted as missing, so a line could show 100% to move 12.",

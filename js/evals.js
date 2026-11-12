@@ -9,7 +9,7 @@
      results are saved: depth MIN_REMOTE_DEPTH and up, from the WASM engine. Game analysis
      (depth 10, every move) is stored with each game instead (games table).
    Only when signed in; if the table doesn't exist yet, it quietly does nothing. */
-const MIN_REMOTE_DEPTH = 14;
+const MIN_REMOTE_DEPTH = 12; // v0.9.57: was 14; Connect, Ideas, puzzles and routes check at depth 12
 const Evals = {
   table: null,                 // null = unknown, true = works, false = missing / no access
   missed: new Set(),           // keys the database didn't have (this session)

@@ -381,6 +381,18 @@ when it loads; the others just define things.
   explorer data (gaps can't be found past them); `stats.unk[m]` = their share by move; cells ≥ `UNK_SHOW` get "?" and
   `.unk`. `unknownLine()` + `data-mapscan` (Scan my tree); `catStale()` after any scan (catSig leaves explorer data
   out). `CAT_MEMO_V` = 6.
+- v0.9.57: more in Supabase.
+  - `js/stash.js`: `Stash` (table `stash`, migration 0005: `user_id, kind, key, data`), like `Evals`: batched `get()`,
+    `getMany()`, paged `all()`, background `put()`/`flush()` (also on hide), quietly off without the table. Kinds: `expl`
+    (key = `K|band` or `K|masters`), `ideas` (`ideaKey()`), `idealine` (`ideaId()`). `stashStartup()` (boot + 2.5 s):
+    `explPrefetchTrees()` (both trees from the database), `ideasFromStash()`, `ideaLinesFromStash()`, and once per device
+    (`pb_stash_up`) copies the local caches up.
+  - Explorer: `fetchExplorer()` asks `Stash` before queueing Lichess; `storeExpl()` (local, `EXPL_MAX`), reads move a
+    position to the back (`cachedExplorer()`, every 4th read) so the tree stays; `scanTree()` prefetches from the database first.
+  - Ideas: all results in memory, the device copy keeps the last 400. `MIN_REMOTE_DEPTH` (evals.js) 14 -> 12.
+  - `js/decisions.js`: `Decide` keeps Connect (`con`) and Ideas (`sug`) decisions in `S.settings.decisions` with times in
+    `S.settings.decidedAt` (synced); `pb_conskip`/`pb_sugskip` merged in once. `decisionsHtml()` lists them with Bring back
+    (`data-conback`, `data-sugback`, `*` = all); `Decide.sig()` in `conCompute()`'s signature. The user wants decisions revisited.
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
 - v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's
@@ -621,6 +633,8 @@ stay in `localStorage` and never go to the database.
     and `settings.gamesEpoch` tells other devices when games were cleared.
   - `0004_evals_table.sql` (G2, applied 2026-11-08): `evals`, Stockfish results by position key.
     Without it, `Evals` does nothing. Sync logic is tested in `tests/sync.html` (fake client).
+  - `0005_stash_table.sql` (v0.9.57, to be applied): `stash`, Lichess data, Find ideas results and idea lines by kind and key.
+    Without it, `Stash` does nothing.
 - Claude Code reaches the database through the claude.ai Supabase connector,
   which has **write** access. Ask before running anything other than reads.
   Claude Code's permission check blocks `apply_migration` unless the user

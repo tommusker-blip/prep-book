@@ -206,6 +206,7 @@ const Store = {
     if (!names.length && S.storeMode === "local") lsSet("pb_data", localSnapshot());
     if (Games.table) Games.push();
     if (Evals.out.size) Evals.flush();
+    if (typeof Stash !== "undefined" && Stash.out.size) Stash.flush();
     return Promise.all(names.map(n => this.flush(n)));
   },
   async flush(name) {

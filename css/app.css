@@ -530,6 +530,10 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .sugev{margin:0;padding-left:18px;font-size:.86rem;display:flex;flex-direction:column;gap:4px}
 .sugfind{margin-top:12px}
 .sugfind summary{cursor:pointer;color:var(--accent);font-size:.88rem}
+.decbox{margin-top:10px;font-size:.86rem}
+.decbox summary{cursor:pointer;color:var(--accent)}
+.declist{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.declist li{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:4px}
 .dblitem{border-top:1px solid var(--line);padding:8px 0 4px}
 .dblhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 4px;font-size:.86rem}
 .dblmoves{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}

@@ -19,12 +19,12 @@
    progress bar; the result is kept until the tree changes.
    Reviewed one by one: a board steps through the chain; it lists the other replies each
    opponent move in the chain leaves open (the new branches it costs). Add / Replace go through
-   RepUndo ("con"); Skip is remembered on this device (pb_conskip).
+   RepUndo ("con"); Skip is remembered in settings, so it syncs (v0.9.57; it was pb_conskip on the device).
    Classic script: shares one global scope with the others (see index.html for the load order). */
 const CON_PLIES = 4, CON_MIN = 0.05, CON_UNKNOWN = 0.3, CON_MIN_PLY = 2;
 const CON = { sig: "", list: [], vlist: [], running: false, verifying: false, vPhase: "", vDone: 0, vTotal: 0, dataVer: 0, skipVer: 0, done: 0, total: 0, tok: 0, sel: 0, step: 0 };
 let CB = null;
-const conSkips = () => lsGet("pb_conskip", {});
+const conSkips = () => Decide.all("con"); // v0.9.57: synced (decisions.js); was pb_conskip
 const conId = c => c.src + "|" + c.moves.join(" ");
 // How often players at my level play `san` here: a share, or null without data
 function oppFreq(fen, san) {
@@ -221,12 +221,32 @@ function conValid(c, nodes) {
    approved from 1.c4 Nf6, a chain 2.Nc3 e6 3.d4 offered "Replace d4"), so those are left out
    while the approved move is still there (so Undo brings them back). Kept with the skips. */
 const conDecidedKey = (key, color = S.color) => "@" + color + "|" + S.book + "|" + key;
+// v0.9.57: what's been skipped, decided or put away here, to revisit (decisions.js). Only entries whose position is
+// in this colour's tree (in the open book for decisions) are listed.
+function conDecisionsHtml() {
+  const s = conSkips(), nodes = walk(S.color).nodes, pre = "@" + S.color + "|" + S.book + "|", items = [];
+  const at = key => `<span class="mono">${esc(numbered(0, nodes[key].path) || "the start")}</span>`;
+  for (const [k, v] of Object.entries(s)) {
+    let html = null;
+    if (k.startsWith("@")) {
+      if (!k.startsWith(pre)) continue;
+      const key = k.slice(pre.length), p = nodes[key] ? nodes[key].path : null;
+      if (p) html = `<b>Decided</b> <b class="mono">${esc(moveLabel(p, v))}</b> after ${at(key)}`;
+    } else {
+      const id = k.startsWith("#") ? k.slice(1) : k, i = id.indexOf("|"), src = id.slice(0, i), moves = id.slice(i + 1).split(" ").filter(Boolean), p = nodes[src] ? nodes[src].path : null;
+      if (p && moves.length) html = `<b>${k.startsWith("#") ? "Put away" : "Skipped"}</b> <b class="mono">${esc(numbered(p.length, moves))}</b> after ${at(src)}`;
+    }
+    if (html) items.push({ k, html, at: Decide.at("con", k) });
+  }
+  CON.decKeys = items.map(x => x.k);
+  return decisionsHtml(items, "conback");
+}
 function conDecide(c, color, group = []) {
   const s = conSkips();
   c.moves.forEach((m, i) => { const key = K(fenAfter(START, c.path.concat(c.moves.slice(0, i)))); if (isMine(key, color)) s[conDecidedKey(key, color)] = m; });
   // v0.9.32: the other options of the choice are put away while the chosen line is in the tree
   group.filter(x => x !== c).forEach(x => (s["#" + conId(x)] = { src: c.src, m: c.moves[0] }));
-  lsSet("pb_conskip", s); CON.skipVer++;
+  Decide.save("con", s); CON.skipVer++;
 }
 /* v0.9.31: no chain through a bad position. Each of my moves in the chain is checked with
    Stockfish (CON_DEPTH): what it gives up against the best move there, added up over the chain.
@@ -281,7 +301,7 @@ function conEval(c, prio = PRIO.now) {
 const CON_SAME_EDGE = 1.1;
 let conMemo = { sig: "", out: null };
 function conCompute() {
-  const color = S.color, sig = [color, S.book, walk(color).sig, CON.vColor, CON.vBook, CON.skipVer, conMin(), CON.dataVer, adv().mistake].join("|");
+  const color = S.color, sig = [color, S.book, walk(color).sig, CON.vColor, CON.vBook, CON.skipVer, Decide.sig("con"), conMin(), CON.dataVer, adv().mistake].join("|");
   if (conMemo.sig === sig && conMemo.list === CON.vlist) return conMemo.out;
   const skip = conSkips(), R = rep(color), min = conMin(), nodes = walk(color).nodes, hidden = { rare: 0, bad: 0, same: 0 };
   const decided = c => { const m = skip[conDecidedKey(c.src)]; return !!m && c.kind === "switch" && !!R.pos[c.src] && R.pos[c.src].m.includes(m); };
@@ -390,7 +410,7 @@ function renderConnect() {
   if (stale && !have) return checking();
   const { groups, g, c, gi } = conCurrent();
   if (!c && stale) return checking();
-  if (!c) { const h = conHidden(); box.innerHTML = head + conFilterHtml() + `<p class="help" style="margin-top:8px">No connections found${h.rare || h.bad ? " that pass the filters" : ""}${Object.keys(conSkips()).length ? " (apart from the ones you skipped)" : ""}. Scan your tree on the Ideas tab so more opponent moves have data.</p>${undoNote("con")}`; return; }
+  if (!c) { const h = conHidden(); box.innerHTML = head + conFilterHtml() + conDecisionsHtml() + `<p class="help" style="margin-top:8px">No connections found${h.rare || h.bad ? " that pass the filters" : ""}${Object.keys(conSkips()).length ? " (apart from the ones you skipped)" : ""}. Scan your tree on the Ideas tab so more opponent moves have data.</p>${undoNote("con")}`; return; }
   /* v0.9.35: a shorter card. What it keeps and what it drops, then the moves: the chance of each
      opponent move and the eval after every move (White's side, as in Build; orange where my
      move gives up more than the good margin). The rest is behind the ⓘ. */
@@ -433,7 +453,7 @@ function renderConnect() {
     + (old.length ? `<button type="button" class="btn ghost quick" data-conact="add">Keep both</button>` : "");
   const optText = x => `<b class="mono">${esc(numbered(x.path.length, x.moves))}</b> <span class="muted">${pctOf(x.p)}</span>`;
   const choice = g.length > 1 ? `<div class="conopts" role="group" aria-label="The ways to connect these lines"><p class="help" style="margin:0">${g.length} ways${c.pair ? ` to connect ${esc(c.pair)}` : " from here"}. Tap one to see it; nothing changes until you press Keep.</p>${g.map(x => `<button type="button" class="conopt" data-conopt="${esc(conId(x))}" aria-pressed="${x === c}">${x.path.length && x !== c && x.src !== c.src ? `<span class="mono muted">${esc(numbered(0, x.path))}</span> ` : ""}${optText(x)}</button>`).join("")}</div>` : "";
-  box.innerHTML = head + conFilterHtml() + `<div class="conhead"><span class="lbl">${gi + 1} of ${groups.length}${stale ? ` <span class="muted" aria-live="polite" id="conUpd">· updating for your change…</span>` : ""}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${gi ? "" : "disabled"} aria-label="Previous choice">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${gi < groups.length - 1 ? "" : "disabled"} aria-label="Next choice">▶</button></span></div>
+  box.innerHTML = head + conFilterHtml() + conDecisionsHtml() + `<div class="conhead"><span class="lbl">${gi + 1} of ${groups.length}${stale ? ` <span class="muted" aria-live="polite" id="conUpd">· updating for your change…</span>` : ""}</span><span class="row" style="margin:0"><button type="button" class="btn ghost quick" data-connav="-1" ${gi ? "" : "disabled"} aria-label="Previous choice">◀</button><button type="button" class="btn ghost quick" data-connav="1" ${gi < groups.length - 1 ? "" : "disabled"} aria-label="Next choice">▶</button></span></div>
     ${choice}
     <div class="conwrap"><div><div id="conBoard" class="board aoboard" aria-label="The chain on a board"></div><p class="arrowkey conkey" id="conKey"></p></div>
     <div class="conbody">
@@ -496,7 +516,7 @@ function conAct(how) {
   if (how === "skip" || how === "skipall") {
     const s = conSkips();
     (how === "skip" ? [c] : g).forEach(x => (s[conId(x)] = 1));
-    lsSet("pb_conskip", s); CON.skipVer++;
+    Decide.save("con", s); CON.skipVer++;
     const rest = how === "skip" ? g.filter(x => x !== c) : [];
     CON.selId = rest.length ? conId(rest[0]) : null; // stay on the choice while it has options left
     CON.step = 0; renderConnect(); return;
@@ -532,3 +552,4 @@ onClick("connav", d => { CON.sel = Math.max(0, CON.sel + +d.connav); CON.selId =
 onClick("conopt", d => { CON.selId = d.conopt; CON.step = 0; renderConnect(); });
 onClick("conmin", d => { S.settings.conMin = +d.conmin; Store.save("settings"); CON.sel = 0; CON.selId = null; CON.step = 0; renderConnect(); });
 onClick("constep", d => { CON.step = +d.constep; const { c, g } = conCurrent(); if (c) { conShow(c, g); document.querySelectorAll("[data-constep]").forEach(b => b.classList.toggle("cur", +b.dataset.constep === CON.step)); } });
+onClick("conback", d => { Decide.drop("con", d.conback === "*" ? CON.decKeys || [] : [d.conback]); CON.skipVer++; CON.sel = 0; CON.selId = null; CON.step = 0; renderConnect(); });

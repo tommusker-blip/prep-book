@@ -17,10 +17,17 @@ const IDEA_DEPTH = 14, REPLY_DEPTH = 14, MISTAKE_CP = 100;
 let IDEAS = lsGet("pb_ideas", {}), ideasVer = 0;
 const ideaKey = fen => K(fen) + "|" + bandKey();
 const cachedIdeas = fen => IDEAS[ideaKey(fen)] || null;
+// v0.9.57: all results stay in memory (they're also in the database, Stash kind "ideas"); the device copy keeps the last 400
 function saveIdeas() {
   const keys = Object.keys(IDEAS);
-  if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete IDEAS[k];
-  lsSet("pb_ideas", IDEAS);
+  lsSet("pb_ideas", keys.length > 400 ? Object.fromEntries(keys.slice(-400).map(k => [k, IDEAS[k]])) : IDEAS);
+}
+// From the database: results this device doesn't have, or newer ones
+async function ideasFromStash() {
+  const got = await Stash.all("ideas");
+  let n = 0;
+  for (const [k, d] of got) if (!IDEAS[k] || (d.at || 0) > (IDEAS[k].at || 0)) { IDEAS[k] = d; n++; }
+  if (n) { ideasVer++; if (typeof sidePanes === "function") sidePanes(); }
 }
 const ideaRules = () => {
   const g = { ...gemDefaults(), ...S.settings.gem };
@@ -79,6 +86,7 @@ async function analyseIdeas(fen, color = S.color, onStep = () => {}, shouldStop 
   }
   const res = { at: Date.now(), base: base.cp, best: bestSan, total: ex ? ex.total : 0, cands: out };
   IDEAS[ideaKey(fen)] = res; ideasVer++;
+  Stash.put("ideas", ideaKey(fen), res);
   saveIdeas(); saveEvalCache();
   return res;
 }

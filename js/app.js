@@ -89,6 +89,7 @@ async function boot() {
   walk("white"); walk("black");
   warmGameKeys(() => { if (!(S.view === "train" && T.state === "run")) render(); }); // game positions, in the background
   autoImport(); // v0.9.40: new chess.com games, only the latest months, in the background
+  setTimeout(() => stashStartup(), 2500); // v0.9.57: Lichess data, ideas and idea lines from the database, in the background
   $("#loading").hidden = true;
   window.addEventListener("pagehide", () => Store.flushAll());
   document.addEventListener("visibilitychange", async () => {

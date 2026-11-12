@@ -13,6 +13,8 @@
 <script src="../js/store.js"></script>
 <script src="../js/games.js"></script>
 <script src="../js/evals.js"></script>
+<script src="../js/stash.js"></script>
+<script src="../js/decisions.js"></script>
 <script src="../js/rep.js"></script>
 <script src="../js/explore.js"></script>
 <script src="../js/jobs.js"></script>
@@ -1053,6 +1055,19 @@ t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
   eq(setupSim(a, same), 1, "the same position by another order");
   eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
 });
+t("decisions sync in settings, keep when they were made, and can be brought back (v0.9.57)", () => {
+  const keep = [S.settings.decisions, S.settings.decidedAt];
+  S.settings.decisions = undefined; S.settings.decidedAt = undefined; Decide.migrated = false;
+  localStorage.setItem("pb_conskip", JSON.stringify({ "k1|e4": 1 }));
+  const con = Decide.all("con");
+  eq(Object.keys(con).join() + " | local copy gone: " + (localStorage.getItem("pb_conskip") === null) + " | dated: " + (Decide.at("con", "k1|e4") > 0), "k1|e4 | local copy gone: true | dated: true", "moved in from the device");
+  con["k2|d4"] = 1; Decide.save("con", con);
+  const v = Decide.sig("con");
+  Decide.drop("con", ["k1|e4"]);
+  eq(Object.keys(Decide.all("con")).join() + " | " + Object.keys(S.settings.decidedAt.con).join(), "k2|d4 | k2|d4", "brought back: gone with its date");
+  eq(Decide.sig("con") !== v, true, "Connect works its list out again");
+  [S.settings.decisions, S.settings.decidedAt] = keep; Decide.ver++;
+});
 t("coverage: positions without Lichess data are marked unknown (v0.9.56)", () => {
   reset(); resetEx(); S.color = "white";
   line("white", "e4 d5 d4 dxe4 Nc3 Nf6 f3 exf3 Nxf3");
@@ -1125,7 +1140,7 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   eq(findConnections("white").some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "2% isn't likely");
   // v0.9.28: a minimum chance for the whole chain; most likely first
   setEx("c4 Nf6 Nc3", 1000, 400, 100, 500, [mv("e6", 200, 80, 20, 100), mv("g6", 600, 240, 60, 300)]);
-  conSet(findConnections("white")); localStorage.removeItem("pb_conskip"); S.settings.conMin = undefined;
+  conSet(findConnections("white")); S.settings.decisions = {}; S.settings.decidedAt = {}; Decide.ver++; S.settings.conMin = undefined;
   eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), false, "20% is under the default 25%");
   S.settings.conMin = 0.1;
   eq(conQueue().some(c => c.path.join(" ") === "c4 Nf6 Nc3"), true, "and over 10%");
@@ -1133,7 +1148,7 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   eq(ps.every((p, i) => !i || ps[i - 1] >= p), true, "most likely first: " + ps.join(","));
   S.settings.conMin = undefined; conSet([]);
   // v0.9.30: an approved position is decided: no chain from it offers to replace the move just approved
-  reset(); resetEx(); localStorage.removeItem("pb_conskip");
+  reset(); resetEx(); S.settings.decisions = {}; S.settings.decidedAt = {}; Decide.ver++;
   line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
   conSet(findConnections("white"));
   const ok = conQueue().find(c => c.path.join(" ") === "c4 Nf6" && c.moves.join(" ") === "d4");
@@ -1141,10 +1156,10 @@ t("connect: chains of likely moves from one line into another (v0.9.27)", () => 
   conDecide(ok, "white"); addMove(["c4", "Nf6"], "d4", "white", "g3"); walk("white");
   conSet(findConnections("white"));
   eq(conQueue().filter(c => c.path.join(" ") === "c4 Nf6").map(c => c.moves.join(" ")), [], "no 'Replace d4' straight after approving it");
-  localStorage.removeItem("pb_conskip"); conSet([]);
+  S.settings.decisions = {}; S.settings.decidedAt = {}; Decide.ver++; conSet([]);
 });
 t("connect: choices shown together, and no chain through a bad position (v0.9.31)", () => {
-  reset(); resetEx(); localStorage.removeItem("pb_conskip"); S.color = "white";
+  reset(); resetEx(); S.settings.decisions = {}; S.settings.decidedAt = {}; Decide.ver++; S.color = "white";
   line("white", "d4 d5 e4 dxe4 Nc3 Nf6 f3");
   line("white", "e4 d5 exd5 Nf6 d4 Nxd5 c4");
   line("white", "d4 Nf6 c4 e6 Nc3 Bb4 Qc2"); line("white", "c4 Nf6 g3");
@@ -1179,7 +1194,7 @@ t("connect: choices shown together, and no chain through a bad position (v0.9.31
   eq(conQueue().some(x => x.path.join(" ") === "d4 d5 e4"), false, "the other direction is put away");
   rep("white").pos[K(fenOf("e4 d5"))].m = ["exd5"]; walk("white");
   eq(conQueue().some(x => x.path.join(" ") === "d4 d5 e4"), true, "and back once the chosen move is gone");
-  localStorage.removeItem("pb_conskip");
+  S.settings.decisions = {}; S.settings.decidedAt = {}; Decide.ver++;
   S.settings.conMin = undefined; conSet([]);
 });
 
@@ -1258,7 +1273,30 @@ t("practice: a chosen starting position is used, and falls back to the start if 
   S.settings.practiceRoot = undefined;
 });
 
-jobTests().then(ideaLineTests).then(funnelTests).then(importTests).then(() => {
+async function stashTests() {
+  await at("stash: Lichess data comes from the database before Lichess, and new data goes to it (v0.9.57)", async () => {
+    resetEx();
+    const rows = [{ kind: "expl", key: K(fenOf("e4 c5")) + "|" + bandKey(), data: { total: 100, w: 40, d: 20, b: 40, moves: [mv("Nf3", 100, 40, 20, 40)] } }], asked = [], saved = [];
+    const q = () => { const s = { f: {} }; s.select = () => s; s.eq = (c, v) => { s.f[c] = v; return s; };
+      s.in = (c, ks) => { asked.push(ks.length); return Promise.resolve({ data: rows.filter(r => r.kind === s.f.kind && ks.includes(r.key)), error: null }); };
+      s.range = () => Promise.resolve({ data: rows.filter(r => r.kind === s.f.kind), error: null });
+      s.upsert = rs => { saved.push(...rs); return Promise.resolve({ error: null }); }; return s; };
+    const real = { mode: S.storeMode, sb: Store.sb, user: Store.user, token: S.token, fetch: window.fetch };
+    S.storeMode = "supabase"; Store.sb = { from: () => q() }; Store.user = { id: "u1" }; Stash.table = null; Stash.missed.clear(); S.token = "t";
+    let lichess = 0; window.fetch = async () => { lichess++; return { ok: true, status: 200, json: async () => ({ white: 5, draws: 0, black: 5, moves: [] }) }; };
+    try {
+      const d = await explorer(fenOf("e4 c5"));
+      eq(d && d.total + " from the database, Lichess asked " + lichess, "100 from the database, Lichess asked 0");
+      await explorer(fenOf("e4 e6"));
+      eq(lichess, 1, "a position the database doesn't have goes to Lichess");
+      await Stash.flush();
+      eq(saved.map(r => r.kind + " " + (r.key === K(fenOf("e4 e6")) + "|" + bandKey())).join(), "expl true", "and is saved for next time");
+      resetEx();
+      eq(await explPrefetch([fenOf("e4 c5"), fenOf("d4 d5")]), 1, "prefetch fills what the database has, in one query");
+    } finally { Object.assign(S, { storeMode: real.mode, token: real.token }); Store.sb = real.sb; Store.user = real.user; window.fetch = real.fetch; Stash.table = null; Stash.missed.clear(); resetEx(); }
+  });
+}
+jobTests().then(ideaLineTests).then(funnelTests).then(importTests).then(stashTests).then(() => {
   const fails = results.filter(r => r.startsWith("FAIL")).length;
   document.getElementById("out").textContent = results.join("\n") + `\n\n${results.filter(r => r.startsWith("ok")).length} passed, ${fails} failed`;
   document.title = fails ? "FAIL" : "PASS";
