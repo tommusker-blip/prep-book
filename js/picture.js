@@ -298,24 +298,92 @@ function stAttention(d, color, move) {
       e2.n++; e2.sum += x.sc; dec.set(k, e2);
     }
     const top = [...dec.values()].sort((a, b) => b.n - a.n)[0];
-    out.push({ c, cost: cost(c), games, fams: [...fam.values()].sort((a, b) => b.n - a.n).slice(0, 2), dec: top ? { ...top, path: nodes[top.key].path } : null });
+    out.push({ c, cost: cost(c), games, fams: [...fam.values()].sort((a, b) => b.n - a.n), dec: top ? { ...top, path: nodes[top.key].path } : null });
   }
   return (d.attn = out);
 }
 function attentionHtml(d, color, move) {
   const list = stAttention(d, color, move);
   if (!list.length) return `<p class="lbl">Worth your attention</p><p class="help">No structure at move ${move} where you score clearly below your average (at least ${ST_ATTN_MIN} games). Try another move with ◀ ▶.</p>`;
-  return `<p class="lbl">Worth your attention ${info("Structures where you score below your average, the ones costing you most first: games × the drop in your score, in game points (a loss against your average costs about half a point more than a draw would). Each shows where it comes from: the openings, and your last prepared choice before it. To avoid it, open that choice in Build and look at the other moves; to get better at it, practise the line.", "About this list")}</p>
+  return `<p class="lbl">Worth your attention ${info("Structures where you score below your average, the ones costing you most first: games × the drop in your score, in game points. Each lists the openings it comes from and what tends to happen next in those games: the kind of mistake you make most often in the following moves (from your games' analysis), and how the structure most often changes a few moves later. Practise trains the line from your last prepared choice before it; Show a mistake opens one of those games at the mistake.", "About this list")}</p>
     <div class="stcombos">${list.map(a => {
-      const c = a.c, dec = a.dec, line = dec ? dec.path.concat(dec.played) : null;
-      // v0.9.47: key numbers only; the full path is in the tip on Avoid
-      const mv = dec ? moveLabel(dec.path, dec.played) : "";
-      return `<div class="stcombo bad hasmini">${stMini(d, c, color, move, true)}<div class="stcbody">
+      const c = a.c, dec = a.dec, line = dec ? dec.path.concat(dec.played) : null, nx = stNext(d, c, color, move);
+      // v0.9.48: the openings in full, what happens next instead of "Avoid", buttons across the card
+      return `<div class="stcombo bad">${stBar(c, d)}<div class="sttop">${stMini(d, c, color, move, true)}<div class="stcbody">
         <p class="stctext">${comboText(c.items)}</p>
         <div class="stms">${stMetric("−" + a.cost.toFixed(1), "points lost", "bad")}${stMetric(pctOf(c.sum / c.n), `you score (avg ${pctOf(d.avg)})`)}${stMetric(c.n, "games")}</div>
-        <p class="stfrom">Mostly ${esc(a.fams[0].name)}${dec ? ` · your move ${esc(mv)}` : ""}</p>
-        <div class="stacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}" aria-label="${esc(`Open Build at ${numbered(0, dec.path) || "the start"} to choose another move than ${mv}`)}">Avoid ${esc(mv)}</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise</button>` : ""}${stExBtn(d, c, move, true)}</div></div></div>`;
+      </div></div>
+        ${stFamsLine(a.fams)}
+        ${nx.html}
+        <div class="stacts">${dec ? `<button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}" aria-label="${esc(`Practise the line after ${numbered(0, line)}`)}">Practise ${esc(moveLabel(dec.path, dec.played))}</button>` : ""}${nx.ex ? `<button type="button" class="btn ghost quick" data-review="${esc(nx.ex.id)}" data-rvat="${nx.ex.ply}">Show a mistake</button>` : ""}${stExBtn(d, c, move, true)}</div></div>`;
     }).join("")}</div>`;
+}
+// The frequency bar across the top of a card: the share of my games at that move with it
+const stBar = (c, d) => `<div class="stbar" role="img" aria-label="${esc(`In ${pctOf(c.n / d.n)} of your games at this move`)}"><i style="width:${Math.max(2, Math.round((c.n / d.n) * 100))}%"></i></div>`;
+// Every main opening (family) the games come from: "Sicilian Defence 12 · French Defence 3"
+const stFamsLine = fams => `<p class="stfrom"><span class="stwho">From</span> ${fams.map(f => `${esc(f.name)} <b>${f.n}</b>`).join(" · ")}</p>`;
+function stFams(d, c, move) {
+  if (c.fams) return c.fams;
+  const fam = new Map();
+  for (const x of d.games) if (c.items.every(it => x.items.includes(it))) { const f = stFamily(x.g, 2 * move), e = fam.get(f) || { name: f, n: 0 }; e.n++; fam.set(f, e); }
+  return (c.fams = [...fam.values()].sort((a, b) => b.n - a.n));
+}
+/* v0.9.48: what tends to happen next in a structure's games, instead of "avoid it":
+   - mistakes: my first move in the next ST_NEXT_PLIES plies that loses at least the mistake margin
+     (adv().mistake) in the game's analysis, against the same rate in all my games at that move; and
+     the most common kind (a pawn move on a wing or in the centre, a capture, or a piece's move);
+   - the change: the feature that most often appears ST_NEXT_MOVES moves later, with my score then.
+   Only analysed games count for the mistakes. */
+const ST_NEXT_PLIES = 12, ST_NEXT_MOVES = 4;
+function stMistakes(list, color, move) {
+  const sg = color === "white" ? 1 : -1, from = 2 * move, A = adv();
+  let n = 0, hit = 0;
+  const kinds = new Map();
+  for (const x of list) {
+    const z = S.acc[x.id];
+    if (!z || z.v !== 2) continue;
+    n++;
+    const moves = x.g.moves.split(" ");
+    for (let i = from; i < from + ST_NEXT_PLIES && i + 1 < z.ev.length && i < moves.length; i++) {
+      if ((i % 2 === 0) !== (color === "white")) continue;
+      const loss = sg * (z.ev[i] - z.ev[i + 1]);
+      if (loss < A.mistake) continue;
+      hit++;
+      const san = moves[i], file = (san.match(/[a-h](?=[1-8])/g) || ["d"]).pop(), wing = "abc".includes(file) ? "queenside" : "fgh".includes(file) ? "kingside" : "centre";
+      const kind = san.includes("x") ? "captures" : /^[a-h]/.test(san) ? `pawn moves on the ${wing}` : { K: "king moves", Q: "queen moves", R: "rook moves", B: "bishop moves", N: "knight moves", O: "castling" }[san[0]] || "other moves";
+      const e = kinds.get(kind) || { kind, n: 0, ex: null };
+      e.n++; if (!e.ex) e.ex = { id: x.id, ply: i }; kinds.set(kind, e);
+      break;
+    }
+  }
+  return { n, hit, top: [...kinds.values()].sort((a, b) => b.n - a.n)[0] || null };
+}
+function stNext(d, c, color, move) {
+  const memo = "next";
+  if (c[memo]) return c[memo];
+  const games = d.games.filter(x => c.items.every(it => x.items.includes(it))), lines = [];
+  let ex = null;
+  const m = stMistakes(games, color, move), all = stMistakes(d.games, color, move);
+  if (m.n >= 3) {
+    const rate = m.hit / m.n, base = all.n ? all.hit / all.n : null;
+    let t = `<b>${m.hit} of ${m.n}</b> analysed games had a mistake of yours in the next ${ST_NEXT_PLIES / 2} moves${base != null ? ` <span class="muted">(${pctOf(rate)}, against ${pctOf(base)} in all your games here)</span>` : ""}`;
+    if (m.top && m.top.n >= 2) { t += `; most often <b>${esc(m.top.kind)}</b> (${m.top.n})`; ex = m.top.ex; }
+    lines.push(t + ".");
+  }
+  const later = move + ST_NEXT_MOVES;
+  if (later <= 20) {
+    const d2 = structAt(color, later), byId = new Map(d2.games.map(x => [x.id, x])), gained = new Map();
+    let n2 = 0;
+    for (const x of games) {
+      const y = byId.get(x.id);
+      if (!y) continue;
+      n2++;
+      for (const it of y.items) if (!x.items.includes(it)) { const e = gained.get(it) || { it, n: 0, sum: 0 }; e.n++; e.sum += y.sc; gained.set(it, e); }
+    }
+    const top = [...gained.values()].filter(e => e.n >= 2 && e.n >= 0.25 * n2).sort((a, b) => b.n - a.n)[0];
+    if (top) lines.push(`By move ${later}, <b>${top.n} of ${n2}</b> games add <b>${comboText([top.it]).replace(/<[^>]+>/g, "")}</b>; you score ${pctOf(top.sum / top.n)} in them.`);
+  }
+  return (c[memo] = { html: lines.length ? `<div class="stnext"><span class="stwho">What happens next</span><ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul></div>` : "", ex });
 }
 /* v0.9.43: a typical position for a structure, drawn small on its card. Its games are grouped by
    their pawns (every other piece left out); the group is the most common one, or for "worth your
@@ -383,10 +451,11 @@ function renderStructures(color) {
   if (o.by) return stepper + structByMove(color);
   if (!d.n) return stepper + `<p class="help">None of your games as ${color} reach move ${mv}.</p>`;
   const share = c => pctOf(c.n / d.n), cb = stCombos(d);
-  const comboRow = c => `<div class="stcombo ${stTone(c, d)} hasmini">${stMini(d, c, color, mv)}<div class="stcbody">
+  const comboRow = c => `<div class="stcombo ${stTone(c, d)}">${stBar(c, d)}<div class="sttop">${stMini(d, c, color, mv)}<div class="stcbody">
       <p class="stctext">${comboText(c.items)}</p>
-      <div class="stms">${stMetric(share(c), `of games (${c.n})`)}${stScoreMetric(c, d)}</div>
-      <div class="stacts">${stExBtn(d, c, mv)}</div></div></div>`;
+      <div class="stms">${stMetric(share(c), `of games (${c.n})`)}${stScoreMetric(c, d)}</div></div></div>
+      ${stFamsLine(stFams(d, c, mv))}
+      <div class="stacts">${stExBtn(d, c, mv)}</div></div>`;
   const centre = CENTRES.filter(([k]) => d.centre[k].n).sort((a, b) => d.centre[b[0]].n - d.centre[a[0]].n).map(([k, name, help]) => {
     const c = d.centre[k];
     return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;

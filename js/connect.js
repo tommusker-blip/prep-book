@@ -81,7 +81,53 @@ function connectFrom(src, ctx) {
   }
   return out;
 }
-const conScore = c => c.reach * c.p * (1 + 0.2 * Math.min(c.cards, 20)) * (c.kind === "switch" ? 1 + Math.min(Math.max(0, ...c.drop.map(d => d.n)), 20) / 4 : 1);
+/* v0.9.48: the other way round. A switch joins my line A (my old move at the chain's start) into
+   line B (the chain's target). The other way keeps A and changes B instead: from a position of mine
+   on B's path, after it parts from A, a chain into A's branch (connectFrom() with only A's branch
+   as targets). The most likely one is offered beside the switch, with which way is recommended:
+   the one that drops fewer of my prepared moves, or if that's about even (within 2), the one that
+   connects more of my games (reach × chance). Memoised per chain and tree. */
+const conRevMemo = new Map();
+function conReverse(c, color = S.color) {
+  if (c.kind !== "switch") return null;
+  const sig = conSig(color) + "|" + conId(c);
+  if (conRevMemo.has(sig)) return conRevMemo.get(sig);
+  const R = rep(color), olds = R.pos[c.src] ? R.pos[c.src].m : [];
+  if (!olds.length) return null;
+  const nodes = conNodes(color), inTree = new Set(nodes.map(x => x.key)), byKey = new Map(nodes.map(x => [x.key, x]));
+  const aPre = olds.map(o => c.path.concat(o).join(" ")), inA = x => aPre.some(p => x.ps === p || x.ps.startsWith(p + " "));
+  const byLen = new Map();
+  for (const x of nodes) if (inA(x)) { if (!byLen.has(x.path.length)) byLen.set(x.path.length, []); byLen.get(x.path.length).push(x); }
+  const ctx = { byLen, inTree, nodes, R, color }, tp = c.toPath, a0 = c.path.concat(olds[0]);
+  let common = 0;
+  while (common < tp.length && common < a0.length && tp[common] === a0[common]) common++;
+  let best = null;
+  for (let len = Math.max(common, CON_MIN_PLY); len < tp.length; len++) {
+    const key = K(fenAfter(START, tp.slice(0, len))), x = byKey.get(key), n = R.pos[key];
+    if (!x || !isMine(key, color) || !n || !n.m.includes(tp[len])) continue;
+    for (const r of connectFrom(x, ctx)) {
+      if (r.kind !== "switch" || r.unlikely) continue;
+      const d = (r.drop || []).find(z => z.m === tp[len]);
+      const cand = { ...r, old: tp[len], dropN: d ? d.n : 0 };
+      if (!best || cand.reach * cand.p > best.reach * best.p) best = cand;
+    }
+  }
+  if (conRevMemo.size > 200) conRevMemo.clear();
+  conRevMemo.set(sig, best);
+  return best;
+}
+// Which way to recommend: "this" or "other", and why
+function conWhich(c, r, dropThis) {
+  if (!r) return null;
+  if (Math.abs(dropThis - r.dropN) > 2) return dropThis < r.dropN
+    ? { way: "this", why: `it drops fewer of your prepared moves (${dropThis} against ${r.dropN})` }
+    : { way: "other", why: `it drops fewer of your prepared moves (${r.dropN} against ${dropThis})` };
+  const a = c.reach * c.p, b = r.reach * r.p;
+  return a >= b
+    ? { way: "this", why: `it connects more of your games (about ${pctOf(a)} against ${pctOf(b)})` }
+    : { way: "other", why: `it connects more of your games (about ${pctOf(b)} against ${pctOf(a)})` };
+}
+const conScore = c =>c.reach * c.p * (1 + 0.2 * Math.min(c.cards, 20)) * (c.kind === "switch" ? 1 + Math.min(Math.max(0, ...c.drop.map(d => d.n)), 20) / 4 : 1);
 const conSig = color => color + "|" + S.book + "|" + walk(color).sig;
 // The sweep, in steps so the page stays responsive. onTick(done) redraws.
 function sweepConnections(color = S.color, onTick = () => {}, force = false) {
@@ -367,7 +413,18 @@ function renderConnect() {
       <p><span class="kdtag keep">Keep</span><span><b class="mono">${esc(numbered(c.path.length, c.moves))}</b>${c.kind === "switch" ? (c.moves.length > 1 ? ` <span class="muted">(${esc(moveLabel(c.path, c.moves[0]))}</span> ${evAfter(c.moves[0])}<span class="muted">)</span>` : " " + evAfter(c.moves[0])) : ""}, into your ${esc(to ? to.name : "other")} line${c.cards ? ` (${c.cards} moves prepared)` : ""}</span></p>
       <p><span class="kdtag drop">Drop</span><span>${drops.length ? drops.map(dropLine).join(drops.length > 1 ? "<br>or " : "") : "nothing: this fills a gap"}</span></p>
     </div>`;
-  const viaLine = c.via ? `<p class="help">Same place as ${esc(numbered(c.via.a.path.length, c.via.a.moves))}, but more often: ${pctOf(c.p)} against ${pctOf(c.via.pv)}.</p>` : "";
+  // v0.9.48: the other way round (keep my line here, change the other one to join it), and which is recommended
+  const rev = c.kind === "switch" ? conReverse(c) : null, dropThis = drops.length ? Math.max(...drops.map(d => d.n)) : 0, which = conWhich(c, rev, dropThis);
+  if (rev) conEval(rev);
+  const recPill = '<span class="pill ok">Recommended</span>';
+  const revHtml = rev ? `<p class="lbl" style="margin:8px 0 2px">Or the other way round ${which.way === "other" ? recPill : ""}</p>
+    <div class="conkd conrev">
+      <p><span class="kdtag keep">Keep</span><span>your <b class="mono">${esc(moveLabel(c.path, old[0]))}</b> ${evAfter(old[0])} line as it is</span></p>
+      <p><span class="kdtag chg">Change</span><span>after <span class="mono">${esc(numbered(0, rev.path) || "the start")}</span>, play <b class="mono">${esc(numbered(rev.path.length, rev.moves))}</b> <span class="muted">(${rev.unknown ? "about " : ""}${pctOf(rev.p)})</span> into it</span></p>
+      <p><span class="kdtag drop">Drop</span><span><b class="mono">${esc(moveLabel(rev.path, rev.old))}</b> ${rev.dropN ? `and its branch (${rev.dropN} of your moves)` : "(nothing prepared after it)"}</span></p>
+    </div>
+    <p class="help">Recommended: ${which.way === "this" ? "the first way" : "the other way round"}, because ${which.why}.</p>` : "";
+  const viaLine = c.via ?`<p class="help">Same place as ${esc(numbered(c.via.a.path.length, c.via.a.moves))}, but more often: ${pctOf(c.p)} against ${pctOf(c.via.pv)}.</p>` : "";
   // v0.9.32: one clear commit. Tapping an option only shows it; the main button commits it (my old
   // move and its branch go, and the other options of this choice are put away; Undo brings them back)
   const acts = (old.length > 1
@@ -381,11 +438,12 @@ function renderConnect() {
     <div class="conwrap"><div><div id="conBoard" class="board aoboard" aria-label="The chain on a board"></div><p class="arrowkey conkey" id="conKey"></p></div>
     <div class="conbody">
       <p>From <b class="mono">${esc(numbered(0, c.path))}</b>${from ? ` <span class="muted">${esc(from.name)}</span>` : ""}</p>
-      ${kd}
+      ${rev ? `<p class="lbl" style="margin:0 0 2px">This way ${which.way === "this" ? recPill : ""}</p>` : ""}${kd}
       <ol class="consteps">${stepsHtml}</ol>
       <p class="help">Whole chain: <b>${c.unknown ? "about " : ""}${pctOf(c.p)}</b> of games from here${c.unknown ? " (fetching some moves)" : ""}. Eval after each move, White's side.</p>
       ${viaLine}
-      <div class="row conacts">${acts}</div>
+      ${revHtml}
+      <div class="row conacts">${acts}${rev ? `<button type="button" class="btn${which.way === "other" ? "" : " ghost"} quick" data-conact="rev">Change the other line instead</button>` : ""}</div>
       <div class="row conacts"><button type="button" class="btn ghost quick" data-conact="skip">Skip${g.length > 1 ? " this one" : ""}</button>${g.length > 1 ? `<button type="button" class="btn ghost quick" data-conact="skipall">Skip all ${g.length}</button>` : ""}<button type="button" class="btn ghost quick" data-conact="build">Open in Build</button></div>
       ${undoNote("con")}
     </div></div>`;
@@ -446,6 +504,17 @@ function conAct(how) {
   // v0.9.29: Build opens where the move being looked at is played (the chain's first move, or the step
   // tapped in the list), with that move's row expanded; it used to open at the end of the chain
   if (how === "build") { const j = Math.max(0, CON.step - 1), at = c.path.concat(c.moves.slice(0, j)), next = c.moves[j]; S.build[color] = at; if (next) candOpen.add(K(fenAfter(START, at)) + "|" + next); S.ptab = "moves"; setView("build"); window.scrollTo({ top: 0 }); return; }
+  if (how === "rev") { // v0.9.48: the other way round: keep my line at c.src, change the other line to join it
+    const r = conReverse(c, color);
+    if (!r) return;
+    RepUndo.change("con", color, () => {
+      r.moves.forEach((m, i) => addMove(r.path.concat(r.moves.slice(0, i)), m, color, i === 0 ? r.old : null));
+      walk(color);
+      return `${moveLabel(r.path, r.moves[0])} replaces ${r.old}; that line now joins your ${moveLabel(c.path, (rep(color).pos[c.src] || { m: [""] }).m[0])} line`;
+    });
+    CON.step = 0; CON.selId = null;
+    renderConnect(); return;
+  }
   const n = rep(color).pos[c.src], old = how.startsWith("rep:") && n ? n.m[+how.slice(4)] : null;
   conDecide(c, color, g);
   RepUndo.change("con", color, () => {

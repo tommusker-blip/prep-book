@@ -6,6 +6,15 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12b", v: "0.9.48", date: "12 Nov 2026", title: "Structures: what happens next; Connect both ways; moves under opening names",
+    items: [
+      "Structures cards list every main opening the games come from, with counts. The frequency bar is back, as a thin bar across the top, and the buttons now run across the whole card.",
+      "\"Avoid\" is gone. Worth your attention now says what tends to happen next: how often you make a mistake in the following 6 moves (against your usual rate), the most common kind (say pawn moves on the kingside), and how the structure most often changes 4 moves later. Show a mistake opens one of those games at the mistake.",
+      "Connect: where a chain would change your line to join another, it also offers the other way round (keep your line, change the other one to join it), and says which it recommends and why: the one that drops fewer of your prepared moves, or connects more of your games.",
+      "Openings: each opening shows its moves under the name (since the opening above it). Long stretches show just the opponent's moves.",
+    ],
+  },
+  {
     id: "2026-11-12a", v: "0.9.47", date: "12 Nov 2026", title: "Tidier structures, evals from White's side, and positions with two moves",
     items: [
       "Visualise > Structures: simpler cards. The small board, the structure, and just the key numbers (how often, your score; for worth your attention, points lost, your score and games), with no shaded bars.",

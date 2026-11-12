@@ -364,7 +364,12 @@ div.gap-row{cursor:default}
 .stany.good{border-bottom-color:var(--good)} .stany.bad{border-bottom-color:var(--bad)}
 .stfc{height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-size:.62rem;background:color-mix(in srgb,var(--accent) var(--v,0%),var(--surface));border:1px solid var(--line)}
 .stcombos{display:flex;flex-direction:column;gap:6px;margin:4px 0 12px}
-.stcombo{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:8px;background:var(--surface)}
+.stcombo{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:6px}
+.stbar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.stbar i{display:block;height:100%;background:var(--accent)}
+.sttop{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start}
+.stnext{font-size:.82rem}
+.stnext ul{margin:2px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
 .stcombo p{margin:0}
 .stctext{font-size:.88rem}
 .stwho{font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
@@ -375,8 +380,8 @@ div.gap-row{cursor:default}
 .stm small{font-size:.72rem;color:var(--muted)}
 .stm.bad b{color:var(--bad)} .stm.good b{color:var(--good)}
 .stfrom{font-size:.8rem;color:var(--muted)}
-.stacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.stcombo.hasmini{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:start}
+.stacts{display:flex;gap:6px;flex-wrap:wrap}
+.stacts .btn{flex:1 1 auto}
 .stmini{display:block}
 .stcbody{display:flex;flex-direction:column;gap:2px;min-width:0}
 .board.mini{border-radius:4px;box-shadow:0 0 0 1px var(--line);pointer-events:none}
@@ -474,6 +479,8 @@ details.cat > summary::before{content:"▸";color:var(--muted);transition:transf
 details.cat[open] > summary::before{transform:rotate(90deg)}
 .catname{font-weight:600;font-size:.88rem;line-height:1.2;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .catkids .catname{font-weight:500}
+.catnm{min-width:0;display:flex;flex-direction:column;gap:1px}
+.catmv{font-size:.72rem;color:var(--muted);font-weight:400;line-height:1.25;overflow-wrap:anywhere}
 .catn{position:relative;text-align:right;font-family:var(--f-mono);font-size:.8rem;padding-bottom:3px;white-space:nowrap}
 .catn b{font-weight:500}
 .catn small{display:block;font-size:.66rem;color:var(--muted);line-height:1}
@@ -538,6 +545,7 @@ details.cat[open] > summary::before{transform:rotate(90deg)}
 .kdtag{flex:none;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 6px;border-radius:4px;min-width:3.2rem;text-align:center}
 .kdtag.keep{background:var(--accent-soft);color:var(--good)}
 .kdtag.drop{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad)}
+.kdtag.chg{background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent)}
 .consteps .linkish.cur b{color:var(--accent)}
 .conacts{margin:4px 0 0;gap:6px;flex-wrap:wrap}
 .conopts{display:flex;flex-direction:column;gap:6px;margin-top:8px}

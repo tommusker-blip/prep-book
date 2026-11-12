@@ -248,6 +248,7 @@ f.onload = () => {
       for (let i = 0; i < 50 && !d.querySelector("#catBody details.cat"); i++) await sleep(100);
       L("head: " + d.querySelector("#catHead").textContent);
       L("top entries: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | "));
+      L("moves under names: " + [...d.querySelectorAll("#catBody details.cat summary")].slice(0, 6).map(s => s.querySelector(".catname").textContent.trim() + " [" + ((s.querySelector(".catmv") || {}).textContent || "") + "]").join(" | "));
       // v0.9.47: positions with more than one move of mine
       d.querySelector("#dblBtn").click(); await sleep(50);
       L("more than one move: " + d.querySelector("#dblBtn").textContent + " | " + [...d.querySelectorAll("#dblBox .dblitem")].map(x => x.textContent.replace(/\s+/g, " ").trim()).join(" || "));

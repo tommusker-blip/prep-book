@@ -350,6 +350,19 @@ when it loads; the others just define things.
   - `js/doubles.js`: Openings > More than one move (`#dblBtn`, `#dblBox`): `multiMovePositions()` (my-turn
     tree positions with 2+ moves, by reach), Keep only (`removeMove()` of the others, `RepUndo` kind "dbl").
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
+- v0.9.48:
+  - Structure cards: `.stcombo` is a column: `stBar()` (share across the top), `.sttop` (board | body),
+    `stFamsLine()` (every family with counts: `a.fams`, or `stFams()` for common cards), `.stacts` full width.
+    "Avoid" removed (the user didn't want "change your opening" advice). `stNext()`: `stMistakes()` = first
+    move of mine in the next `ST_NEXT_PLIES` losing ≥ `adv().mistake` (analysed games only), against all my
+    games at that move, with the commonest kind (pawn move by wing, capture, piece); plus the feature most often
+    added `ST_NEXT_MOVES` moves later (needs move + 4 ≤ 20, the GAMEKEYS limit). "Show a mistake" = review at it.
+  - Connect: `conReverse(c)` = the other way round for a switch (from my positions on the target line's path,
+    after it parts from mine, `connectFrom()` with only my old move's branch as targets), `conWhich()` recommends
+    the way that drops fewer prepared moves (by more than 2), else the one connecting more games (reach × p).
+    `data-conact="rev"` applies it (`RepUndo` "con").
+  - Catalogue: `movesOf()` puts the moves since the parent entry under each name (`.catnm`, `.catmv`); over
+    `CAT_MV_MAX` plies, only the opponent's moves.
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
   `strengthOf()`: within `good` of the best = strong (blue), up to `mistake` = playable,

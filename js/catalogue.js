@@ -267,6 +267,16 @@ function drawCatalogue(root, targets) {
     for (const sep of [": ", ", ", " "]) if (label.startsWith(parent + sep) && label.length > parent.length + sep.length) return label.slice(parent.length + sep.length).replace(/^./, x => x.toUpperCase());
     return label;
   };
+  /* v0.9.48: the moves under each name, since the entry above it (names alone can mean little, and
+     some are far more specific than others). Long stretches show only the opponent's moves. */
+  const CAT_MV_MAX = 6;
+  const movesOf = (c, parent) => {
+    const from = parent ? parent.path.length : 0, mv = c.path.slice(from);
+    if (!mv.length) return "";
+    if (mv.length <= CAT_MV_MAX) return (from ? "â€¦ " : "") + numbered(from, mv);
+    const myW = S.color === "white", them = mv.map((san, i) => ({ san, ply: from + i })).filter(x => (x.ply % 2 === 0) !== myW);
+    return "Them: " + them.map(x => `${Math.floor(x.ply / 2) + 1}${x.ply % 2 ? "â€¦" : "."}${x.san}`).join(" ");
+  };
   const entry = (c, parent) => {
     const s = c.stats || {}, ps = c.path.join(" "), open = catOpen.has(ps), canTrain = bi[c.key] && bi[c.key].cards;
     const scoreCls = s.score == null || s.games < 3 ? "" : s.score >= 0.55 ? "good" : s.score <= 0.42 ? "bad" : "";
@@ -274,7 +284,7 @@ function drawCatalogue(root, targets) {
     const focused = fp && fp === ps;
     return `<details class="cat${focused ? " focused" : ""}"${open ? " open" : ""} data-catpath="${esc(ps)}">
       <summary>
-        <span class="catname">${esc(short(c.label, parent))}</span>
+        <span class="catnm"><span class="catname">${esc(short(c.label, parent && parent.label))}</span>${movesOf(c, parent) ? `<span class="catmv mono">${esc(movesOf(c, parent))}</span>` : ""}</span>
         <span class="catn ${covCls}"><i style="width:${s.cover == null ? 0 : Math.round(s.cover * 100)}%"></i><b>${s.cover == null ? "–" : pctOf(s.cover)}</b></span>
         <span class="catn ${scoreCls}"><b>${s.score == null ? "–" : pctOf(s.score)}</b>${s.games ? `<small>${s.games}</small>` : ""}</span>
       </summary>
@@ -283,7 +293,7 @@ function drawCatalogue(root, targets) {
         <p class="help">${esc(c.comment || "")}${s.positions ? ` ${s.learned} of ${s.positions} of your moves learned.` : ""}</p>
         <div class="row catbtns"><button type="button" class="btn" data-focusbuild="${esc(ps)}">Build</button><button type="button" class="btn" data-focustrain="${esc(ps)}" ${canTrain ? "" : "disabled"}>Train</button>${c.path.length && !c.other ? `<button type="button" class="btn ghost danger" data-catremove="${esc(ps)}" data-catlabel="${esc(c.label)}">Remove</button>` : ""}${info("Build and Train focus on this opening: Build's ⏮ and Gap › stay inside it, and Train's reviews and lines come only from it, until you clear the focus.", "About Build and Train")}</div>
         ${ideaBlock(ps, c.children.map(k => k.path.join(" ")), targets)}
-        ${c.children.length ? `<div class="catkids">${c.children.map(k => entry(k, c.label)).join("")}</div>` : ""}
+        ${c.children.length ? `<div class="catkids">${c.children.map(k => entry(k, c)).join("")}</div>` : ""}
       </div>
     </details>`;
   };

@@ -664,6 +664,14 @@ t("pawn structures: the ones costing me most, and where they come from (v0.9.42)
   eq(a.fams[0].name, "Sicilian Defence");
   eq(a.dec.path.join(" ") + " | " + a.dec.played, "e4 c5 Nf3 d6 | d4", "my last prepared choice before it");
   eq(a.cost > 2, true, "about 12 × (0.5 − shrunk 0.17) points: " + a.cost.toFixed(2));
+  // v0.9.48: what happens next. Every Sicilian game has a knight move costing 3 pawns at ply 12 (7.Nb3)
+  S.acc = Object.fromEntries(games.map(g => [g.id, { v: 2, d: 10, ev: Array.from({ length: 15 }, (_, i) => (g.id[0] === "s" && i >= 13 ? -300 : 0)), bm: [] }]));
+  picMemo.clear();
+  const d2 = structAt("white", 6), a2 = stAttention(d2, "white", 6)[0], nx = stNext(d2, a2.c, "white", 6);
+  eq(/12 of 12/.test(nx.html) && /knight moves/.test(nx.html), true, "mistakes and their kind: " + nx.html.replace(/<[^>]+>/g, ""));
+  eq(nx.ex && nx.ex.ply, 12, "a mistake to show");
+  eq(a2.fams.map(f => f.name + " " + f.n).join(), "Sicilian Defence 12", "every opening listed");
+  S.acc = {};
   // v0.9.43: its typical (costliest) position, drawn small, with the structure's files tinted
   const x = stExample(d, a.c, true);
   eq(x.key, gameKeys(games[0])[12], "the Sicilian position at move 6");
@@ -1032,6 +1040,18 @@ t("fits your prep: the pawn structure leads the setup match (v0.9.27)", () => {
   eq(Math.round(setupSim(a, kg) * 100), 25, "f2 against f4: a different structure");
   eq(setupSim(a, same), 1, "the same position by another order");
   eq(jaccard(a.set, kg.set) >= 0.75, true, "the old measure called these 75%+ alike");
+});
+t("connect: the other way round (v0.9.48)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "d4 Nf6 Bf4 d5 e3"); line("white", "d4 d5 Nf3 Nf6 c4");
+  const c = findConnections("white").find(x => x.path.join(" ") === "d4 Nf6" && x.kind === "switch");
+  eq(c && c.moves.join(" ") + " > " + c.toPath.join(" "), "Nf3 d5 > d4 d5 Nf3 Nf6", "this way: 2.Nf3 joins the 1...d5 line");
+  const r = conReverse(c, "white");
+  eq(r && r.path.join(" ") + " | " + r.moves.join(" ") + " instead of " + r.old, "d4 d5 | Bf4 Nf6 instead of Nf3", "the other way: 2.Bf4 joins the London");
+  const w = conWhich(c, r, 1);
+  eq(!!w && ["this", "other"].includes(w.way) && /connects more|drops fewer/.test(w.why), true, "a recommendation with a reason: " + (w && w.why));
+  eq(conWhich(c, r, 9).way, "other", "the first way would drop much more");
+  reset(); resetEx();
 });
 t("connect: chains of likely moves from one line into another (v0.9.27)", () => {
   reset(); resetEx(); S.color = "white";
