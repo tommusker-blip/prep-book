@@ -670,6 +670,11 @@ t("pawn structures: the ones costing me most, and where they come from (v0.9.42)
   const d2 = structAt("white", 6), a2 = stAttention(d2, "white", 6)[0], nx = stNext(d2, a2.c, "white", 6);
   eq(/12 of 12/.test(nx.html) && /knight moves/.test(nx.html), true, "mistakes and their kind: " + nx.html.replace(/<[^>]+>/g, ""));
   eq(nx.ex && nx.ex.ply, 12, "a mistake to show");
+  // v0.9.50: captures say what took what
+  const kAt = moves => K(fenOf(moves));
+  eq([stMistakeKind("Nxe5", kAt("e4 e5 Nf3 Nc6")), stMistakeKind("exd5", kAt("e4 d5")), stMistakeKind("Bxf6", kAt("d4 Nf6 Bg5 e6")), stMistakeKind("exf5", kAt("e4 e5 Nf3 Nc6 Bc4 f5 d3 Nf6 O-O Bc5 Nc3 d6 Bg5 Bxf2")) , stMistakeKind("O-O", kAt("e4")), stMistakeKind("a4", kAt("e4")), stMistakeKind("Qh5", kAt("e4"))].join(" / "),
+    "a piece takes a pawn / pawn takes pawn / piece takes piece / pawn takes pawn / castling / pawn moves on the queenside / queen moves");
+  eq(stMistakeKind("dxe5", kAt("d4 Nf6 d5 Nc6 e4 Ne5")), "pawn takes a piece");
   eq(a2.fams.map(f => f.name + " " + f.n).join(), "Sicilian Defence 12", "every opening listed");
   // v0.9.49: the main opening only, and one-offs counted together
   const kga = { id: "kg1", my: "white", moves: "e4 e5 f4 exf4 Nf3 g5", result: "1-0" }, kgd = { id: "kg2", my: "white", moves: "e4 e5 f4 Bc5 Nf3 d6", result: "1-0" };

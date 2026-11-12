@@ -356,8 +356,7 @@ function stMistakes(list, color, move) {
       const loss = sg * (z.ev[i] - z.ev[i + 1]);
       if (loss < A.mistake) continue;
       hit++;
-      const san = moves[i], file = (san.match(/[a-h](?=[1-8])/g) || ["d"]).pop(), wing = "abc".includes(file) ? "queenside" : "fgh".includes(file) ? "kingside" : "centre";
-      const kind = san.includes("x") ? "captures" : /^[a-h]/.test(san) ? `pawn moves on the ${wing}` : { K: "king moves", Q: "queen moves", R: "rook moves", B: "bishop moves", N: "knight moves", O: "castling" }[san[0]] || "other moves";
+      const kind = stMistakeKind(moves[i], gameKeys(x.g)[i]);
       const e = kinds.get(kind) || { kind, n: 0, ex: null };
       e.n++; if (!e.ex) e.ex = { id: x.id, ply: i }; kinds.set(kind, e);
       break;
@@ -365,6 +364,24 @@ function stMistakes(list, color, move) {
   }
   return { n, hit, top: [...kinds.values()].sort((a, b) => b.n - a.n)[0] || null };
 }
+/* The kind of a mistake, from the move itself (what was moved, not why it was bad). v0.9.50: captures
+   say what took what, from the board before the move (keyBefore: GAMEKEYS, so up to move 20):
+   a pawn taking, a piece taking a pawn, or a piece taking a piece (a trade, or winning or losing material). */
+const ST_PIECE = { K: "king", Q: "queen", R: "rook", B: "bishop", N: "knight" };
+function stMistakeKind(san, keyBefore) {
+  const sq = (san.match(/[a-h][1-8]/g) || []).pop(), file = sq ? sq[0] : "d";
+  const wing = "abc".includes(file) ? "queenside" : "fgh".includes(file) ? "kingside" : "centre";
+  if (san.startsWith("O-O")) return "castling";
+  const piece = ST_PIECE[san[0]];
+  if (san.includes("x")) {
+    let took = "p"; // en passant leaves the square empty
+    if (sq && keyBefore) { const ch = boardCells(keyBefore)[(8 - +sq[1]) * 8 + (sq.charCodeAt(0) - 97)]; if (ch) took = ch.toLowerCase(); }
+    if (!piece) return took === "p" ? "pawn takes pawn" : "pawn takes a piece";
+    return took === "p" ? "a piece takes a pawn" : "piece takes piece";
+  }
+  return piece ? `${piece} moves` : `pawn moves on the ${wing}`;
+}
+const ST_MISTAKE_HELP = "A mistake here is one of your moves that lost at least the mistake margin (Settings > Advanced) in the game's Stockfish analysis (depth 10); only the first one in each game counts. It's sorted by the move itself, so the kind says what you moved, not why it was bad: pawn moves (on the queenside a–c, in the centre d–e, or on the kingside f–h), a piece's move (knight, bishop, rook, queen, king), castling, or a capture: pawn takes pawn, pawn takes a piece, a piece takes a pawn (often grabbing a pawn that was poisoned, or opening lines for the opponent), or piece takes piece (a trade that gave something away, or taking a piece that wasn't free). Show a mistake opens one of those games at the mistake.";
 function stNext(d, c, color, move) {
   const memo = "next";
   if (c[memo]) return c[memo];
@@ -390,7 +407,7 @@ function stNext(d, c, color, move) {
     const top = [...gained.values()].filter(e => e.n >= 2 && e.n >= 0.25 * n2).sort((a, b) => b.n - a.n)[0];
     if (top) lines.push(`By move ${later}, <b>${top.n} of ${n2}</b> games add <b>${comboText([top.it]).replace(/<[^>]+>/g, "")}</b>; you score ${pctOf(top.sum / top.n)} in them.`);
   }
-  return (c[memo] = { html: lines.length ? `<div class="stnext"><span class="stwho">What happens next</span><ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul></div>` : "", ex });
+  return (c[memo] = { html: lines.length ? `<div class="stnext"><span class="stwho">What happens next</span> ${info(ST_MISTAKE_HELP, "About the mistakes")}<ul>${lines.map(l => `<li>${l}</li>`).join("")}</ul></div>` : "", ex });
 }
 /* v0.9.43: a typical position for a structure, drawn small on its card. Its games are grouped by
    their pawns (every other piece left out); the group is the most common one, or for "worth your

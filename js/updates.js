@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12d", v: "0.9.50", date: "12 Nov 2026", title: "Clearer kinds of mistake",
+    items: [
+      "Structures, What happens next: captures now say what took what: pawn takes pawn, pawn takes a piece, a piece takes a pawn, or piece takes piece.",
+      "The ⓘ next to What happens next explains how mistakes are counted and grouped: the kind says what you moved, not why it was bad.",
+    ],
+  },
+  {
     id: "2026-11-12c", v: "0.9.49", date: "12 Nov 2026", title: "Cleaner openings lists",
     items: [
       "Structures cards only list openings with at least 3 games (and a tenth of the total); the rest are counted together as \"other\". Versions of one opening are merged: King's Gambit, not King's Gambit Accepted and Declined.",

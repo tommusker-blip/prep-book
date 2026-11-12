@@ -370,6 +370,8 @@ when it loads; the others just define things.
   - Map: `freqCell()` (`.covmap.withfreq`, `.mapfreq`) = the entry's `reach`.
   - Don't edit files with a PowerShell script that holds non-ASCII text: PowerShell 5.1 reads a BOM-less .ps1 as
     ANSI, so "…" became "â€¦" in catalogue.js (v0.9.48). Use the Edit tool, or keep such scripts ASCII.
+- v0.9.50: `stMistakeKind(san, keyBefore)` (picture.js) sorts a mistake by the move: pawn moves by wing, a piece's
+  moves, castling, or captures by what took what (board from `gameKeys()` before the move). `ST_MISTAKE_HELP` is the ⓘ.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
