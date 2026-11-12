@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12l", v: "0.9.58", date: "12 Nov 2026", title: "Tree: stats beside the board",
+    items: [
+      "Visualise > Tree: when you tap a slice, its stats (your games and score, the peers' score) sit beside the board instead of under it, so you can see them while you tap around the rings.",
+      "The page no longer jumps to centre the board; it only scrolls a little if the board and stats would be off the bottom of the screen.",
+    ],
+  },
+  {
     id: "2026-11-12k", v: "0.9.57", date: "12 Nov 2026", title: "More kept in your account",
     items: [
       "Lichess data (Scan my tree, Build, masters) is now saved in your account as well as on the device. It's looked up there before asking Lichess, and on start-up the positions in your repertoire are filled in from it, so a scan is done once for all your devices and isn't forgotten when the device's store fills up.",

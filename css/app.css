@@ -347,7 +347,10 @@ div.gap-row{cursor:default}
 .suntx{font-size:7px;text-anchor:middle;dominant-baseline:middle;fill:var(--ink);pointer-events:none;font-family:var(--f-mono)}
 .suntx.core{font-size:8px;fill:var(--muted)}
 .suncore{fill:var(--bg);stroke:var(--line);cursor:pointer}
-.sunsel{display:flex;flex-direction:column;gap:6px;min-width:0;align-self:center;align-items:center;text-align:center}
+.sunsel{display:grid;grid-template-columns:minmax(0,46%) minmax(0,1fr);gap:10px;align-items:start;min-width:0;align-self:start}
+.sunstats{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:.86rem}
+.sunstats .row{flex-wrap:wrap;gap:6px}
+.sunstats .btn{min-height:36px;padding:4px 10px;font-size:.82rem}
 .sunsel p{margin:0}
 .stname{margin:0;font-weight:600;font-size:.88rem}
 .stplans summary{font-size:.8rem;color:var(--accent);cursor:pointer}

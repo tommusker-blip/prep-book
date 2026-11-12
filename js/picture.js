@@ -109,16 +109,16 @@ function renderSun(color) {
   const a = sel != null ? arcs.find(x => arcId(x) === sel) : null;
   if (a && a.gap) {
     const at = a.path.join(" ");
-    side = `<div class="sunsel"><div id="picBoard" class="board aoboard" aria-label="The position"></div>
+    side = `<div class="sunsel"><div id="picBoard" class="board" aria-label="The position"></div><div class="sunstats">
       <p><b class="mono">${esc(numbered(0, a.path) || "Start")}</b></p>
       <p class="help">${a.mine ? "Your move here isn't prepared." : a.rest ? `Not prepared: ${pctOf(a.rest)} of replies at your level here.` : "Your line ends here: no replies prepared."}</p>
-      <div class="row" style="margin:0"><button type="button" class="btn ghost" data-open="${esc(at)}">Open in Build</button></div></div>`;
+      <div class="row" style="margin:0"><button type="button" class="btn ghost" data-open="${esc(at)}">Open in Build</button></div></div></div>`;
   } else if (a) {
     const name = (openingFor(a.path) || {}).name, kids = arcs.some(x => x.d === a.d + 1 && x.path.slice(0, a.path.length).join(" ") === sel);
-    side = `<div class="sunsel"><div id="picBoard" class="board aoboard" aria-label="The position"></div>
+    side = `<div class="sunsel"><div id="picBoard" class="board" aria-label="The position"></div><div class="sunstats">
       <p><b class="mono">${esc(numbered(0, a.path))}</b>${name ? `<br><span class="help">${esc(name)}</span>` : ""}</p>
       <p class="help">My games${o.who !== "all" ? ` where ${o.who === "me" ? "I" : "they"} left prep` : ""}: ${a.games && a.games.n ? `${a.games.n}, I score ${pctOf(wdlScore(a.games))} (${a.games.w} won, ${a.games.d} drawn, ${a.games.l} lost)` : "none yet"}.<br>Peers at my level: ${a.peer != null ? `${a.peerN.toLocaleString("en-GB")} games, my side scores ${pctOf(a.peer)}` : "no data loaded"}.</p>
-      <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div>`;
+      <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div></div>`;
   }
   const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games." }[o.color] || "";
   return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}${o.color === "mine" ? picSeg("pswho", o.who, WHO_OPTS, "Which games") : ""}</div>
@@ -552,9 +552,10 @@ function renderPicture() {
     if (t.dataset.picsunup != null) { if (!o.root.length) return; o.sel = o.root.join(" "); o.root = o.stack.pop() || []; }
     else o.sel = t.dataset.picsun;
     renderPicture();
-    // v0.9.43: bring the board into the middle of the screen if it's partly off it (on phones it's under the rings)
-    const b = $("#picBoard"), r = b && b.getBoundingClientRect();
-    if (r && (r.top < 0 || r.bottom > innerHeight)) b.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" });
+    // v0.9.58: only nudge the page if the board and stats are off the bottom of the screen ("nearest": the smallest
+    // scroll that shows them), so the rings stay in view while tapping around; it used to centre the board
+    const b = $("#picPane .sunsel"), r = b && b.getBoundingClientRect();
+    if (r && r.bottom > innerHeight) b.scrollIntoView({ block: "nearest", behavior: reduceMotion() ? "auto" : "smooth" });
   };
   const v = PIC.view, body = v === "structures" ? renderStructures(color) : renderSun(color);
   box.innerHTML = (v === "structures" ? `<h3>Pawn structures ${info("How the pawns stand in your own games at a given move: the type of centre and each side's missing, isolated, doubled, backward and passed pawns by file, linked into structures: the features that come up together. Each figure is the share of your games, with your score in them against your average.", "About pawn structures")}</h3>` : `<h3>Your tree ${info("Your whole repertoire as rings of moves, one ring per move. A slice is as wide as how often you get there; colour it by your own score or the peers' score at your level. Tap a slice to see the position.", "About the tree")}</h3>`)

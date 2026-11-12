@@ -399,6 +399,8 @@ when it loads; the others just define things.
   - `js/decisions.js`: `Decide` keeps Connect (`con`) and Ideas (`sug`) decisions in `S.settings.decisions` with times in
     `S.settings.decidedAt` (synced); `pb_conskip`/`pb_sugskip` merged in once. `decisionsHtml()` lists them with Bring back
     (`data-conback`, `data-sugback`, `*` = all); `Decide.sig()` in `conCompute()`'s signature. The user wants decisions revisited.
+- v0.9.58: Tree: `.sunsel` is a grid, board (46%) beside `.sunstats`; after a tap the page only scrolls ("nearest") if
+  the panel is off the bottom, so the rings stay in view.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
