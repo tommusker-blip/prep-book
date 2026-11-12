@@ -308,11 +308,13 @@ function attentionHtml(d, color, move) {
   return `<p class="lbl">Worth your attention ${info("Structures where you score below your average, the ones costing you most first: games × the drop in your score, in game points (a loss against your average costs about half a point more than a draw would). Each shows where it comes from: the openings, and your last prepared choice before it. To avoid it, open that choice in Build and look at the other moves; to get better at it, practise the line.", "About this list")}</p>
     <div class="stcombos">${list.map(a => {
       const c = a.c, dec = a.dec, line = dec ? dec.path.concat(dec.played) : null;
-      return `<div class="stcombo stattn bad hasmini" style="--w:${Math.round((c.n / d.n) * 100)}%">${stMini(d, c, color, move, true)}<div class="stcbody">
+      // v0.9.47: key numbers only; the full path is in the tip on Avoid
+      const mv = dec ? moveLabel(dec.path, dec.played) : "";
+      return `<div class="stcombo bad hasmini">${stMini(d, c, color, move, true)}<div class="stcbody">
         <p class="stctext">${comboText(c.items)}</p>
-        <p class="stcnum"><b>−${a.cost.toFixed(1)}</b><span class="help">points over ${c.n} games · ${stScore(c, d)}</span></p>
-        <p class="help">From ${a.fams.map(f => `${esc(f.name)} (${f.n}, ${pctOf(f.sum / f.n)})`).join(", ")}.${dec ? ` Your last prepared choice before it: <b class="mono">${esc(moveLabel(dec.path, dec.played))}</b> after <span class="mono">${esc(numbered(0, dec.path) || "the start")}</span> (${dec.n} of these games, you score ${pctOf(dec.sum / dec.n)}).` : ""}</p>
-        <div class="row conacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}">Avoid: other moves in Build</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise this line</button>` : ""}${stExBtn(d, c, move, true)}</div></div></div>`;
+        <div class="stms">${stMetric("−" + a.cost.toFixed(1), "points lost", "bad")}${stMetric(pctOf(c.sum / c.n), `you score (avg ${pctOf(d.avg)})`)}${stMetric(c.n, "games")}</div>
+        <p class="stfrom">Mostly ${esc(a.fams[0].name)}${dec ? ` · your move ${esc(mv)}` : ""}</p>
+        <div class="stacts">${dec ? `<button type="button" class="btn quick" data-open="${esc(dec.path.join(" "))}" aria-label="${esc(`Open Build at ${numbered(0, dec.path) || "the start"} to choose another move than ${mv}`)}">Avoid ${esc(mv)}</button><button type="button" class="btn ghost quick" data-focustrain="${esc(line.join(" "))}">Practise</button>` : ""}${stExBtn(d, c, move, true)}</div></div></div>`;
     }).join("")}</div>`;
 }
 /* v0.9.43: a typical position for a structure, drawn small on its card. Its games are grouped by
@@ -347,7 +349,14 @@ function miniBoard(key, flip, files) {
 }
 function stMini(d, c, color, move, costly) {
   const x = stExample(d, c, costly), files = new Set(c.items.filter(it => !it.startsWith("c:")).map(it => +it.split(":")[2]));
-  return `<div class="stmini">${miniBoard(x.key, color === "black", files)}<p class="help">${costly ? "Costliest" : "Most common"}: ${x.n} game${x.n === 1 ? "" : "s"}, you score ${pctOf(x.sum / x.n)}</p></div>`;
+  return `<div class="stmini">${miniBoard(x.key, color === "black", files)}</div>`;
+}
+// One key number with its label underneath
+const stMetric = (big, small, cls) => `<span class="stm${cls ? " " + cls : ""}"><b>${big}</b><small>${small}</small></span>`;
+// "52% (+4)" against my average, shrunk on few games
+function stScoreMetric(c, d) {
+  const diff = Math.round((shrink(c.sum, c.n, d.avg) - d.avg) * 100);
+  return stMetric(pctOf(c.sum / c.n), `you score${Math.abs(diff) >= 2 ? ` (${diff > 0 ? "+" : "−"}${Math.abs(diff)})` : ""}`, diff >= 2 ? "good" : diff <= -2 ? "bad" : "");
 }
 const stExBtn = (d, c, move, costly) => `<button type="button" class="btn ghost quick" data-review="${esc(stExample(d, c, costly).ex)}" data-rvat="${2 * move}">Example</button>`;
 const FEAT_WORD = { missing: f => `no ${f}-pawn`, isolated: f => `isolated ${f}-pawn`, doubled: f => `doubled ${f}-pawns`, backward: f => `backward ${f}-pawn`, passed: f => `passed ${f}-pawn` };
@@ -374,9 +383,10 @@ function renderStructures(color) {
   if (o.by) return stepper + structByMove(color);
   if (!d.n) return stepper + `<p class="help">None of your games as ${color} reach move ${mv}.</p>`;
   const share = c => pctOf(c.n / d.n), cb = stCombos(d);
-  const comboRow = c => `<div class="stcombo ${stTone(c, d)} hasmini" style="--w:${Math.round((c.n / d.n) * 100)}%">${stMini(d, c, color, mv)}<div class="stcbody">
+  const comboRow = c => `<div class="stcombo ${stTone(c, d)} hasmini">${stMini(d, c, color, mv)}<div class="stcbody">
       <p class="stctext">${comboText(c.items)}</p>
-      <p class="stcnum"><b>${share(c)}</b><span class="help">${c.n} games · ${stScore(c, d)}</span>${stExBtn(d, c, mv)}</p></div></div>`;
+      <div class="stms">${stMetric(share(c), `of games (${c.n})`)}${stScoreMetric(c, d)}</div>
+      <div class="stacts">${stExBtn(d, c, mv)}</div></div></div>`;
   const centre = CENTRES.filter(([k]) => d.centre[k].n).sort((a, b) => d.centre[b[0]].n - d.centre[a[0]].n).map(([k, name, help]) => {
     const c = d.centre[k];
     return `<div class="sttile2 ${stTone(c, d)}"><p class="stbig">${share(c)}</p><p class="stname">${esc(name)} ${info(help, "About " + name)}</p><p class="help">${stScore(c, d)}</p></div>`;
@@ -390,14 +400,13 @@ function renderStructures(color) {
         ${row.files.map((c, f) => c.n ? `<span class="stfc" style="--v:${Math.round((c.n / max) * 55)}%" data-tip="${esc(`${"abcdefgh"[f]}-file, ${name.toLowerCase()} (${who === "me" ? "yours" : "theirs"}): ${c.n} games (${share(c)}); ${stScore(c, d).replace(/<[^>]+>/g, "")}`)}">${Math.round((c.n / d.n) * 100)}</span>` : `<span class="stfc"></span>`).join("")}</div>`;
     }).join("")}</div>`;
   const list = (title, rows, help) => rows.length ? `<p class="lbl">${title}</p>${help ? `<p class="help">${help}</p>` : ""}<div class="stcombos">${rows.map(comboRow).join("")}</div>` : "";
-  return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">of your games as ${color} reached move ${mv}; you scored ${pctOf(d.avg)} in them. Blue/orange: you score better/worse than that.</span></p>
+  return stepper + `<p class="funbig"><b>${d.n}</b> <span class="help">games reached move ${mv}; you scored ${pctOf(d.avg)}</span></p>
     ${attentionHtml(d, color, mv)}
-    ${list("Your most common structures", cb.common, `Features that come up together at move ${mv}, in at least ${cb.minN} games. A game can have more than one.`)}
+    ${list(`Your most common structures ${info(`Features that come up together at move ${mv}, in at least ${cb.minN} games; a game can have more than one. The small board is the most common position with that structure (in Worth your attention, the one costing you most), with the files it's about tinted. Your score is against your average, pulled towards it on few games. Example plays that game up to move ${mv}.`, "About these structures")}`, cb.common)}
     ${list("Where you score best", cb.best)}
     <p class="lbl">The centre</p><div class="sttiles2">${centre}</div>
     <details class="stdetail"><summary>Each indicator by file</summary>${table("me", "Your pawns")}${table("them", "Their pawns")}
-      <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>
-    <p class="help">Scores on few games are pulled towards your average. The small board is the most common position with that structure (for worth your attention, the one costing you most); the tinted files are the ones the structure is about. Example plays that game up to move ${mv}.</p>`;
+      <p class="help">The share of your games with each at move ${mv}, by file (a to h); tap a number for your score in those games.</p></details>`;
 }
 // The shares from move 4 to 20: when structures form
 function structByMove(color) {

@@ -96,7 +96,7 @@ function renderGames() {
       <td>${barFor({ w: r.w, d: r.d, l: r.l }, "Your games from here")}</td></tr>`;
   }).join("") : `<tr><td colspan="4" class="muted">Import games to see where your prep ends and how those games go.</td></tr>`;
   // conversion by eval at book exit
-  const buckets = [["Worse (−1.0 or less)", -1e9, -100], ["Slightly worse", -100, -30], ["Equal (±0.3)", -30, 30], ["Slightly better", 30, 100], ["Better (+1.0 or more)", 100, 1e9]];
+  const buckets = [["You were worse by a pawn or more", -1e9, -100], ["Slightly worse", -100, -30], ["Level (within 0.3)", -30, 30], ["Slightly better", 30, 100], ["Better by a pawn or more", 100, 1e9]];
   const conv = buckets.map(([label, lo, hi]) => {
     const xs = A.filter(x => S.acc[x.g.id] && x.s != null && S.acc[x.g.id].exitCp >= lo && S.acc[x.g.id].exitCp < hi);
     const sc = xs.reduce((a, x) => a + x.s, 0);

@@ -25,6 +25,7 @@
 <script src="../js/report.js"></script>
 <script src="../js/autobuild.js"></script>
 <script src="../js/catalogue.js"></script>
+<script src="../js/doubles.js"></script>
 <script src="../js/openlines.js"></script>
 <script src="../js/addopening.js"></script>
 <script src="../js/structures.js"></script>
@@ -636,6 +637,16 @@ t("board colours: a1 and h8 are dark, h1 and a8 light, flipped or not (v0.9.45)"
   const mb = document.createElement("div"); mb.innerHTML = miniBoard(K(START), false, new Set());
   const cells = [...mb.querySelectorAll(".sq")];
   eq([cells[56], cells[63], cells[0], cells[7]].map(c => c.classList.contains("dk")).join(), "true,false,false,true", "small board: a1, h1, a8, h8");
+});
+t("positions where I have more than one move (v0.9.47)", () => {
+  reset(); S.color = "white";
+  line("white", "e4 e5 Nf3 Nc6 Bb5"); line("white", "e4 e5 Bc4 Nf6 d3"); line("white", "d4 d5 c4");
+  const list = multiMovePositions("white");
+  eq(list.map(p => (p.path.join(" ") || "start") + ": " + p.moves.join("/")).join(" | "), "start: e4/d4 | e4 e5: Nf3/Bc4");
+  removeMove(["e4", "e5"], "Bc4", "white");
+  eq(multiMovePositions("white").length, 1, "after keeping only Nf3");
+  eq(!rep("white").pos[K(fenAfter(START, ["e4", "e5", "Bc4", "Nf6"]))], true, "the Bc4 line went with it");
+  reset();
 });
 t("pawn structures: the ones costing me most, and where they come from (v0.9.42)", () => {
   reset(); S.color = "white";

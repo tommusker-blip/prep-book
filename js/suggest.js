@@ -15,7 +15,7 @@ function showOpeningsTab() {
   const tab = ["sug", "map", "connect"].includes(S.otab) ? S.otab : "cat";
   document.querySelectorAll("[data-otab]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.otab === tab)));
   document.querySelectorAll("[data-opane]").forEach(p => (p.hidden = p.dataset.opane !== tab));
-  if (tab === "sug") renderSuggest(); else if (tab === "map") renderMapTab(); else if (tab === "connect") renderConnect(); else { renderAddOpening(); renderCatalogue(); }
+  if (tab === "sug") renderSuggest(); else if (tab === "map") renderMapTab(); else if (tab === "connect") renderConnect(); else { renderAddOpening(); renderDoubles(); renderCatalogue(); }
 }
 
 /* ----- the scan box: Lichess data for every position of the tree ----- */
@@ -113,7 +113,7 @@ function renderSuggest() {
   SUG.cur = e;
   const pc = x => Math.round(x * 100) + "%", op = openingFor(e.path.concat(e.san));
   const sure = sugSure(e, color), ev = sugEval(e.path, e.san), myEv = e.mine.map(m => [m, sugEval(e.path, m)]);
-  const evTxt = cp => (cp == null ? "…" : pawns(cp));
+  const evTxt = cp => (cp == null ? "…" : pawns(color === "white" ? cp : -cp)); // shown from White's side (v0.9.47)
   const lines = [];
   if (sure) {
     const r = e.gems || e.better;
@@ -125,7 +125,7 @@ function renderSuggest() {
   if (!Engine.failed) {
     const got = myEv.map(([, cp]) => cp).filter(cp => cp != null), best = got.length ? Math.max(...got) : null;
     const lose = ev != null && best != null ? best - ev : null;
-    lines.push(`<li><b>Stockfish</b> (your side, depth ${SUG_DEPTH}): ${esc(e.san)} ${evTxt(ev)}${myEv.length ? `, ${myEv.map(([m, cp]) => `your ${esc(m)} ${evTxt(cp)}`).join(", ")}` : ""}.${lose != null && lose >= adv().mistake ? ` <span class="bad">It gives up ${(lose / 100).toFixed(1)} against yours.</span>` : lose != null && lose >= adv().good ? ` <span class="muted">A little worse than yours for the engine.</span>` : ""}</li>`);
+    lines.push(`<li><b>Stockfish</b> (depth ${SUG_DEPTH}, + good for White): ${esc(e.san)} ${evTxt(ev)}${myEv.length ? `, ${myEv.map(([m, cp]) => `your ${esc(m)} ${evTxt(cp)}`).join(", ")}` : ""}.${lose != null && lose >= adv().mistake ? ` <span class="bad">It gives up ${(lose / 100).toFixed(1)} against yours.</span>` : lose != null && lose >= adv().good ? ` <span class="muted">A little worse than yours for the engine.</span>` : ""}</li>`);
   }
   const ps = myPosStats(e.key, color), ms = myMoveStats(e.key, e.san, color);
   lines.push(`<li><b>Your games</b>: ${ps && ps.n ? `${ps.n} reached this position, you scored ${pc(wdlScore(ps))}${ms && ms.n ? `; ${ms.n} with ${esc(e.san)}, ${pc(wdlScore(ms))}` : ""}` : "none reached this position"}. You'd get here in about ${e.reach >= 0.1 ? pc(e.reach) : (e.reach * 100).toFixed(1) + "%"} of your games as ${color}.</li>`);

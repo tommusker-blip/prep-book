@@ -190,7 +190,7 @@ function ideasPanel(fen, key, n, path) {
       tags.includes("gem") ? '<span class="pill gem">Hidden gem</span>' : "",
       c.engineBest ? '<span class="pill">Engine’s choice</span>' : "", c.top ? '<span class="pill">Most played</span>' : ""].join("");
     return `<tr><td><button type="button" class="chip" data-go="${esc(c.san)}">${esc(c.san)}</button><div class="tags">${pills}</div></td>
-      <td class="num">${pawns(c.myEval)}<br><span class="muted">${c.loss >= 5 ? "−" + (c.loss / 100).toFixed(1) : "best"}</span></td>
+      <td class="num">${pawns(S.color === "white" ? c.myEval : -c.myEval)}<br><span class="muted">${c.loss >= 5 ? "−" + (c.loss / 100).toFixed(1) : "best"}</span></td>
       <td class="num">${c.err == null ? "–" : Math.round(c.err * 100) + "%"}</td>
       <td class="num">${Math.round(m.score * 100)}%</td></tr>
       <tr class="why"><td colspan="4">${ideaWhy(c, m) || ""}</td></tr>`;

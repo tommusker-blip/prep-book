@@ -216,7 +216,7 @@ f.onload = () => {
       d.querySelector('[data-mapview="structures"]').click(); await sleep(50);
       L("centre: " + [...d.querySelectorAll("#picPane .sttile2")].map(t => t.querySelector(".stname").textContent.trim() + " " + t.querySelector(".stbig").textContent).join(", "));
       L("their missing by file: " + [...d.querySelectorAll("#picPane .stfeat")[1].querySelectorAll(".stfrow")[1].querySelectorAll(".stfc")].map((c, i) => c.textContent ? "abcdefgh"[i] + c.textContent : "").filter(Boolean).join(" "));
-      L("structures: " + [...d.querySelectorAll("#picPane .stcombo")].map(c => c.querySelector(".stctext").textContent + " = " + c.querySelector(".stcnum b").textContent).join(" | ") + " | example buttons " + d.querySelectorAll("#picPane .stcombo [data-review]").length);
+      L("structures: " + [...d.querySelectorAll("#picPane .stcombo")].map(c => c.querySelector(".stctext").textContent + " = " + c.querySelector(".stm b").textContent).join(" | ") + " | example buttons " + d.querySelectorAll("#picPane .stcombo [data-review]").length);
       L("mini boards: " + d.querySelectorAll("#picPane .stcombo .board.mini").length + " of " + d.querySelectorAll("#picPane .stcombo").length + " cards, pieces on the first " + d.querySelectorAll("#picPane .board.mini")[0].querySelectorAll(".pc").length);
       // v0.9.43: Example opens the game at the structure's move, playing the moves up to it
       const exb = d.querySelector("#picPane .stcombo [data-review]"), at = +exb.dataset.rvat;
@@ -248,6 +248,14 @@ f.onload = () => {
       for (let i = 0; i < 50 && !d.querySelector("#catBody details.cat"); i++) await sleep(100);
       L("head: " + d.querySelector("#catHead").textContent);
       L("top entries: " + [...d.querySelectorAll("#catBody > details.cat > summary .catname")].map(s => s.textContent.trim()).join(" | "));
+      // v0.9.47: positions with more than one move of mine
+      d.querySelector("#dblBtn").click(); await sleep(50);
+      L("more than one move: " + d.querySelector("#dblBtn").textContent + " | " + [...d.querySelectorAll("#dblBox .dblitem")].map(x => x.textContent.replace(/\s+/g, " ").trim()).join(" || "));
+      [...d.querySelectorAll("#dblBox [data-dblkeep]")].find(b => b.textContent === "Keep only Bc4").click(); await sleep(50);
+      L("after Keep only Bc4: " + d.querySelector("#dblBtn").textContent + " | Bb5 gone: " + !G('rep("white").pos[K(fenAfter(START, "e4 e5 Nf3 Nc6 Bb5 a6".split(" ")))]') + " | " + d.querySelector("#dblBox").textContent.replace(/\s+/g, " ").trim().slice(0, 120));
+      d.querySelector("#dblBox [data-undo='dbl']").click(); await sleep(50);
+      L("after Undo: " + d.querySelector("#dblBtn").textContent);
+      d.querySelector("#dblBtn").click();
       const it = [...d.querySelectorAll("details.cat")].find(x => /Italian/.test(x.querySelector(".catname").textContent));
       L("Italian summary: " + it.querySelector("summary").textContent.replace(/\s+/g, " ").trim());
       L("Italian comment: " + it.querySelector(".catbody .help").textContent.trim());

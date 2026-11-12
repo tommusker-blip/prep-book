@@ -331,7 +331,7 @@ async function onPuzzleMove(mv) {
   const shown = new Set(T.nav.arrows.map(a => a.kind));
   const legend = [shown.has("best") && `<span class="key best">best${bestSan ? " " + esc(bestSan) : ""}</span>`, shown.has("played") && `<span class="key played">played in the game</span>`, shown.has("tried") && `<span class="key tried">yours</span>`].filter(Boolean).join("");
   $("#tPrompt").innerHTML = `<p class="lbl ${r.ok ? "ok" : "warn"}">${r.ok ? `Good: ${esc(moveLabel(T.path, mv.san))}` : `Not quite. Better was ${esc(moveLabel(T.path, bestSan))}`}</p>
-    <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(m.before)} → ${pawns(m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, after.slice(1, 4)) || "…")}</span></p>
+    <p class="muted">In the game you played <b>${esc(moveLabel(T.path, m.played))}</b> (${pawns(g.my === "white" ? m.before : -m.before)} → ${pawns(g.my === "white" ? m.after : -m.after)}) and ${esc(opp)} punished it: <span class="mono">${esc(numbered(T.path.length + 1, after.slice(1, 4)) || "…")}</span></p>
     ${legend ? `<p class="arrowkey">${legend}</p>` : ""}
     <p class="help">▶ or the moves above go through the whole game.</p>`;
   puzzleChoice();

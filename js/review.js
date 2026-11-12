@@ -19,6 +19,8 @@ const REV_OPENING = 30, REV_LIST = 20;
 let RVB = null;
 const RV = { g: null, frames: [], i: 0, back: "games", prepCp: null, token: 0, shown: REV_LIST, play: 0, playTo: 0 };
 const revColorSign = g => (g.my === "white" ? 1 : -1);
+// v0.9.47: evals are always shown from White's side (+ good for White, − good for Black), whoever I am
+const whiteTxt = cp => (Math.abs(cp) >= 5000 ? (cp > 0 ? "+M" : "−M") : (cp > 0 ? "+" : cp < 0 ? "−" : "") + Math.abs(cp / 100).toFixed(1));
 const pawnsTxt = cp => (Math.abs(cp) >= 5000 ? (cp > 0 ? "winning" : "losing") : (cp > 0 ? "+" : cp < 0 ? "−" : "") + Math.abs(cp / 100).toFixed(1));
 // Per ply: who moved, cp lost by the mover (from the game's analysis), and the mark
 function revMoves(g, a) {
@@ -126,7 +128,7 @@ function renderReview() {
   $("#rvSum").innerHTML = `<p class="possum">${res} vs ${esc(opp)} <span class="muted">(${oe || "?"})</span> · ${esc(g.date || "")}${g.url ? ` · <a href="${esc(g.url)}" target="_blank" rel="noopener">chess.com</a>` : ""}</p>
     ${op ? `<p class="help">${esc(op.name)}</p>` : ""}
     <p class="help">In your prep until move ${Math.floor(a.ply / 2) + 1}${a.type === "full" ? " (the end of the game or of the opening)" : ""}.</p>
-    ${acc ? `<div class="tiles rvtiles"><div><b class="big num">${acc.inb ?? "–"}${acc.inb != null ? "<small>%</small>" : ""}</b><span>accuracy in your prep</span></div><div><b class="big num">${acc.post ?? "–"}${acc.post != null ? "<small>%</small>" : ""}</b><span>accuracy just after it</span></div><div><b class="big num">${pawnsTxt(acc.exitCp)}</b><span>eval when you left it, your side</span></div></div>`
+    ${acc ? `<div class="tiles rvtiles"><div><b class="big num">${acc.inb ?? "–"}${acc.inb != null ? "<small>%</small>" : ""}</b><span>accuracy in your prep</span></div><div><b class="big num">${acc.post ?? "–"}${acc.post != null ? "<small>%</small>" : ""}</b><span>accuracy just after it</span></div><div><b class="big num">${whiteTxt(acc.exitCp * revColorSign(g))}</b><span>eval when you left it (+ White, − Black)</span></div></div>`
       : `<p class="help">Not analysed yet: Games &gt; Analyse all gives the accuracy and the marks.</p>`}
     ${worst.length ? `<p class="lbl" style="margin-top:8px">Your costliest opening moves after prep</p><ul class="list rvworst">${worst.map(m => `<li><button type="button" class="linkish" data-rvply="${m.k}">${esc(moveLabel(mv.slice(0, m.k).map(x => x.san), m.san))}${m.mark} <span class="muted">gave up ${pawnsTxt(m.loss).replace(/^\+/, "")}</span></button></li>`).join("")}</ul>` : ""}`;
   $("#rvBack").disabled = RV.i <= 0; $("#rvFwd").disabled = RV.i >= RV.frames.length - 1;
@@ -141,7 +143,7 @@ function revNote(g, a, mv) {
   const btn = (act, label, primary) => `<button type="button" class="btn ${primary ? "" : "ghost "}quick" data-rvact="${act}">${esc(label)}</button>`;
   let h = `<p class="lbl ${a.type === "full" ? "ok" : "warn"}">${revTypeLabel[a.type]}${a.type === "full" ? "" : ` at move ${Math.floor(a.ply / 2) + 1}`}</p>`;
   if (a.type === "full") return h + `<p class="help">Every move up to ${a.ply ? esc(moveLabel(a.path.slice(0, -1), a.path[a.path.length - 1])) : "the start"} was in your prep.</p>`;
-  const evTxt = cp => (cp == null ? "" : ` <span class="mono">${pawnsTxt(cp)}</span>`);
+  const evTxt = cp => (cp == null ? "" : ` <span class="mono">${whiteTxt(cp * sg)}</span>`); // cp is from my side
   if (a.type === "misplay" || a.type === "you_new") {
     const played = a.played, playedCp = cpAfter(a.ply + 1), m = mv[a.ply];
     const prep = a.type === "misplay" ? rep(g.my).pos[a.key].m : [];
@@ -151,7 +153,7 @@ function revNote(g, a, mv) {
       : `<p>You had no move ready here, and played <b>${esc(here)}</b>${evTxt(playedCp)}.</p>`;
     if (best && best !== played) h += `<p class="help">Stockfish's choice: <b>${esc(best)}</b>${evTxt(cpAfter(a.ply))}.${m && m.mark ? ` Your move gave up ${pawnsTxt(m.loss).replace(/^\+/, "")}.` : ""}</p>`;
     else if (best === played) h += `<p class="help">That was Stockfish's choice too.</p>`;
-    h += `<p class="help">Evals are from your side; the game's are depth 10, your prep's depth 12.</p><div class="row rvacts">`;
+    h += `<p class="help">Evals: + is good for White, − for Black; the game's are depth 10, your prep's depth 12.</p><div class="row rvacts">`;
     if (a.type === "misplay") h += btn("replace", `Make ${played} my move`, true) + btn("add", `Add ${played} as an option`);
     else h += btn("add", `Add ${played} to my tree`, true);
     if (best && best !== played && !prep.includes(best)) h += btn(a.type === "misplay" ? "best" : "bestadd", `Use ${best}`);

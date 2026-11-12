@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-12a", v: "0.9.47", date: "12 Nov 2026", title: "Tidier structures, evals from White's side, and positions with two moves",
+    items: [
+      "Visualise > Structures: simpler cards. The small board, the structure, and just the key numbers (how often, your score; for worth your attention, points lost, your score and games), with no shaded bars.",
+      "Evals are now always from White's side everywhere: + is good for White, − good for Black, whichever colour you play. Game review, Ideas, Ideas here and mistake puzzles used to show them from your side.",
+      "Openings > More than one move: every position where you've saved two or more moves, most often reached first, with how each does. Keep only one with a tap (Undo puts the others back).",
+    ],
+  },
+  {
     id: "2026-11-11t", v: "0.9.46", date: "11 Nov 2026", title: "You can always see (and clear) a focus",
     items: [
       "When you pick an opening to Build or Train, Gap › and ⏮ stay inside it until you clear it. That was only shown on the My lines tab, so it could look as if Gap › was stuck.",
