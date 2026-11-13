@@ -18,18 +18,21 @@ let mapMode = "cover";
 const UNK_SHOW = 0.1; // v0.9.56: mark coverage cells where this share or more has no Lichess data
 let mapWho = "all"; // v0.9.55: Played / Results over all games, or only where I / they left the prep
 const todayStr = () => new Date().toISOString().slice(0, 10);
+// v0.9.62: coverage is counted differently from this version (rare replies and line ends in full), so progress
+// only compares entries worked out the same way
+const COVER_VER = 2;
 function noteProgress(color, st) {
   if (!st || st.cover == null) return;
   const R = rep(color), h = R.hist || (R.hist = []), d = todayStr(), v = Math.round(st.cover * 1000) / 1000, to = coverTo();
   const last = h[h.length - 1];
-  if (last && last.d === d && last.c === v && last.to === to) return;
+  if (last && last.d === d && last.c === v && last.to === to && last.cv === COVER_VER) return;
   if (last && last.d === d) h.pop();
-  h.push({ d, c: v, to, n: st.positions || 0 });
+  h.push({ d, c: v, to, n: st.positions || 0, cv: COVER_VER });
   if (h.length > 120) h.splice(0, h.length - 120);
   Store.save(repDoc(color));
 }
 function progressLine(color) {
-  const h = (rep(color).hist || []).filter(x => x.to === coverTo()), now = h[h.length - 1];
+  const h = (rep(color).hist || []).filter(x => x.to === coverTo() && x.cv === COVER_VER), now = h[h.length - 1];
   if (!now) return "";
   const since = Date.now() - 30 * 864e5, old = h.find(x => Date.parse(x.d) >= since && x !== now);
   const date = x => new Date(x.d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });

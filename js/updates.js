@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-13a", v: "0.9.62", date: "13 Nov 2026", title: "Coverage counted honestly",
+    items: [
+      "Coverage was too high. Opponent replies played in under 3% of games at your level (and the ones Lichess doesn't list) were never counted as leaving your prep. That's only a few percent at each move, but it adds up over a whole opening. They're now counted, shown as \"Other replies after …\" in a cell's tip.",
+      "A line that simply ends, where there's no Lichess data, now counts every game through it as leaving your prep there, not half of them.",
+      "Expect your coverage numbers to drop, especially later in the game. The progress line above the map starts again from today, so it doesn't report the change as a fall.",
+    ],
+  },
+  {
     id: "2026-11-12o", v: "0.9.61", date: "12 Nov 2026", title: "Tidy up keeps what Connect needs",
     items: [
       "Settings > Lichess data > Tidy up now keeps data for positions near your lines (within about 4 moves), not just the ones in your repertoire. Connect and Routes from the start use those positions, and deleting them meant fetching them again.",

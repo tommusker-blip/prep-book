@@ -550,7 +550,7 @@ t("catalogue: coverage counts gaps only up to the chosen move (v0.9.24)", () => 
   const root = catalogueStats(buildCatalogue("white"), "white"), it = root.children[0];
   eq(it.stats.curve.length, COVER_MOVES);
   eq(it.stats.curve[2], 1, "all prepared up to move 3");
-  eq(it.stats.curve[3], 0.5, "the line stops after 4. c3 (no data: counts half)");
+  eq(it.stats.curve[3], 0, "the line stops after 4. c3: every game through it leaves your prep there (it counted half until v0.9.62)");
   S.settings.coverTo = 3;
   eq(catalogueStats(buildCatalogue("white"), "white").children[0].stats.cover, 1, "counted to move 3: fully covered");
   S.settings.coverTo = undefined;
@@ -1067,6 +1067,18 @@ t("decisions sync in settings, keep when they were made, and can be brought back
   eq(Object.keys(Decide.all("con")).join() + " | " + Object.keys(S.settings.decidedAt.con).join(), "k2|d4 | k2|d4", "brought back: gone with its date");
   eq(Decide.sig("con") !== v, true, "Connect works its list out again");
   [S.settings.decisions, S.settings.decidedAt] = keep; Decide.ver++;
+});
+t("coverage counts rare replies and whole line ends (v0.9.62)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "e4 e5 Nf3");
+  // after 1.e4: 1...e5 60% (prepared), 1...c5 30% (a gap), 1...d6 2% (rare), and 8% Lichess doesn't list
+  setEx("e4", 1000, 450, 100, 450, [mv("e5", 600, 270, 60, 270), mv("c5", 300, 135, 30, 135), mv("d6", 20, 9, 2, 9)]);
+  const ctx = catalogueContext("white"), root = { path: [], key: K(START), children: [] };
+  statNode(root, ctx);
+  const c = root.stats.curve.slice(0, 3).map(v => Math.round(v * 100));
+  eq(c.join(" "), "60 0 0", "after move 1: only the prepared 60% (it was 98%: the 2% and the unlisted 8% leaked); after 2.Nf3 the line ends, so 0 (it was 30)");
+  eq(ctx.gaps.some(g => /Other replies after 1. ?e4/.test(g.lbl)), true, "the rare replies are one gap: " + ctx.gaps.map(g => g.lbl + " " + Math.round(g.f * 100)).join(", "));
+  reset(); resetEx();
 });
 t("coverage: positions without Lichess data are marked unknown (v0.9.56)", () => {
   reset(); resetEx(); S.color = "white";

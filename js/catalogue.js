@@ -119,19 +119,47 @@ function coverShare(color = S.color) {
   }
   return out;
 }
+/* The gaps coverage takes off, each {ps, f (share of all games, by coverShare()), mv, lbl}. v0.9.62: coverage was too
+   high (67% of all White games still in prep at move 12). Two leaks, both fixed here (Gap › is unchanged):
+   - replies under 3% at my level (and those Lichess doesn't list) were never gaps: at every opponent move a few
+     percent of games slipped out uncounted. Now, at each opponent position with data, whatever share isn't
+     prepared and isn't already a gap is one more gap, "Other replies after …";
+   - a line end without Lichess data counted half its games (findGaps() halves it for ranking); now all of them. */
+function coverGaps(color = S.color) {
+  const idx = indexTree(color), cr = coverShare(color), R = rep(color), list = findGaps(color);
+  const scale = k => { const r = idx[k] ? idx[k].reach : 0; return r > 0 && cr[k] != null ? cr[k] / r : 1; };
+  const out = list.map(g => {
+    const k = g.id.split("|")[1];
+    return { ps: g.path.join(" "), f: (g.freq || 0) * (g.id.startsWith("e|") ? 2 : 1) * scale(k), mv: gapMoveNo(g), lbl: gapLabel(g) };
+  });
+  const asGap = new Set(list.filter(g => g.opp).map(g => g.id.split("|")[1] + "|" + g.opp));
+  for (const [key, p] of Object.entries(idx)) {
+    if (isMine(key, color)) continue;
+    const ex = cachedExplorer(p.fen);
+    if (!ex || !ex.total) continue;
+    const prepared = (R.pos[key] || { m: [] }).m;
+    let known = 0;
+    for (const m of ex.moves) { const f = m.n / ex.total; if (prepared.includes(m.san) || f >= 0.03 || asGap.has(key + "|" + m.san)) known += f; }
+    const rest = Math.max(0, 1 - known);
+    if (rest < 0.002) continue;
+    const last = p.path.length ? moveLabel(p.path.slice(0, -1), p.path[p.path.length - 1]) : "the start";
+    out.push({ ps: p.path.join(" "), f: p.reach * rest * scale(key), mv: Math.floor(p.path.length / 2) + 1, lbl: `Other replies after ${last}` });
+  }
+  return out;
+}
 function catalogueContext(color = S.color) {
   return {
     color, R: rep(color), now: Date.now(),
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
     cr: coverShare(color),
-    gaps: (() => { const idx = indexTree(color), cr = coverShare(color); return findGaps(color).map(g => { const k = g.id.split("|")[1], r = idx[k] ? idx[k].reach : 0; return { ps: g.path.join(" "), f: (g.freq || 0) * (r > 0 && cr[k] != null ? cr[k] / r : 1), mv: gapMoveNo(g), lbl: gapLabel(g) }; }); })(),
+    gaps: coverGaps(color),
     exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s, w: exitWho(x.a.type) }])),
     games: ideaGameSets(color),
     unknown: catUnknown(color),
   };
 }
 // v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
-const CAT_MEMO_V = 6; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep; 6 (v0.9.56): unknown share
+const CAT_MEMO_V = 7; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep; 6 (v0.9.56): unknown share; 7 (v0.9.62): rare replies and line ends counted in full
 /* v0.9.56: positions where it's the opponent's move, with replies prepared but no Lichess data on this device. Gaps
    are only found where the replies at my level are known, so these used to count as fully covered (a whole line
    showing 100% to move 12). Each: its coverage share and move; only the shallowest of a chain counts (the share
