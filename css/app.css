@@ -340,9 +340,14 @@ div.gap-row{cursor:default}
 .maprow.open{border-bottom:2px solid var(--accent);font-weight:600}
 .maprow.d1,.maprow.d2{background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:4px}
 .maprow.d2{background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.maprow.mapback{display:block;padding:2px 0 4px}
+.covmap.withfreq .maprow.mapback{display:block;padding:2px 0 4px}
 .maprow.mapback .linkish{font-size:.84rem}
-.mapfreq{flex:none;margin-left:auto;padding-left:4px;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);font-weight:400}
+.mapfreq{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);text-align:right;padding-right:3px;white-space:nowrap}
+/* v0.9.66: the openings map: each row is two lines, the name across the top, then Freq | the move cells | Your score */
+.covmap.withfreq{max-width:640px}
+.covmap.withfreq .maprow{grid-template-columns:2.4rem repeat(var(--cols),minmax(0,1fr)) 2.8rem;row-gap:0;padding-bottom:3px}
+.covmap.withfreq .mapname{grid-column:1 / -1;min-height:24px;padding:3px 2px 1px}
+.covmap.withfreq .maprow.mhead .mapfreq{font-family:inherit;font-size:.62rem}
 .mapnm{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* pictures of the repertoire (picture.js) */
 .picviews{margin:6px 0 4px;overflow-x:auto}

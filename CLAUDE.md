@@ -425,6 +425,9 @@ when it loads; the others just define things.
 - v0.9.65: the map view is labelled "By move". The end column is always my score (`scoreEnd()`; who-filtered in Played /
   Results), headed "Your score". `mapOpen` is the chain of opened rows (one per depth): with one open, only it and its
   sub-openings show (`.maprow.open`, tinted `.d1` / `.d2`), plus `data-mapback` "◂ All your … openings".
+- v0.9.66: openings map rows are two lines (`.covmap.withfreq`): `.mapname` spans the top (`grid-column: 1 / -1`), then
+  `.mapfreq` | cells (`minmax(0,1fr)`) | `.mapend` (score). The header has no name cell. Structures' by-move grid doesn't
+  use `withfreq`.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by

@@ -267,7 +267,7 @@ f.onload = () => {
       it.open = true; await sleep(50);
       L("opened Italian, visible top entries: " + [...d.querySelectorAll("#catBody > details.cat")].filter(x => x.offsetParent).map(x => x.querySelector(".catname").textContent.trim()).join(" | "));
       d.querySelector('[data-otab="map"]').click(); await sleep(300);
-      L("map freq: " + [...d.querySelectorAll("#coverMap .maprow")].slice(0, 4).map(r => (r.querySelector(".mapnm") || r.querySelector(".mapname")).textContent.trim() + " " + ((r.querySelector(".mapfreq") || {}).textContent || "").trim() + " cells " + r.querySelectorAll(".mc").length + " w=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetWidth || 0) + " h=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetHeight || 0)).join(" | "));
+      L("map freq: " + [...d.querySelectorAll("#coverMap .maprow")].slice(0, 4).map(r => ((r.querySelector(".mapnm") || r.querySelector(".mapfreq") || {}).textContent || "").trim() + " " + ((r.querySelector(".mapfreq") || {}).textContent || "").trim() + " cells " + r.querySelectorAll(".mc").length + " w=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetWidth || 0) + " h=" + Math.round((r.querySelector(".mc:not(.mn)") || r.querySelector(".mc") || {}).offsetHeight || 0)).join(" | "));
       d.querySelector('[data-mapmode="res"]').click(); await sleep(50);
       const ends = () => [...d.querySelectorAll("#coverMap .maprow:not(.mhead)")].slice(0, 3).map(r => r.querySelector(".mapend").textContent).join(" ");
       L("results all: " + ends() + " | who buttons: " + d.querySelectorAll("#coverMap [data-mapwho]").length);

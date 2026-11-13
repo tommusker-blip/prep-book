@@ -94,7 +94,7 @@ function renderCoverMap(fromCat) {
   };
   // v0.9.49: how often each opening comes up (its reach: the opponent's moves at my level multiplied, playing my moves)
   const freqCell = (c, top) => {
-    if (top || c.reach == null) return "";
+    if (top || c.reach == null) return `<span class="mapfreq"></span>`;
     const r = Math.min(1, c.reach);
     return `<span class="mapfreq" aria-label="${esc(`met in about ${pctOf(r)} of games`)}">${r < 0.01 ? "<1%" : pctOf(r)}</span>`;
   };
@@ -105,7 +105,7 @@ function renderCoverMap(fromCat) {
   const row = (c, depth, label, top) => {
     const ps = c.path.join(" "), kids = !top && c.children && c.children.length && depth < 2, open = mapOpen[depth] === ps;
     const s = c.stats || {}, games = s.games || 0;
-    return `<div class="maprow d${depth}${open ? " open" : ""}"><button type="button" class="mapname" ${kids ? `data-mapopen="${esc(ps)}" data-mapdepth="${depth}" aria-expanded="${open}"` : "disabled"}>${kids ? `<span class="caret">${open ? "▾" : "▸"}</span>` : ""}<span class="mapnm">${esc(label || c.label)}</span>${freqCell(c, top)}</button>${cols.map(m => cell(c, m)).join("")}<span class="mapend" data-tip="${esc(`${label || c.label}: your score ${scoreEnd(s)} in ${games} game${games === 1 ? "" : "s"} through it`)}">${scoreEnd(s)}</span></div>`
+    return `<div class="maprow d${depth}${open ? " open" : ""}"><button type="button" class="mapname" ${kids ? `data-mapopen="${esc(ps)}" data-mapdepth="${depth}" aria-expanded="${open}"` : "disabled"}>${kids ? `<span class="caret">${open ? "▾" : "▸"}</span>` : ""}<span class="mapnm">${esc(label || c.label)}</span></button>${freqCell(c, top)}${cols.map(m => cell(c, m)).join("")}<span class="mapend" data-tip="${esc(`${label || c.label}: your score ${scoreEnd(s)} in ${games} game${games === 1 ? "" : "s"} through it`)}">${scoreEnd(s)}</span></div>`
       + (kids && open ? c.children.map(k => row(k, depth + 1)).join("") : "");
   };
   const focus = mapOpen.length ? root.children.find(c => c.path.join(" ") === mapOpen[0]) : null;
@@ -124,8 +124,8 @@ function renderCoverMap(fromCat) {
     ${mapMode === "cover" ? unknownLine() + gapWhoSeg("Coverage of") : ""}
     <div class="seg small" role="group" aria-label="Show">${Object.entries(MODES).map(([k, t]) => `<button type="button" data-mapmode="${k}" aria-pressed="${mapMode === k}">${t}</button>`).join("")}</div>
     ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "You left prep"], ["them", "Opponent left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
-    <div class="covmap ${mapMode}" style="--cols:${MAP_MOVES}">
-      <div class="maprow mhead"><span class="mapname"><span class="mapnm">Move</span><span class="mapfreq">freq ${info("How often you meet this opening: the share of games at your level that reach it when you play your moves (Lichess). Your own games through it are under Played.", "About frequency")}</span></span>${cols.map(m => `<span class="mc mn${m === coverTo() && mapMode === "cover" ? " to" : ""}">${m}${m === MAP_MOVES ? "+" : ""}</span>`).join("")}<span class="mapend">Your score</span></div>
+    <div class="covmap withfreq ${mapMode}" style="--cols:${MAP_MOVES}">
+      <div class="maprow mhead"><span class="mapfreq">Freq ${info("How often you meet this opening: the share of games at your level that reach it when you play your moves (Lichess). Your own games through it are under Played.", "About frequency")}</span>${cols.map(m => `<span class="mc mn${m === coverTo() && mapMode === "cover" ? " to" : ""}">${m}${m === MAP_MOVES ? "+" : ""}</span>`).join("")}<span class="mapend">Your score</span></div>
       ${rowsHtml}
     </div>
     <p class="help">${help[mapMode] || help.cover}${mapMode !== "cover" && mapWho !== "all" ? ` Only your games where ${mapWho === "me" ? "you left your prep: a mistake, or a choice of yours" : "your opponent left your prep with a move you hadn't prepared"}.` : ""}</p>`;
