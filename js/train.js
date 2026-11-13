@@ -161,7 +161,8 @@ function cardPrompt() {
 function misplayNote(key) {
   const list = misplaysAt(key);
   if (!list.length) return "";
-  const when = list.slice(0, 3).map(x => `${esc(x.opp)}${x.date ? ` <span class="muted">(${esc(fmtDay(x.date))})</span>` : ""}: ${esc(x.played)}`).join(" · ");
+  // v0.9.67: opponents and dates only; the move you played there would give the answer away
+  const when = list.slice(0, 3).map(x => `${esc(x.opp)}${x.date ? ` <span class="muted">(${esc(fmtDay(x.date))})</span>` : ""}`).join(" · ");
   return `<p class="help misnote">You went wrong here in <b>${list.length} game${list.length === 1 ? "" : "s"}</b>${list.length > 3 ? ", lately" : ""}: ${when}</p>`;
 }
 const fmtDay = d => { const t = Date.parse(d.replace(/\./g, "-")); return isFinite(t) ? new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : d; };

@@ -6,6 +6,12 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-13f", v: "0.9.67", date: "13 Nov 2026", title: "Review positions doesn't give the answer away",
+    items: [
+      "On a position you've gone wrong in before, the note now only says how many games, against whom and when. It no longer shows the move you played in them.",
+    ],
+  },
+  {
     id: "2026-11-13e", v: "0.9.66", date: "13 Nov 2026", title: "By move: frequency and score in their own columns",
     items: [
       "Each opening on the By move map is now two lines: its name across the top, then how often you meet it (Freq) on the left, the move cells, and your score on the right.",
