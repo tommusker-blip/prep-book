@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-13d", v: "0.9.65", date: "13 Nov 2026", title: "By move: clearer rows",
+    items: [
+      "Visualise > Move by move is now called By move.",
+      "The number at the end of each row is now always your score in your own games through that opening, under a Your score heading. The coverage-to-move-10 figure there is gone (the cells already show coverage).",
+      "Tapping an opening shows just that opening, highlighted, with its sub-openings on a tinted background under it, and ◂ All your openings to go back. The other openings are hidden until then.",
+    ],
+  },
+  {
     id: "2026-11-13c", v: "0.9.64", date: "13 Nov 2026", title: "All games or only the ones you've faced",
     items: [
       "A quick switch, All games / Faced, under Build's controls (for Gap ›), above the Move by move map (coverage) and on the Tree (the hatched slices). It's one setting, the same as Settings > Which gaps, so they stay in step.",

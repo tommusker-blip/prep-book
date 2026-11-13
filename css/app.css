@@ -335,6 +335,13 @@ div.gap-row{cursor:default}
 .mc.res{opacity:var(--o)}
 .mc.res.hi{background:var(--good)} .mc.res.lo{background:var(--bad)} .mc.res.mid{background:var(--muted)}
 .mapend{font-family:var(--f-mono);font-size:.74rem;text-align:right}
+.maprow.mhead .mapend{font-family:inherit;font-size:.62rem;line-height:1.1;white-space:normal}
+/* v0.9.65: an opened opening: its row stands out, its sub-openings sit on a tint under it */
+.maprow.open{border-bottom:2px solid var(--accent);font-weight:600}
+.maprow.d1,.maprow.d2{background:color-mix(in srgb,var(--accent) 7%,transparent);border-radius:4px}
+.maprow.d2{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.maprow.mapback{display:block;padding:2px 0 4px}
+.maprow.mapback .linkish{font-size:.84rem}
 .mapfreq{flex:none;margin-left:auto;padding-left:4px;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);font-weight:400}
 .mapnm{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* pictures of the repertoire (picture.js) */

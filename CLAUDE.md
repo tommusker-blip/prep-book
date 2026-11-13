@@ -422,6 +422,9 @@ when it loads; the others just define things.
   "faced" spreads never-faced replies over the prepared ones (only faced unprepared share is lost) and carries line ends no
   game reached (`cr[" carry"]` -> `ctx.byPly.carry`); `catSig` includes `gapOnly()`. Tree: same scaling, unreached leaves
   not hatched.
+- v0.9.65: the map view is labelled "By move". The end column is always my score (`scoreEnd()`; who-filtered in Played /
+  Results), headed "Your score". `mapOpen` is the chain of opened rows (one per depth): with one open, only it and its
+  sub-openings show (`.maprow.open`, tinted `.d1` / `.d2`), plus `data-mapback` "◂ All your … openings".
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
