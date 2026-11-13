@@ -1068,8 +1068,19 @@ t("decisions sync in settings, keep when they were made, and can be brought back
   eq(Decide.sig("con") !== v, true, "Connect works its list out again");
   [S.settings.decisions, S.settings.decidedAt] = keep; Decide.ver++;
 });
-t("coverage drops to 0 the move after a line ends, whatever the gap filter (v0.9.63)", () => {
-  reset(); resetEx(); S.color = "white"; S.settings.gapOnly = "faced";
+t("coverage with the gap filter on Faced: only replies played against you count (v0.9.64)", () => {
+  reset(); resetEx(); S.color = "white";
+  line("white", "e4 e5 Nf3");
+  setEx("e4", 1000, 450, 100, 450, [mv("e5", 600, 270, 60, 270), mv("c5", 300, 135, 30, 135), mv("d6", 100, 45, 10, 45)]);
+  S.games = [{ id: "f1", my: "white", tc: "rapid", result: "1-0", moves: "e4 c5 Nf3 d6", white: "me", black: "x" }];
+  S.games.forEach(g => gameKeys(g)); touchData();
+  const curve = who => { S.settings.gapOnly = who; const root = { path: [], key: K(START), children: [] }; statNode(root, catalogueContext("white")); return root.stats.curve.slice(0, 2).map(v => Math.round(v * 100)).join(" "); };
+  eq(curve("all"), "60 0", "all games: 1...c5 and 1...d6 leave; the line ends at 2.Nf3");
+  eq(curve("faced"), "70 70", "faced: only 1...c5 (played against you) leaves; 1...d6 counts as covered, and the line end no game reached stays covered");
+  S.settings.gapOnly = undefined; S.games = []; touchData(); reset(); resetEx();
+});
+t("coverage drops to 0 the move after a line ends (v0.9.63)", () => {
+  reset(); resetEx(); S.color = "white"; S.settings.gapOnly = "all";
   line("white", "e4 e5 Nf3 Nc6 Bc4"); line("white", "e4 c5 Nf3 d6 d4 cxd4 Nxd4");
   setEx("e4", 1000, 450, 100, 450, [mv("e5", 500, 225, 50, 225), mv("c5", 500, 225, 50, 225)]);
   const root = { path: [], key: K(START), children: [] };

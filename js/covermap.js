@@ -113,7 +113,7 @@ function renderCoverMap(fromCat) {
   };
   box.innerHTML = `<h3>Your openings, move by move ${info("One row per opening, with how often you meet it (freq) next to its name, one cell per move. Coverage: how much of what you'll meet at your level through that opening is still in your prep after each move; darker is more, and the outlined column is the move coverage is counted to (Settings > Building your tree). Played: how many of your own games through that opening were still in your prep at each move. Results: your score in the games that left your prep at that move, blue where you scored well, orange where you scored badly, fainter on few games. The last column takes move 12 and later. Tap a cell for its numbers, and an opening's name for its branches.", "About this view")}</h3>
     ${progressLine(S.color)}
-    ${mapMode === "cover" ? unknownLine() : ""}
+    ${mapMode === "cover" ? unknownLine() + gapWhoSeg("Coverage of") : ""}
     <div class="seg small" role="group" aria-label="Show">${Object.entries(MODES).map(([k, t]) => `<button type="button" data-mapmode="${k}" aria-pressed="${mapMode === k}">${t}</button>`).join("")}</div>
     ${mapMode !== "cover" ? `<div class="seg small" role="group" aria-label="Which games" style="margin-top:6px">${[["all", "All games"], ["me", "You left prep"], ["them", "Opponent left prep"]].map(([k, t]) => `<button type="button" data-mapwho="${k}" aria-pressed="${mapWho === k}">${t}</button>`).join("")}</div>` : ""}
     <div class="covmap ${mapMode}" style="--cols:${MAP_MOVES}">

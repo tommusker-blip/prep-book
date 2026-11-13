@@ -104,19 +104,35 @@ function groupByFamily(root, color) {
    until the tree, games, analysis or Lichess data change (catSig). */
 /* Coverage share (v0.9.24): like reach (indexTree()), but where I have several moves the games
    are split evenly between them too, so a position with 1.e4 and 1.d4 doesn't count every game
-   twice. Gaps are rescaled to it: share(position) ÷ reach(position) × the gap's reach. */
-function coverShare(color = S.color) {
-  const { nodes } = walk(color), idx = indexTree(color), out = {}, q = [[K(START), 1]];
+   twice. Gaps are rescaled to it: share(position) ÷ reach(position) × the gap's reach.
+   v0.9.64, "faced" (the gap filter, S.settings.gapOnly = "faced" / "good"): only replies an opponent has played
+   against me count as leaving my prep. At an opponent position, the replies I've never faced are spread over my
+   prepared ones (they're treated as covered), so only the faced, unprepared share is lost; and a line end, or a
+   position where my move is missing, that none of my games reached keeps its share for every later move
+   (carry). */
+function coverShare(color = S.color, who = "all") {
+  const { nodes } = walk(color), idx = indexTree(color), R = rep(color), out = {}, carry = [], q = [[K(START), 1]];
+  const faced = who === "all" ? null : oppFaced(color);
+  const facedReply = (key, san) => { const f = (faced[key] || {})[san]; return !!f && (who === "faced" || f.good > 0); };
   while (q.length) {
     const [key, sh] = q.shift(), node = nodes[key];
     if (key in out || !node) continue;
     out[key] = sh;
     const mine = isMine(key, color), r = idx[key] ? idx[key].reach : 0;
+    if (faced && !node.kids.length && !myPosStats(key, color)) carry.push({ ps: node.path.join(" "), len: node.path.length, f: sh });
+    let scale = 1;
+    if (faced && !mine && r > 0) {
+      const ex = cachedExplorer(node.fen), prepared = node.kids.map(k => k.san);
+      const P = node.kids.reduce((s, k) => s + Math.min(1, (idx[k.key] ? idx[k.key].reach : 0) / r), 0);
+      const lost = ex && ex.total ? ex.moves.filter(m => !prepared.includes(m.san) && facedReply(key, m.san)).reduce((s, m) => s + m.n / ex.total, 0) : 0;
+      if (P > 0) scale = Math.max(0, 1 - lost) / P;
+    }
     for (const kid of node.kids) {
       const rk = idx[kid.key] ? idx[kid.key].reach : 0;
-      q.push([kid.key, mine ? sh / node.kids.length : r > 0 ? sh * Math.min(1, rk / r) : 0]);
+      q.push([kid.key, mine ? sh / node.kids.length : r > 0 ? sh * Math.min(1, (rk / r) * scale) : 0]);
     }
   }
+  if (faced) out[" carry"] = carry;
   return out;
 }
 /* The gaps coverage takes off, each {ps, f (share of all games, by coverShare()), mv, lbl}. v0.9.62: coverage was too
@@ -125,13 +141,14 @@ function coverShare(color = S.color) {
      percent of games slipped out uncounted. Now, at each opponent position with data, whatever share isn't
      prepared and isn't already a gap is one more gap, "Other replies after …";
    - a line end without Lichess data counted half its games (findGaps() halves it for ranking); now all of them. */
-function coverGaps(color = S.color) {
-  const idx = indexTree(color), cr = coverShare(color), R = rep(color), list = findGaps(color);
+function coverGaps(color = S.color, who = gapOnly()) {
+  const idx = indexTree(color), cr = coverShare(color, who), R = rep(color), list = findGaps(color); // findGaps() follows the gap filter too
   const scale = k => { const r = idx[k] ? idx[k].reach : 0; return r > 0 && cr[k] != null ? cr[k] / r : 1; };
   const out = list.map(g => {
     const k = g.id.split("|")[1];
     return { ps: g.path.join(" "), f: (g.freq || 0) * (g.id.startsWith("e|") ? 2 : 1) * scale(k), mv: gapMoveNo(g), lbl: gapLabel(g) };
   });
+  if (who !== "all") return out; // faced: replies you never met are counted as covered, so no "other replies"
   const asGap = new Set(list.filter(g => g.opp).map(g => g.id.split("|")[1] + "|" + g.opp));
   for (const [key, p] of Object.entries(idx)) {
     if (isMine(key, color)) continue;
@@ -151,9 +168,9 @@ function catalogueContext(color = S.color) {
   return {
     color, R: rep(color), now: Date.now(),
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
-    cr: coverShare(color),
+    cr: coverShare(color, gapOnly()), // v0.9.64: all games, or only replies faced (the gap filter)
     gaps: coverGaps(color),
-    byPly: (() => { const idx = indexTree(color), cr = coverShare(color), m = new Map(); for (const [k, p] of Object.entries(idx)) { const l = p.path.length; if (!m.has(l)) m.set(l, []); m.get(l).push({ ps: p.path.join(" "), f: cr[k] || 0 }); } return m; })(), // v0.9.63: tree positions by ply, with their share
+    byPly: (() => { const idx = indexTree(color), cr = coverShare(color, gapOnly()), m = new Map(); for (const [k, p] of Object.entries(idx)) { const l = p.path.length; if (!m.has(l)) m.set(l, []); m.get(l).push({ ps: p.path.join(" "), f: cr[k] || 0 }); } m.carry = cr[" carry"] || []; return m; })(), // v0.9.63: tree positions by ply, with their share
     exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s, w: exitWho(x.a.type) }])),
     games: ideaGameSets(color),
     unknown: catUnknown(color),
@@ -193,7 +210,8 @@ function statNode(c, ctx) {
     const ply = 2 * m;
     if (share <= 0) { curve.push(null); continue; }
     if (ply < c.path.length) { curve.push(1); continue; }
-    const at = (ctx.byPly.get(ply) || []).reduce((s, x) => s + (catUnder(ps, x.ps) ? x.f : 0), 0);
+    const at = (ctx.byPly.get(ply) || []).reduce((s, x) => s + (catUnder(ps, x.ps) ? x.f : 0), 0)
+      + (ctx.byPly.carry || []).reduce((s, x) => s + (x.len < ply && catUnder(ps, x.ps) ? x.f : 0), 0); // faced: line ends never reached stay covered
     curve.push(Math.max(0, Math.min(1, at / share)));
   }
   // My results by the move where my games through it left my prep: [{n, s}] per move
@@ -250,7 +268,7 @@ function catComment(s) {
    data doesn't trigger that on its own (it arrives all the time): Recalculate does. */
 let catMemo = {}, catJob = null, catLoaded = {};
 const catStoreKey = color => "cat:" + (typeof Games !== "undefined" && Games.space ? Games.space() : "local") + ":" + S.book + ":" + color;
-const catSig = color => [S.book, color, walk(color).sig, bandKey(), contentSig(), coverTo()].join("|");
+const catSig = color => [S.book, color, walk(color).sig, bandKey(), contentSig(), coverTo(), gapOnly()].join("|");
 const catCurrent = () => catMemo[catStoreKey(S.color)] || null;
 async function renderCatalogue(force) {
   const box = $("#catBody");

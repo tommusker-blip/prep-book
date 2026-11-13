@@ -31,7 +31,7 @@ function renderBuild() {
   BB.el.classList.toggle("exploring", exploring());
   document.querySelectorAll("[data-bmode]").forEach(b => b.setAttribute("aria-pressed", String(exploring())));
   showPane();
-  drawFocusBars();
+  drawFocusBars(); drawGapWho();
   // line strip
   const lineEl = $("#line"); lineEl.innerHTML = lineHtml(path, true); lineEl.scrollLeft = lineEl.scrollWidth; // one line, latest move in view
   // "Practise from here" (item 3): for a position in the tree with my moves below it

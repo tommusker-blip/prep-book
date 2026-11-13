@@ -161,3 +161,17 @@ function stopBuildReplay() { if (BA.on) { BA.on = false; BA.tok++; BB.locked = f
 /* ----- buttons (data-* attributes; see onClick() in core.js) ----- */
 onClick("gapmode", d => { S.settings.gapRank = d.gapmode; gapLast = null; Store.save("settings"); renderGaps(); });
 onClick("gaponly", d => { S.settings.gapOnly = d.gaponly; gapLast = null; Store.save("settings"); renderGaps(); });
+
+/* v0.9.64: the gap filter as a quick switch, in Build (for Gap ›), on the Move by move map (coverage) and on the Tree
+   (hatched slices). One setting, S.settings.gapOnly: "all" (all games at your level) or "faced" (only replies an
+   opponent has played against you, and line ends your games reached). "good" (Settings) shows as Faced. */
+function gapWhoSeg(label = "Gaps") {
+  const v = gapOnly() === "all" ? "all" : "faced";
+  return `<div class="gapwho"><span class="help">${esc(label)}</span><div class="seg small" role="group" aria-label="${esc(label)}">${[["all", "All games"], ["faced", "Faced"]].map(([k, t]) => `<button type="button" data-gapwho="${k}" aria-pressed="${v === k}">${t}</button>`).join("")}</div>${info("All games: every reply players at your level make counts as a gap if you haven't prepared it. Faced: only replies an opponent has actually played against you, and line ends your games have reached; the rest count as covered. It's the same setting as Settings > Building your tree > Which gaps.", "About gaps")}</div>`;
+}
+function drawGapWho() { const b = $("#gapWhoBuild"); if (b) b.innerHTML = gapWhoSeg("Gap ›"); }
+onClick("gapwho", d => {
+  S.settings.gapOnly = d.gapwho; gapLast = null; Store.save("settings");
+  if (typeof catStale === "function") { catStale("white"); catStale("black"); }
+  render();
+}, true);

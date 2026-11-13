@@ -407,6 +407,9 @@ div.gap-row{cursor:default}
 .focusbar .fbtns{display:flex;gap:4px}
 .focusbar.mini{margin:6px 0 0;padding:2px 4px 2px 8px;font-size:.78rem}
 .focusbar.mini .btn{min-height:28px}
+.gapwho{display:flex;align-items:center;gap:6px;margin:6px 0 0;flex-wrap:wrap}
+.gapwho .help{margin:0;font-size:.78rem}
+.gapwho .seg button{min-height:28px;padding:2px 10px;font-size:.78rem}
 /* My lines (treeview.js): my repertoire below the position, in notation, with my notes */
 .tnote{width:100%;min-height:58px;font:inherit;font-size:.86rem;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;resize:vertical}
 .tree{font-family:var(--f-mono);font-size:.84rem;line-height:1.9;margin-top:8px}

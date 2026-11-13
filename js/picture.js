@@ -40,17 +40,22 @@ const scoreFill = (score, weight = 1) => {
 /* ----- Tree (sunburst) ----- */
 const PIC_R0 = 30, PIC_R1 = 156;
 function sunArcs(color, rootPath) {
-  const { nodes } = walk(color), out = [];
+  const { nodes } = walk(color), out = [], who = gapOnly(), faced = who === "all" ? null : oppFaced(color);
+  // v0.9.64: with the gap filter on Faced, only replies played against you are hatched; the others widen your prepared slices
+  const facedReply = (key, san) => { const f = (faced[key] || {})[san]; return !!f && (who === "faced" || f.good > 0); };
   const rootKey = K(fenAfter(START, rootPath));
   if (!nodes[rootKey]) return null;
   const rec = (key, path, a0, a1, d, seen) => {
     if (d >= PIC_RINGS || a1 - a0 < 0.004) return;
     const node = nodes[key], mine = isMine(key, color), kids = node.kids.filter(k => !seen.has(k.key));
     const ex = cachedExplorer(node.fen);
-    if (!kids.length) { out.push({ d, a0, a1, gap: true, mine, path, key }); return; }
+    if (!kids.length) { if (!faced || myPosStats(key, color)) out.push({ d, a0, a1, gap: true, mine, path, key }); return; }
     let shares;
     if (mine) shares = kids.map(() => 1 / kids.length);
-    else if (ex && ex.total) shares = kids.map(k => { const mv = ex.moves.find(m => m.san === k.san); return mv ? mv.n / ex.total : 0.01; });
+    else if (ex && ex.total) {
+      shares = kids.map(k => { const mv = ex.moves.find(m => m.san === k.san); return mv ? mv.n / ex.total : 0.01; });
+      if (faced) { const P = shares.reduce((x, y) => x + y, 0), lost = ex.moves.filter(m => !kids.some(k => k.san === m.san) && facedReply(key, m.san)).reduce((s, m) => s + m.n / ex.total, 0); if (P > 0) shares = shares.map(s => (s * Math.max(0, 1 - lost)) / P); }
+    }
     else shares = kids.map(() => 1 / kids.length);
     let a = a0;
     const span = a1 - a0, sumShare = shares.reduce((x, y) => x + y, 0);
@@ -121,7 +126,7 @@ function renderSun(color) {
       <div class="row" style="margin:0">${kids ? `<button type="button" class="btn" data-picsunin="${esc(sel)}">Zoom in here</button>` : ""}<button type="button" class="btn ghost" data-open="${esc(sel)}">Open in Build</button></div></div></div>`;
   }
   const key = { mine: "Blue: you score well there in your own games; orange: badly. Faint: few games; grey: none.", peers: "Blue: players of your colour at your level score well there on Lichess; orange: badly. Faint: few games." }[o.color] || "";
-  return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}${o.color === "mine" ? picSeg("pswho", o.who, WHO_OPTS, "Which games") : ""}</div>
+  return `<div class="picctl">${picSeg("pscolor", o.color, SUN_COLOURS, "Colour by")}${o.color === "mine" ? picSeg("pswho", o.who, WHO_OPTS, "Which games") : ""}${gapWhoSeg("Hatched gaps")}</div>
     ${o.root.length ? `<p class="help">From <b>${esc(rootName)}</b>. Tap the centre to back out.</p>` : ""}
     <div class="conwrap"><div class="sunwrap">${svg}</div>${side}</div>
     <p class="help">${key}${o.color === "mine" && o.who !== "all" ? ` Only your games where ${o.who === "me" ? "you left your prep (a mistake, or a choice of yours)" : "your opponent left your prep (a move you hadn't prepared)"}.` : ""} Each ring is a move; a slice is as wide as how often you get there. Hatched: replies you haven't prepared. Score counts a draw as half.</p>`;

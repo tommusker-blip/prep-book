@@ -6,6 +6,13 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-13c", v: "0.9.64", date: "13 Nov 2026", title: "All games or only the ones you've faced",
+    items: [
+      "A quick switch, All games / Faced, under Build's controls (for Gap ›), above the Move by move map (coverage) and on the Tree (the hatched slices). It's one setting, the same as Settings > Which gaps, so they stay in step.",
+      "All games: every reply players at your level make counts as a gap if you haven't prepared it. Faced: only replies an opponent has actually played against you, and line ends your games have reached; replies you've never met count as covered.",
+    ],
+  },
+  {
     id: "2026-11-13b", v: "0.9.63", date: "13 Nov 2026", title: "Coverage drops to 0 where your lines end",
     items: [
       "Coverage is now counted straight from your tree: after each move, it adds up the games that reach a position in your prep at that point, following your prepared moves. A line that ends counts as 0 from the next move, so numbers no longer stay flat after the end of your prep.",
