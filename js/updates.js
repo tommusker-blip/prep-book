@@ -6,6 +6,14 @@
    top whenever something user-visible ships. */
 const UPDATES = [
   {
+    id: "2026-11-13b", v: "0.9.63", date: "13 Nov 2026", title: "Coverage drops to 0 where your lines end",
+    items: [
+      "Coverage is now counted straight from your tree: after each move, it adds up the games that reach a position in your prep at that point, following your prepared moves. A line that ends counts as 0 from the next move, so numbers no longer stay flat after the end of your prep.",
+      "It no longer depends on the gap filter in Settings (Played against you), which could hide gaps and keep coverage high.",
+      "Cells marked ? still mean positions with no Lichess data yet, where the share of each reply isn't known.",
+    ],
+  },
+  {
     id: "2026-11-13a", v: "0.9.62", date: "13 Nov 2026", title: "Coverage counted honestly",
     items: [
       "Coverage was too high. Opponent replies played in under 3% of games at your level (and the ones Lichess doesn't list) were never counted as leaving your prep. That's only a few percent at each move, but it adds up over a whole opening. They're now counted, shown as \"Other replies after …\" in a cell's tip.",

@@ -153,13 +153,14 @@ function catalogueContext(color = S.color) {
     tree: Object.entries(indexTree(color)).map(([key, v]) => ({ key, ps: v.path.join(" ") })),
     cr: coverShare(color),
     gaps: coverGaps(color),
+    byPly: (() => { const idx = indexTree(color), cr = coverShare(color), m = new Map(); for (const [k, p] of Object.entries(idx)) { const l = p.path.length; if (!m.has(l)) m.set(l, []); m.get(l).push({ ps: p.path.join(" "), f: cr[k] || 0 }); } return m; })(), // v0.9.63: tree positions by ply, with their share
     exits: new Map(analysis(color).map(x => [x.g.id, { mv: Math.floor(x.a.ply / 2) + 1, s: x.s, w: exitWho(x.a.type) }])),
     games: ideaGameSets(color),
     unknown: catUnknown(color),
   };
 }
 // v0.9.53: memo format 3 adds each entry's biggest gaps (stats.gapsTop), so older saved results are worked out again
-const CAT_MEMO_V = 7; // 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep; 6 (v0.9.56): unknown share; 7 (v0.9.62): rare replies and line ends counted in full
+const CAT_MEMO_V = 8; // 8 (v0.9.63): coverage counted directly from the tree; 4 (v0.9.54): gap sizes fixed; 5 (v0.9.55): exits split by who left the prep; 6 (v0.9.56): unknown share; 7 (v0.9.62): rare replies and line ends counted in full
 /* v0.9.56: positions where it's the opponent's move, with replies prepared but no Lichess data on this device. Gaps
    are only found where the replies at my level are known, so these used to count as fully covered (a whole line
    showing 100% to move 12). Each: its coverage share and move; only the shallowest of a chain counts (the share
@@ -181,11 +182,20 @@ const catUnder = (ps, x) => !ps || x === ps || x.startsWith(ps + " ");
 function statNode(c, ctx) {
   const ps = c.path.join(" ");
   const cards = ctx.tree.filter(t => catUnder(ps, t.ps)).map(t => ctx.R.cards[t.key]).filter(Boolean);
-  // Coverage by move (v0.9.24): curve[m] = the share of games at your level through this entry
-  // still in your prep after move m+1 (gaps at that move or before take their share off)
+  /* Coverage by move: curve[m-1] = the share of games at your level through this entry still in your prep after
+     both sides' move m. v0.9.63: counted directly, not by taking gaps off (which leaked: lines that ended stayed
+     flat, and the gap filter in Settings hid gaps): the positions of your tree at ply 2m under this entry, each
+     with its coverage share (coverShare(): reached by following your prepared moves), added up. A line that ends
+     before ply 2m adds nothing, so from the next move it counts as 0. Before the entry starts it's 1. */
   const under = ctx.gaps.filter(g => catUnder(ps, g.ps)), curve = [];
   const share = c.path.length ? (ctx.cr[c.key] != null ? ctx.cr[c.key] : 0) : 1;
-  for (let m = 1; m <= COVER_MOVES; m++) curve.push(share > 0 ? Math.max(0, Math.min(1, 1 - under.filter(g => g.mv <= m).reduce((s, g) => s + g.f, 0) / share)) : null);
+  for (let m = 1; m <= COVER_MOVES; m++) {
+    const ply = 2 * m;
+    if (share <= 0) { curve.push(null); continue; }
+    if (ply < c.path.length) { curve.push(1); continue; }
+    const at = (ctx.byPly.get(ply) || []).reduce((s, x) => s + (catUnder(ps, x.ps) ? x.f : 0), 0);
+    curve.push(Math.max(0, Math.min(1, at / share)));
+  }
   // My results by the move where my games through it left my prep: [{n, s}] per move
   const exits = [], byWho = { me: [], them: [] }; // v0.9.55: also split by who left the prep
   const me = c.path.length ? myPosStats(c.key, ctx.color) : null;

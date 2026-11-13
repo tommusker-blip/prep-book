@@ -414,6 +414,9 @@ when it loads; the others just define things.
   now each opponent position with data adds "Other replies after …" for the share not prepared and not already a gap;
   `e|` line ends count in full (×2 of `findGaps()`'s half). `CAT_MEMO_V` = 7; progress history entries carry `cv:
   COVER_VER` and only like is compared with like.
+- v0.9.63: the coverage curve is counted directly (`statNode()`): Σ `coverShare()` of the tree positions at ply 2m under the
+  entry (`ctx.byPly`), ÷ the entry's share; 1 before the entry starts. Lines that end give 0 from the next move, and the
+  gap filter (`gapOnly`) can't hide anything. `coverGaps()` now only feeds the tips (`gapsTop`). `CAT_MEMO_V` = 8.
 - `tests/rows.html`: Build's move rows with made-up data at 360 and 412 px, for layout screenshots
   (headless Chrome `--screenshot`); the rows themselves are in `tests/rows-frame.html`.
 - Build rows' Eval column (v0.9.2) is from White's side (`engineFor().white`), coloured by
